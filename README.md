@@ -1,2 +1,10 @@
-# rl-task-planning
-A repository for Dmitry to work with us
+# Gym robot environment updated for multi-object simulations (Multi-Object Robot Arm)
+
+
+##### Installation
+
+```
+Install the environments:
+cd mora
+pip install -e .
+```
