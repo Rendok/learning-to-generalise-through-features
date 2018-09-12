@@ -1,6 +1,6 @@
 from setuptools import setup
 
-setup(name='gym_mora',
+setup(name='gym_kuka_multi_blocks',
       version='0.0.1',
-      install_requires=['gym']  # And any other dependencies foo needs
+      install_requires=['gym', 'pybullet']  # any extra dependencies
 )
