@@ -65,7 +65,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._urdfRoot = urdfRoot
         self._actionRepeat = actionRepeat
         self._isEnableSelfCollision = isEnableSelfCollision
-        self._observation = []
+        #self._observation = []
         self._envStepCounter = 0
         self._renders = renders
         self._maxSteps = maxSteps
@@ -128,7 +128,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._proj_matrix = p.computeProjectionMatrixFOV(
             fov, aspect, near, far)
 
-        self._attempted_grasp = False # TODO delete
+        #self._attempted_grasp = False # TODO delete
         self._env_step = 0
         self.terminated = 0
 
@@ -149,7 +149,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._envStepCounter = 0
         p.stepSimulation()
 
-        # Choose the objects in the bin. TODO change random shape objects to blocks
+        # Choose the objects in the bin.
         #urdfList = self._get_random_object(
         #    self._numObjects, self._isTest)
         #self._objectUids = self._randomly_place_objects(urdfList)
@@ -158,10 +158,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._objectUids = self._randomly_place_objects(self._numObjects)
 
         # set observations
-        self._observation = self._get_observation()
+        observation = self._get_observation()  # FIXME: self._observation was changed to ...
 
         #return observations
-        return np.array(self._observation)
+        return np.array(observation)  # FIXME: ditto
 
     def _randomly_place_objects(self, urdfList):
         """Randomly places the objects in the bin.
@@ -191,15 +191,49 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         return objectUids
 
     def _get_observation(self):
-        """Return the observation as an image.
+        """Return an observation array:
+            [ gripper's in the world frame X, Y, Z, Euler, Blocks' in the gripper's frame X, Y, Euler Z]
         """
-        img_arr = p.getCameraImage(width=self._width,
-                                   height=self._height,
-                                   viewMatrix=self._view_matrix,
-                                   projectionMatrix=self._proj_matrix)
-        rgb = img_arr[2]
-        np_img_arr = np.reshape(rgb, (self._height, self._width, 4))
-        return np_img_arr[:, :, :3]
+        # get the gripper's world position and orientation
+        gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaGripperIndex)
+        gripperPos = gripperState[0]  # (X, Y, Z)
+        gripperOrn = gripperState[1]  # Quaternion
+        gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
+        # print("gripperEul:", gripperEul)
+
+        observation = []
+        observation.extend(list(gripperPos))
+        observation.extend(list(gripperEul))
+
+        invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
+        #print("pos {}, inv {}".format(gripperPos, invGripperPos))
+
+        #gripperMat = p.getMatrixFromQuaternion(gripperOrn)
+        #dir0 = [gripperMat[0], gripperMat[3], gripperMat[6]]
+        #dir1 = [gripperMat[1], gripperMat[4], gripperMat[7]]
+        #dir2 = [gripperMat[2], gripperMat[5], gripperMat[8]]
+
+        for id_ in self._objectUids:
+            # get the block's position (X, Y, Z) and orientation (Quaternion)
+            blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
+            #print("blockPos {}, blockOrn {}".format(blockPos, blockOrn))
+
+            blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos, blockOrn)
+            blockEulerInGripper = p.getEulerFromQuaternion(blockOrnInGripper)
+            # print("projectedBlockPos2D:", [blockPosInGripper[0], blockPosInGripper[1]])
+            # print("blockEulerInGripper:", blockEulerInGripper)
+
+            # we return the relative x,y position and euler angle of block in gripper space
+            blockInGripperPosXYEulZ = [blockPosInGripper[0], blockPosInGripper[1], blockEulerInGripper[2]]
+
+            # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir0[0],gripperPos[1]+dir0[1],gripperPos[2]+dir0[2]],[1,0,0],lifeTime=1)
+            # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir1[0],gripperPos[1]+dir1[1],gripperPos[2]+dir1[2]],[0,1,0],lifeTime=1)
+            # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir2[0],gripperPos[1]+dir2[1],gripperPos[2]+dir2[2]],[0,0,1],lifeTime=1)
+
+            observation.extend(list(blockInGripperPosXYEulZ))
+            #print(list(blockInGripperPosXYEulZ))
+        return observation
+
 
     def _step(self, action):
         """Environment step.
@@ -285,7 +319,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 finger_angle -= 0.3 / 100.
                 if finger_angle < 0:
                     finger_angle = 0
-            self._attempted_grasp = True  #TODO dele to _attempted_grasp
+            #self._attempted_grasp = True  # TODO: delete attempted_grasp
         observation = self._get_observation()
         done = self._termination()
         reward = self._reward()
@@ -317,7 +351,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """Terminates the episode if we have tried to grasp or if we are above
         maxSteps steps.
         """
-        return self._attempted_grasp or self._env_step >= self._maxSteps
+        return self._env_step >= self._maxSteps  # TODO: add new termination requirements
+        #return self._attempted_grasp or self._env_step >= self._maxSteps # TODO: delete attempted_grasp
 
     def _get_random_object(self, num_objects, test):
         """Randomly choose an object urdf from the random_urdfs directory.

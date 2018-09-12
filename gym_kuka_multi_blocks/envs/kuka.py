@@ -77,14 +77,14 @@ class Kuka:
 
   def getObservation(self):
     observation = []
-    state = p.getLinkState(self.kukaUid,self.kukaGripperIndex)
+    state = p.getLinkState(self.kukaUid, self.kukaGripperIndex)
     pos = state[0]
     orn = state[1]
     euler = p.getEulerFromQuaternion(orn)
         
     observation.extend(list(pos))
     observation.extend(list(euler))
-    
+
     return observation
 
   def applyAction(self, motorCommands):
