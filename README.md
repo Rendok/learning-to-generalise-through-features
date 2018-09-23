@@ -13,7 +13,7 @@ pip install -e .
 
 ```
 import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
-env = e.KukaMultiBlocksEnv(renders=True, numObjects=3, removeHeightHack=True)
+env = e.KukaMultiBlocksEnv(renders=True, numObjects=3)
 
 env.reset()
 

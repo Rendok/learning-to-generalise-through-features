@@ -105,7 +105,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                                                high=1,
                                                shape=(4,))  # dx, dy, dz, da
 
-        # self.observation_space = spaces.Box(-observation_high, observation_high) <--- is absent
+        self.observation_space = spaces.Box(low=-100, high=100, shape=(6 + 3 * self._numObjects, ))
 
         self.viewer = None
 
@@ -113,22 +113,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """Environment reset called at the beginning of an episode.
         """
 
-        # Set the camera settings. # TODO somehow delete the camera settings
-        look = [0.23, 0.2, 0.54]
-        distance = 1.
-        pitch = -56 + self._cameraRandom * np.random.uniform(-3, 3)
-        yaw = 245 + self._cameraRandom * np.random.uniform(-3, 3)
-        roll = 0
-        self._view_matrix = p.computeViewMatrixFromYawPitchRoll(
-            look, distance, yaw, pitch, roll, 2)
-        fov = 20. + self._cameraRandom * np.random.uniform(-2, 2)
-        aspect = self._width / self._height
-        near = 0.01
-        far = 10
-        self._proj_matrix = p.computeProjectionMatrixFOV(
-            fov, aspect, near, far)
-
-        #self._attempted_grasp = False # TODO delete
+        self._attempted_grasp = False # TODO delete
         self._env_step = 0
         self.terminated = 0
 
@@ -181,7 +166,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
             orn = p.getQuaternionFromEuler([0, 0, angle])
             urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
-            uid = p.loadURDF(urdf_path, [xpos, ypos, .15],   # review it's -0.15 in another file
+            uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
                              [orn[0], orn[1], orn[2], orn[3]])
             objectUids.append(uid)
             # Let each object fall to the tray individual, to prevent object
@@ -299,7 +284,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         state = p.getLinkState(self._kuka.kukaUid,
                                self._kuka.kukaEndEffectorIndex)
         end_effector_pos = state[0]
-        if end_effector_pos[2] <= 0.1:
+
+        # Hardcoded grasping
+        if end_effector_pos[2] <= 0.1:  # Z coordinate
             finger_angle = 0.3
             for _ in range(500):
                 grasp_action = [0, 0, 0, 0, finger_angle]
@@ -310,6 +297,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 finger_angle -= 0.3 / 100.
                 if finger_angle < 0:
                     finger_angle = 0
+
+            # Move the hand up TODO: delete
             for _ in range(500):
                 grasp_action = [0, 0, 0.001, 0, finger_angle]
                 self._kuka.applyAction(grasp_action)
@@ -319,7 +308,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 finger_angle -= 0.3 / 100.
                 if finger_angle < 0:
                     finger_angle = 0
-            #self._attempted_grasp = True  # TODO: delete attempted_grasp
+            self._attempted_grasp = True  # TODO: delete attempted_grasp
         observation = self._get_observation()
         done = self._termination()
         reward = self._reward()
@@ -351,8 +340,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """Terminates the episode if we have tried to grasp or if we are above
         maxSteps steps.
         """
-        return self._env_step >= self._maxSteps  # TODO: add new termination requirements
-        #return self._attempted_grasp or self._env_step >= self._maxSteps # TODO: delete attempted_grasp
+        #return self._env_step >= self._maxSteps  # TODO: add new termination requirements
+        return self._attempted_grasp or self._env_step >= self._maxSteps # TODO: delete attempted_grasp
 
     def _get_random_object(self, num_objects, test):
         """Randomly choose an object urdf from the random_urdfs directory.
