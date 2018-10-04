@@ -34,6 +34,13 @@ if __name__ == '__main__':
         default=4
     )
 
+    parser.add_argument(
+        '--gpu',
+        help='The use of gpu',
+        type=bool,
+        default=False
+    )
+
     args = parser.parse_args()
 
     # register a custom environment
@@ -47,6 +54,7 @@ if __name__ == '__main__':
     config["horizon"] = 1000
     #config["train_batch_size"] = 500
     config["num_envs_per_worker"] = 4
+    config["gpu"] = args.gpu
 
     # Assign model variables to commandline arguments
     ray.init(redis_address=args.redis_address)
@@ -57,8 +65,8 @@ if __name__ == '__main__':
     for i in range(10001):
         # Perform one iteration of training
         result = agent.train()
+        print(pretty_print(result))
 
         if i % 100 == 0:
             checkpoint = agent.save()
             print("checkpoint saved at", checkpoint)
-            print(pretty_print(result))
