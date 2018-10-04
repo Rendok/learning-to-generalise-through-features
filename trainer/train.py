@@ -34,7 +34,7 @@ for i in range(10001):
     # Perform one iteration of training
     result = agent.train()
 
-    if i % 20 == 0:
+    if i % 100 == 0:
         checkpoint = agent.save()
         print("checkpoint saved at", checkpoint)
         print(pretty_print(result))
