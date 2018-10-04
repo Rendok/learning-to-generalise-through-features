@@ -2,6 +2,7 @@ import ray
 from ray.tune.logger import pretty_print
 from ray.tune.registry import register_env
 from ray.rllib.agents import ddpg
+import argparse
 
 
 def env_creator(renders=False):
@@ -14,27 +15,50 @@ def env_creator(renders=False):
     return env
 
 
+if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser()
 
-register_env("my_env", env_creator)
+    # Training arguments
+    parser.add_argument(
+        '--redis_address',
+        help='Redis IP:port',
+        type=str,
+        required=True
+    )
 
-config = ddpg.apex.APEX_DDPG_DEFAULT_CONFIG.copy()
-print(config)
-#config["num_gpus"] = 0
-config["num_workers"] = 4
-config["horizon"] = 1000
-#config["train_batch_size"] = 500
-config["num_envs_per_worker"] = 4
+    parser.add_argument(
+        '--num_workers',
+        help='The number of workers',
+        type=int,
+        default=4
+    )
 
-ray.init()
+    args = parser.parse_args()
 
-agent = ddpg.apex.ApexDDPGAgent(config=config, env="my_env")
+    # register a custom environment
+    register_env("my_env", env_creator)
 
-for i in range(10001):
-    # Perform one iteration of training
-    result = agent.train()
+    # copy, print, and amend the default config
+    config = ddpg.apex.APEX_DDPG_DEFAULT_CONFIG.copy()
+    print(config)
+    #config["num_gpus"] = 0
+    config["num_workers"] = args.num_workers
+    config["horizon"] = 1000
+    #config["train_batch_size"] = 500
+    config["num_envs_per_worker"] = 4
 
-    if i % 100 == 0:
-        checkpoint = agent.save()
-        print("checkpoint saved at", checkpoint)
-        print(pretty_print(result))
+    # Assign model variables to commandline arguments
+    ray.init(redis_address=args.redis_address)
+
+    # initialize an agent
+    agent = ddpg.apex.ApexDDPGAgent(config=config, env="my_env")
+
+    for i in range(10001):
+        # Perform one iteration of training
+        result = agent.train()
+
+        if i % 100 == 0:
+            checkpoint = agent.save()
+            print("checkpoint saved at", checkpoint)
+            print(pretty_print(result))
