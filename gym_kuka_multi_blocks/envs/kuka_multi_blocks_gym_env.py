@@ -102,13 +102,17 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             else:
                 self.action_space = spaces.Discrete(7)
         else:
-            self.action_space = spaces.Box(low=-1, high=1, shape=(3,))  # dx, dy, da
+            self.action_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)  # dx, dy, da
             if self._removeHeightHack:
                 self.action_space = spaces.Box(low=-1,
                                                high=1,
-                                               shape=(4,))  # dx, dy, dz, da
+                                               shape=(7,),
+                                               dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm
 
-        self.observation_space = spaces.Box(low=-100, high=100, shape=(6 + 6 * self._numObjects,))
+        self.observation_space = spaces.Box(low=-100,
+                                            high=100,
+                                            shape=(6 + 6 * self._numObjects,),
+                                            dtype=np.float32)
 
         self.viewer = None
 
@@ -244,7 +248,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             else:
                 observation.extend(list(blockPosXYZEul))
             #print(list(blockInGripperPosXYZEul))
-        return observation
+        return np.array(observation)
 
     def _step(self, action):
         """Environment step.
@@ -267,22 +271,31 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 dy = [0, 0, 0, -dv, dv, 0, 0, 0, 0][action]
                 dz = [0, 0, 0, 0, 0, -dv, dv, 0, 0][action]
                 da = [0, 0, 0, 0, 0, 0, 0, -0.25, 0.25][action]
+                action = np.array([dx, dy, dz, da])
+                action = np.append(action, action[4:])
+                action = np.append(action, 0.3)
             else:
                 dx = [0, -dv, dv, 0, 0, 0, 0][action]
                 dy = [0, 0, 0, -dv, dv, 0, 0][action]
                 dz = -dv
                 da = [0, 0, 0, 0, 0, -0.25, 0.25][action]
+                action = np.array([dx, dy, dz, da])
+                action = np.append(action, action[4:])
+                action = np.append(action, 0.3)
         else:
-            dx = dv * action[0]
-            dy = dv * action[1]
             if self._removeHeightHack:
-                dz = dv * action[2]
-                da = 0.25 * action[3]
+                action = np.array([dv, dv, dv, 0.25, 1, 1, 1]) * action  # [dx, dy, dz, da, Euler]
+                action = np.append(action, 0.3)  # [finger angle]
             else:
+                dx = dv * action[0]
+                dy = dv * action[1]
                 dz = -dv
                 da = 0.25 * action[2]
+                action = np.array([dx, dy, dz, da])
+                action = np.append(action, action[4:])
+                action = np.append(action, 0.3)
 
-        return self._step_continuous([dx, dy, dz, da, 0.3])
+        return self._step_continuous(action)
 
     def _step_continuous(self, action):
         """Applies a continuous velocity-control action.
@@ -367,7 +380,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._graspSuccess = 0
 
         # Unpack the block's coordinate
-        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=False)
 
         #grip_pos1, *block_pos1 = self._get_observation(inMatrixForm=True, isGripperIndex=False)
 
@@ -396,6 +409,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 self._graspSuccess += 1
                 reward += 100.0
                 break
+
+        # Add negative reward for extra step
+        reward -= 0.01
         return reward
 
     def _sparse_reward(self):

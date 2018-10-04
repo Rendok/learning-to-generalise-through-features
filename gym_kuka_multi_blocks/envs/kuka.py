@@ -97,7 +97,8 @@ class Kuka:
       dy = motorCommands[1]
       dz = motorCommands[2]
       da = motorCommands[3]
-      fingerAngle = motorCommands[4]
+      fingerOrn = 2 * math.pi * motorCommands[4:7]
+      fingerAngle = motorCommands[7]
       
       state = p.getLinkState(self.kukaUid,self.kukaEndEffectorIndex)
       actualEndEffectorPos = state[0]
@@ -127,7 +128,7 @@ class Kuka:
      
       self.endEffectorAngle = self.endEffectorAngle + da
       pos = self.endEffectorPos
-      orn = p.getQuaternionFromEuler([0,-0.5*math.pi,0]) # -math.pi,yaw]) [-pi,pi], [-pi/2,pi/2], [-pi,pi] ??? TODO: DEL
+      orn = p.getQuaternionFromEuler(fingerOrn) #[0,-0.5*math.pi,0]) # -math.pi,yaw]) [-pi,pi], [-pi/2,pi/2], [-pi,pi] ??? TODO: DEL
       if (self.useNullSpace==1):
         if (self.useOrientation==1):
           jointPoses = p.calculateInverseKinematics(self.kukaUid,self.kukaEndEffectorIndex,pos,orn,self.ll,self.ul,self.jr,self.rp)
