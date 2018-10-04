@@ -48,13 +48,13 @@ if __name__ == '__main__':
 
     # copy, print, and amend the default config
     config = ddpg.apex.APEX_DDPG_DEFAULT_CONFIG.copy()
-    print(config)
     #config["num_gpus"] = 0
     config["num_workers"] = args.num_workers
     config["horizon"] = 1000
     #config["train_batch_size"] = 500
     config["num_envs_per_worker"] = 4
     config["gpu"] = args.gpu
+    print(config)
 
     # Assign model variables to commandline arguments
     ray.init(redis_address=args.redis_address)
