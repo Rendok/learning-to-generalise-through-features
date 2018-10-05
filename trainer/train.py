@@ -29,7 +29,7 @@ if __name__ == '__main__':
         '--num_workers',
         help='The number of workers',
         type=int,
-        default=2
+        default=11
     )
 
     parser.add_argument(
@@ -60,7 +60,7 @@ if __name__ == '__main__':
             "run": args.run,
             "env": "KukaMultiBlocks-v0",
             "stop": {"episode_reward_mean": 2000},
-            "checkpoint_freq": 20,
+            "checkpoint_freq": 100,
             "checkpoint_at_end": 1,
             "config": {
                 # "gpu": args.gpu,
