@@ -54,7 +54,7 @@ if __name__ == '__main__':
     #config["train_batch_size"] = 500
     config["num_envs_per_worker"] = 4
     config["gpu"] = args.gpu
-    config["num_gpus_per_worker"] = 1/4
+    #config["num_gpus_per_worker"] = 1/4
     print(config)
 
     # Assign model variables to commandline arguments
