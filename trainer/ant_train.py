@@ -44,6 +44,13 @@ if __name__ == '__main__':
         default="PPO"
     )
 
+    parser.add_argument(
+        '--checkpoint_at_end',
+        help='Save the results after finishing',
+        type=bool,
+        default=1
+    )
+
     args = parser.parse_args()
 
     # register a custom environment
@@ -59,7 +66,7 @@ if __name__ == '__main__':
             "env": "AntBulletEnv-v0",
             "stop": {"episode_reward_mean": 2000},
             "checkpoint_freq": 100,
-            "checkpoint_at_end": 1,
+            "checkpoint_at_end": args.checkpoint_at_end,
             "config": {
                 # "gpu": args.gpu,
                 "num_gpus": 0,
