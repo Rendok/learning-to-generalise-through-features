@@ -391,6 +391,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #print("Distance gr: {}, ".format(d))
             # One over distance reward
             reward = max(reward, 0.01 / (0.25 + d))
+            #reward = max(reward, -d)  # ad hoc reward
             #print(reward)
 
         '''for blc in block_pos1: # TODO: delete

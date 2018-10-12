@@ -20,7 +20,7 @@ if __name__ == '__main__':
     # Training arguments
     parser.add_argument(
         '--redis_address',
-        help='Redis IP:port',
+        help='Redis "IP:port"',
         type=str,
         required=True
     )
@@ -29,14 +29,21 @@ if __name__ == '__main__':
         '--num_workers',
         help='The number of workers',
         type=int,
-        default=11
+        default=1
     )
 
     parser.add_argument(
         '--gpu',
-        help='The use of gpu',
+        help='The use of gpu in DDPG, DQN, and APEX',
         type=bool,
         default=True
+    )
+
+    parser.add_argument(
+        '--num_gpus',
+        help='The number of gpus in PPO',
+        type=int,
+        default=0
     )
 
     parser.add_argument(
@@ -44,6 +51,13 @@ if __name__ == '__main__':
         help='Algorithm to run',
         type=str,
         default="PPO"
+    )
+
+    parser.add_argument(
+        '--checkpoint_at_end',
+        help='Save the results after finishing',
+        type=bool,
+        default=1
     )
 
     args = parser.parse_args()
@@ -61,13 +75,13 @@ if __name__ == '__main__':
             "env": "KukaMultiBlocks-v0",
             "stop": {"episode_reward_mean": 2000},
             "checkpoint_freq": 100,
-            "checkpoint_at_end": 1,
+            "checkpoint_at_end": args.checkpoint_at_end,
             "config": {
-                # "gpu": args.gpu,
-                "num_gpus": 1,
+                "gpu": args.gpu,  # ddpg
+                #"num_gpus": 0,  # ppo
                 "num_workers": args.num_workers,
                 "horizon": 1000,
-                #"num_envs_per_worker": 4,
+                "num_envs_per_worker": 4,
             },
         },
     })
