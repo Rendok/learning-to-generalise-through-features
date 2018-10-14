@@ -116,6 +116,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         self.viewer = None
 
+        # the distance to the nearest block recoded in a previous step
+        self.pr_step_distance = None
+
     def _reset(self):
         """Environment reset called at the beginning of an episode.
         """
@@ -352,7 +355,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
             self._attempted_grasp = True  # TODO: delete attempted_grasp
             '''
-        observation = self._get_observation()
+        observation = self._get_observation(isGripperIndex=False)
         done = self._termination()
         reward = self._reward()
 
@@ -376,7 +379,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """
         from math import sqrt
 
-        reward = 0.0
+        min_d = None
         self._graspSuccess = 0
 
         # Unpack the block's coordinate
@@ -388,21 +391,21 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             x, y, z, _, _, _ = blc
             # Distance
             d = sqrt((x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2)
+
+
             #print("Distance gr: {}, ".format(d))
             # One over distance reward
-            reward = max(reward, 0.01 / (0.25 + d))
-            #reward = max(reward, -d)  # ad hoc reward
+            #reward = max(reward, 0.01 / (0.25 + d))
+
+            # Find the distance to the nearest block
+            if min_d is None:
+                min_d = d
+            else:
+                min_d = min(min_d, d)
+
             #print(reward)
 
-        '''for blc in block_pos1: # TODO: delete
-            x, y, z, _, _, _ = blc
-            # Distance
-            D1 = sqrt((x - grip_pos1[0]) ** 2 + (y - grip_pos1[1]) ** 2 + (z - grip_pos1[2]) ** 2)
-            print("Distance eff: {}, ".format(D1))
-            # One over distance reward
-            #reward = max(reward, 0.01 / (0.25 + D))'''
-
-        for uid in self._objectUids:
+        '''for uid in self._objectUids:
             pos, _ = p.getBasePositionAndOrientation(uid)
 
             # If any block is above height, provide reward.
@@ -410,10 +413,17 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 self._graspSuccess += 1
                 reward += 100.0
                 break
-
-        # Add negative reward for extra step
-        reward -= 0.01
-        return reward
+        '''
+        # Difference in the distance to the nearest block plus negative reward for an every step
+        if self.pr_step_distance is None:
+            self.pr_step_distance = min_d
+            #print("None step", min_d)
+            return 0
+        else:
+            reward = (self.pr_step_distance - min_d) - 0.001
+            #print("Delta d: {}, i-1: {}, i: {}, ".format(self.pr_step_distance - min_d, self.pr_step_distance, min_d))
+            self.pr_step_distance = min_d
+            return reward
 
     def _sparse_reward(self):
         """Calculates the reward for the episode.

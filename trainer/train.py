@@ -60,6 +60,13 @@ if __name__ == '__main__':
         default=1
     )
 
+    parser.add_argument(
+        '--num_envs_per_worker',
+        help='The number of_environments per worker',
+        type=int,
+        default=1
+    )
+
     args = parser.parse_args()
 
     # register a custom environment
@@ -74,14 +81,14 @@ if __name__ == '__main__':
             "run": args.run,
             "env": "KukaMultiBlocks-v0",
             "stop": {"episode_reward_mean": 2000},
-            "checkpoint_freq": 100,
+            "checkpoint_freq": 50,
             "checkpoint_at_end": args.checkpoint_at_end,
             "config": {
                 "gpu": args.gpu,  # ddpg
                 #"num_gpus": 0,  # ppo
                 "num_workers": args.num_workers,
                 "horizon": 1000,
-                "num_envs_per_worker": 4,
+                "num_envs_per_worker": args.num_envs_per_worker,
             },
         },
     })
