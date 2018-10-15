@@ -3,6 +3,7 @@ from ray.tune.registry import register_env
 import ray.tune as tune
 import argparse
 
+
 # needs to register a custom environment
 def env_creator(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
@@ -35,8 +36,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--gpu',
         help='The use of gpu in DDPG, DQN, and APEX',
-        type=bool,
-        default=True
+        type=str,
+        default="False"
     )
 
     parser.add_argument(
@@ -69,26 +70,70 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    if args.gpu == "True":
+        gpu = True
+    elif args.gpu == "False":
+        gpu = False
+    else:
+        raise ValueError
+
     # register a custom environment
     register_env("KukaMultiBlocks-v0", env_creator)
 
     # assign model variables to commandline arguments
     ray.init(redis_address=args.redis_address)
 
-    # run an experiment with a config
-    tune.run_experiments({
-        "my_experiment": {
-            "run": args.run,
-            "env": "KukaMultiBlocks-v0",
-            "stop": {"episode_reward_mean": 2000},
-            "checkpoint_freq": 50,
-            "checkpoint_at_end": args.checkpoint_at_end,
-            "config": {
-                "gpu": args.gpu,  # ddpg
-                #"num_gpus": 0,  # ppo
-                "num_workers": args.num_workers,
-                "horizon": 1000,
-                "num_envs_per_worker": args.num_envs_per_worker,
+    if args.run == "DDPG" or args.run == "DQN" or args.run == "APEX_DDPG" or args.run == "APEX":
+
+        # run an experiment with a config
+        tune.run_experiments({
+            "my_experiment": {
+                "run": args.run,
+                "env": "KukaMultiBlocks-v0",
+                "stop": {"episode_reward_mean": 2000},
+                "checkpoint_freq": 250,
+                "checkpoint_at_end": args.checkpoint_at_end,
+                "config": {
+                    "gpu": gpu,  # ddpg
+                    "num_workers": args.num_workers,
+                    "horizon": 1000,
+                    "num_envs_per_worker": args.num_envs_per_worker,
+                    "optimizer_class": "AsyncReplayOptimizer",
+                },
             },
-        },
-    })
+        })
+    elif args.run == "APEX_DDPG" or args.run == "APEX":
+
+        # run an experiment with a config
+        tune.run_experiments({
+            "my_experiment": {
+                "run": args.run,
+                "env": "KukaMultiBlocks-v0",
+                "stop": {"episode_reward_mean": 2000},
+                "checkpoint_freq": 250,
+                "checkpoint_at_end": args.checkpoint_at_end,
+                "config": {
+                    "gpu": gpu,  # ddpg
+                    "num_workers": args.num_workers,
+                    "horizon": 1000,
+                    "num_envs_per_worker": args.num_envs_per_worker,
+                },
+            },
+        })
+    else:
+        # run an experiment with a config
+        tune.run_experiments({
+            "my_experiment": {
+                "run": args.run,
+                "env": "KukaMultiBlocks-v0",
+                "stop": {"episode_reward_mean": 2000},
+                "checkpoint_freq": 250,
+                "checkpoint_at_end": args.checkpoint_at_end,
+                "config": {
+                    "num_gpus": args.num_gpus,  # ppo
+                    "num_workers": args.num_workers,
+                    "horizon": 1000,
+                    "num_envs_per_worker": args.num_envs_per_worker,
+                },
+            },
+        })
