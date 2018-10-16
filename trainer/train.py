@@ -96,7 +96,7 @@ if __name__ == '__main__':
                 "config": {
                     "gpu": gpu,  # ddpg
                     "num_workers": args.num_workers,
-                    "horizon": 1000,
+                    #"horizon": 1000,
                     "num_envs_per_worker": args.num_envs_per_worker,
                     "optimizer_class": "AsyncReplayOptimizer",
                 },
@@ -115,7 +115,7 @@ if __name__ == '__main__':
                 "config": {
                     "gpu": gpu,  # ddpg
                     "num_workers": args.num_workers,
-                    "horizon": 1000,
+                    #"horizon": 1000,
                     "num_envs_per_worker": args.num_envs_per_worker,
                 },
             },
@@ -132,7 +132,7 @@ if __name__ == '__main__':
                 "config": {
                     "num_gpus": args.num_gpus,  # ppo
                     "num_workers": args.num_workers,
-                    "horizon": 1000,
+                    #"horizon": 1000,
                     "num_envs_per_worker": args.num_envs_per_worker,
                 },
             },
