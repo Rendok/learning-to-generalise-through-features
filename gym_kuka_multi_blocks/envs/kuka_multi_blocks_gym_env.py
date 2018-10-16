@@ -106,8 +106,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             if self._removeHeightHack:
                 self.action_space = spaces.Box(low=-1,
                                                high=1,
-                                               shape=(7,),
-                                               dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm
+                                               shape=(4,),
+                                               dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
         self.observation_space = spaces.Box(low=-100,
                                             high=100,
@@ -265,6 +265,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
           done: Bool of whether or not the episode has ended.
           debug: Dictionary of extra information provided by environment.
         """
+
+        from math import pi
+
         dv = self._dv  # velocity per physics step.
         if self._isDiscrete:
             # Static type assertion for integers.
@@ -287,8 +290,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 action = np.append(action, 0.3)
         else:
             if self._removeHeightHack:
-                action = np.array([dv, dv, dv, 0.25, 1, 1, 1]) * action  # [dx, dy, dz, da, Euler]
-                action = np.append(action, 0.3)  # [finger angle]
+                action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
+                action = np.append(action, np.array([0, -pi, 0, 0.3]))
+                #action = np.array([dv, dv, dv, 0.25, 2*pi, 2*pi, 2*pi]) * action  # [dx, dy, dz, da, Euler]
+                #action = np.append(action, 0.3)  # [finger angle]
             else:
                 dx = dv * action[0]
                 dy = dv * action[1]
@@ -312,6 +317,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
           done: Bool of whether or not the episode has ended.
           debug: Dictionary of extra information provided by environment.
         """
+        from math import pi
         # Perform commanded action.
         self._env_step += 1
         self._kuka.applyAction(action)
@@ -325,26 +331,26 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 break
 
         # If we are close to the bin, attempt grasp.
-        '''state = p.getLinkState(self._kuka.kukaUid,
+        state = p.getLinkState(self._kuka.kukaUid,
                                self._kuka.kukaEndEffectorIndex)
         end_effector_pos = state[0]
 
         # Hardcoded grasping
-        if end_effector_pos[2] <= 0.1:  # Z coordinate
+        if end_effector_pos[2] <= 0.23:  # Z coordinate
             finger_angle = 0.3
             for _ in range(500):
-                grasp_action = [0, 0, 0, 0, finger_angle]
+                grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
                 self._kuka.applyAction(grasp_action)
                 p.stepSimulation()
-                # if self._renders:
-                #  time.sleep(self._timeStep)
+                #if self._renders:
+                #    time.sleep(self._timeStep)
                 finger_angle -= 0.3 / 100.
                 if finger_angle < 0:
                     finger_angle = 0
 
             # Move the hand up TODO: delete
-            for _ in range(500):
-                grasp_action = [0, 0, 0.001, 0, finger_angle]
+            for _ in range(250):
+                grasp_action = [0, 0, 0.001, 0, 0, -pi, 0, finger_angle]
                 self._kuka.applyAction(grasp_action)
                 p.stepSimulation()
                 if self._renders:
@@ -354,7 +360,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     finger_angle = 0
 
             self._attempted_grasp = True  # TODO: delete attempted_grasp
-            '''
+
         observation = self._get_observation(isGripperIndex=True)
         done = self._termination()
         reward = self._reward()
@@ -405,15 +411,16 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
             #print(reward)
 
-        '''for uid in self._objectUids:
+        hight_rwd = 0.0
+        for uid in self._objectUids:
             pos, _ = p.getBasePositionAndOrientation(uid)
 
             # If any block is above height, provide reward.
             if pos[2] > 0.2:
                 self._graspSuccess += 1
-                reward += 100.0
+                hight_rwd = 50 * pos[2]
                 break
-        '''
+
         # Difference in the distance to the nearest block plus negative reward for an every step
         if self.pr_step_distance is None:
             self.pr_step_distance = min_d
@@ -423,7 +430,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             reward = (self.pr_step_distance - min_d) - 0.001
             #print("Delta d: {}, i-1: {}, i: {}, ".format(self.pr_step_distance - min_d, self.pr_step_distance, min_d))
             self.pr_step_distance = min_d
-            return reward
+            return reward + hight_rwd
 
     def _sparse_reward(self):
         """Calculates the reward for the episode.
