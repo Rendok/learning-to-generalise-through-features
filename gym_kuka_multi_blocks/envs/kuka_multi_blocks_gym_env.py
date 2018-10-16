@@ -355,7 +355,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
             self._attempted_grasp = True  # TODO: delete attempted_grasp
             '''
-        observation = self._get_observation(isGripperIndex=False)
+        observation = self._get_observation(isGripperIndex=True)
         done = self._termination()
         reward = self._reward()
 
@@ -383,7 +383,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._graspSuccess = 0
 
         # Unpack the block's coordinate
-        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=False)
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
 
         #grip_pos1, *block_pos1 = self._get_observation(inMatrixForm=True, isGripperIndex=False)
 

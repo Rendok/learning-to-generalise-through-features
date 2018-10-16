@@ -68,6 +68,13 @@ if __name__ == '__main__':
         default=1
     )
 
+    parser.add_argument(
+        '--checkpoint_freq',
+        help='Checkpoint frequency',
+        type=int,
+        default=50
+    )
+
     args = parser.parse_args()
 
     if args.gpu == "True":
@@ -91,12 +98,11 @@ if __name__ == '__main__':
                 "run": args.run,
                 "env": "KukaMultiBlocks-v0",
                 "stop": {"episode_reward_mean": 2000},
-                "checkpoint_freq": 250,
+                "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
                 "config": {
                     "gpu": gpu,  # ddpg
                     "num_workers": args.num_workers,
-                    #"horizon": 1000,
                     "num_envs_per_worker": args.num_envs_per_worker,
                     "optimizer_class": "AsyncReplayOptimizer",
                 },
@@ -110,12 +116,11 @@ if __name__ == '__main__':
                 "run": args.run,
                 "env": "KukaMultiBlocks-v0",
                 "stop": {"episode_reward_mean": 2000},
-                "checkpoint_freq": 250,
+                "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
                 "config": {
                     "gpu": gpu,  # ddpg
                     "num_workers": args.num_workers,
-                    #"horizon": 1000,
                     "num_envs_per_worker": args.num_envs_per_worker,
                 },
             },
@@ -127,12 +132,11 @@ if __name__ == '__main__':
                 "run": args.run,
                 "env": "KukaMultiBlocks-v0",
                 "stop": {"episode_reward_mean": 2000},
-                "checkpoint_freq": 250,
+                "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
                 "config": {
                     "num_gpus": args.num_gpus,  # ppo
                     "num_workers": args.num_workers,
-                    #"horizon": 1000,
                     "num_envs_per_worker": args.num_envs_per_worker,
                 },
             },
