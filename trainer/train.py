@@ -83,7 +83,7 @@ if __name__ == '__main__':
     # assign model variables to commandline arguments
     ray.init(redis_address=args.redis_address)
 
-    if args.run == "DDPG" or args.run == "DQN" or args.run == "APEX_DDPG" or args.run == "APEX":
+    if args.run == "DDPG" or args.run == "DQN":
 
         # run an experiment with a config
         tune.run_experiments({
