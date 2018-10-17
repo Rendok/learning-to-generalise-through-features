@@ -408,28 +408,29 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #reward = max(reward, 0.01 / (0.25 + d))
 
         # If the block is above the ground, provide extra reward.
-        hight_rwd = 0.0
-        if z > 0.2:
+        pick_rwd = 0.0
+        if z > 0.25:
             self._graspSuccess += 1
-            hight_rwd = 50 * z
+            pick_rwd = 10.0
 
         # Difference in the distance to the nearest block plus negative reward for an every step
         if self.pr_step_distance is None:
             #print("-------NONE------ is called")
             self.pr_step_distance = d
-            return 0
-        elif self._attempted_grasp:
-            return 0.1
+            return 0.0
         else:
-            reward = (self.pr_step_distance - d) - 0.001
-            #print("Delta d: {}, block: {}, gr: {}, ".format(self.pr_step_distance - d, block_pos[self._goal - 3], grip_pos[0:3]))
-            self.pr_step_distance = d
-            return reward + hight_rwd
+            if self._attempted_grasp:
+                reward = 1.0
+            else:
+                reward = (self.pr_step_distance - d) - 0.01
+                #print("Delta d: {}, block: {}, gr: {}, ".format(self.pr_step_distance - d, block_pos[self._goal - 3], grip_pos[0:3]))
+                self.pr_step_distance = d
+            return reward + pick_rwd
 
     def _choose_block(self):
         """
         choose a random block ID
-        :return: int
+        :return: the block's ID (int)
         """
         import random
 
