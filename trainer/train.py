@@ -131,7 +131,7 @@ if __name__ == '__main__':
             "my_experiment": {
                 "run": args.run,
                 "env": "KukaMultiBlocks-v0",
-                "stop": {"episode_reward_mean": 2000},
+                "stop": {"episode_reward_mean": 8},
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
                 "config": {
