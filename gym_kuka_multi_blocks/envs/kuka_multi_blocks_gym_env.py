@@ -152,7 +152,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._objectUids = self._randomly_place_objects(self._numObjects)
 
         # set observations
-        observation = self._get_observation()  # FIXME: self._observation was changed to ...
+        observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
+
+        # randomly choose a block to be a goal
+        self._goal = self._choose_block()
 
         # return observations
         return np.array(observation)  # FIXME: ditto
@@ -364,6 +367,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         observation = self._get_observation(isGripperIndex=True)
         done = self._termination()
         reward = self._reward()
+        #print("_________INTERNAL REWARD________", reward)
 
         debug = {
             'grasp_success': self._graspSuccess
@@ -385,7 +389,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """
         from math import sqrt
 
-        min_d = None
         self._graspSuccess = 0
 
         # Unpack the block's coordinate
@@ -393,44 +396,44 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         #grip_pos1, *block_pos1 = self._get_observation(inMatrixForm=True, isGripperIndex=False)
 
-        for blc in block_pos:
-            x, y, z, _, _, _ = blc
-            # Distance
-            d = sqrt((x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2)
+        # choose a block to pick
+        #print("GOAL:", self._goal, self._goal - 3)
+        x, y, z, _, _, _ = block_pos[self._goal - 3]
+        # Distance
+        d = sqrt((x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2)
 
 
-            #print("Distance gr: {}, ".format(d))
-            # One over distance reward
-            #reward = max(reward, 0.01 / (0.25 + d))
+        #print("Distance gr: {}, ".format(d))
+        # One over distance reward
+        #reward = max(reward, 0.01 / (0.25 + d))
 
-            # Find the distance to the nearest block
-            if min_d is None:
-                min_d = d
-            else:
-                min_d = min(min_d, d)
-
-            #print(reward)
-
+        # If the block is above the ground, provide extra reward.
         hight_rwd = 0.0
-        for uid in self._objectUids:
-            pos, _ = p.getBasePositionAndOrientation(uid)
-
-            # If any block is above height, provide reward.
-            if pos[2] > 0.2:
-                self._graspSuccess += 1
-                hight_rwd = 50 * pos[2]
-                break
+        if z > 0.2:
+            self._graspSuccess += 1
+            hight_rwd = 50 * z
 
         # Difference in the distance to the nearest block plus negative reward for an every step
         if self.pr_step_distance is None:
-            self.pr_step_distance = min_d
-            #print("None step", min_d)
+            #print("-------NONE------ is called")
+            self.pr_step_distance = d
             return 0
+        elif self._attempted_grasp:
+            return 0.1
         else:
-            reward = (self.pr_step_distance - min_d) - 0.001
-            #print("Delta d: {}, i-1: {}, i: {}, ".format(self.pr_step_distance - min_d, self.pr_step_distance, min_d))
-            self.pr_step_distance = min_d
+            reward = (self.pr_step_distance - d) - 0.001
+            #print("Delta d: {}, block: {}, gr: {}, ".format(self.pr_step_distance - d, block_pos[self._goal - 3], grip_pos[0:3]))
+            self.pr_step_distance = d
             return reward + hight_rwd
+
+    def _choose_block(self):
+        """
+        choose a random block ID
+        :return: int
+        """
+        import random
+
+        return random.choice(self._objectUids)
 
     def _sparse_reward(self):
         """Calculates the reward for the episode.
