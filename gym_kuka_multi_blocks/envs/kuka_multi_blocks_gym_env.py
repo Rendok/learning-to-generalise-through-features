@@ -420,7 +420,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 if z > 0.18:
                     self._graspSuccess += 1
                     pick_rwd = 10.0
-                reward = 1.0 + pick_rwd
+                reward = pick_rwd
             else:
                 reward = (self.pr_step_distance - d) - 0.03
                 #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
