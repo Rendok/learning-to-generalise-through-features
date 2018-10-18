@@ -136,12 +136,13 @@ if __name__ == '__main__':
                 "stop": {"episode_reward_mean": 8},
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
-                "upload_dir", "/home/ubuntu/ray_results"
                 "config": {
                     "num_gpus": args.num_gpus,  # ppo
                     "num_workers": args.num_workers,
                     "num_envs_per_worker": args.num_envs_per_worker,
                     "horizon": 20,
+                    "sample_batch_size": 100,
+                    "train_batch_size": 5000,
                 },
             },
         })
