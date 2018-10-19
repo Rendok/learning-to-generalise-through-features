@@ -97,7 +97,7 @@ if __name__ == '__main__':
             "my_experiment": {
                 "run": args.run,
                 "env": "KukaMultiBlocks-v0",
-                "stop": {"episode_reward_mean": 8},
+                "stop": {"episode_reward_mean": 30},
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
                 "config": {
@@ -116,7 +116,7 @@ if __name__ == '__main__':
             "my_experiment": {
                 "run": args.run,
                 "env": "KukaMultiBlocks-v0",
-                "stop": {"episode_reward_mean": 8},
+                "stop": {"episode_reward_mean": 30},
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
                 "config": {
@@ -133,7 +133,7 @@ if __name__ == '__main__':
             "my_experiment": {
                 "run": args.run,
                 "env": "KukaMultiBlocks-v0",
-                "stop": {"episode_reward_mean": 8},
+                "stop": {"episode_reward_mean": 30},
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
                 "config": {

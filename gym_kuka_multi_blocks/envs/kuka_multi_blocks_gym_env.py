@@ -173,7 +173,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Randomize positions of each object urdf.
         objectUids = []
         for _ in range(urdfList):
-            xpos = 0.5 + self._blockRandom * random.random()
+            xpos = 0.4 + self._blockRandom * random.random()
             ypos = self._blockRandom * (random.random() - .5)
             angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
             orn = p.getQuaternionFromEuler([0, 0, angle])
@@ -370,7 +370,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #print("_________INTERNAL REWARD________", reward)
 
         debug = {
-            'grasp_success': self._graspSuccess
+            'grasp_success': self._graspSuccess,
+            'goal_id': self._goal
         }
         return observation, reward, done, debug
 
@@ -403,10 +404,12 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         # Distance
         distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
-        # Negative reward for every extra action
-        action_norm = inner1d(self.action, self.action)
+        #max_distance = 1.0
 
-        #print("DISTANCE", distance, "NORMS ACTION", action_norm)
+        # Negative reward for every extra action
+        action_norm = inner1d(self.action[0:4], self.action[0:4])
+
+        #print("DISTANCE", distance, "REWARD", 1 - distance / max_distance, "NORMS ACTION", action_norm, "ACTION", self.action[0:4])
 
         # One over distance reward
         #reward = max(reward, 0.01 / (0.25 + d))
@@ -417,7 +420,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # If the block is above the ground, provide extra reward
             if z > 0.18:
                 self._graspSuccess += 1
-                return 100
+                return 50
             return 0
         else:
             return - distance - action_norm
@@ -431,7 +434,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """
         import random
 
-        return random.choice(self._objectUids)
+        random.seed()
+        id_ = random.choice(self._objectUids)
+
+        # change the colour of the goal block
+        p.changeVisualShape(id_, -1, rgbaColor=[0, 0.1, 1, 1])
+
+        return id_
 
     def _sparse_reward(self):
         """Calculates the reward for the episode.
