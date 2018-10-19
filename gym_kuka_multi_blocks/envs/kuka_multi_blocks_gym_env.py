@@ -304,7 +304,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 da = 0.25 * action[2]
                 action = np.array([dx, dy, dz, da])
                 action = np.append(action, action[4:])
-                action = np.append(action, 0.3)
+                self.action = np.append(action, 0.3)
 
         return self._step_continuous(self.action)
 
@@ -403,13 +403,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         # Distance
         distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
+        # Negative reward for every extra action
         action_norm = inner1d(self.action, self.action)
-        test_norm = sum(i**2 for i in self.action)
 
-        print("DISTANCE",distance,"NORMS COMPARED", action_norm, test_norm)
+        #print("DISTANCE", distance, "NORMS ACTION", action_norm)
 
-
-        #print("Distance gr: {}, ".format(d))
         # One over distance reward
         #reward = max(reward, 0.01 / (0.25 + d))
 
@@ -419,7 +417,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # If the block is above the ground, provide extra reward
             if z > 0.18:
                 self._graspSuccess += 1
-                return 50
+                return 100
             return 0
         else:
             return - distance - action_norm
