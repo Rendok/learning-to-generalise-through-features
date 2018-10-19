@@ -22,7 +22,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
     def __init__(self,
                  urdfRoot=pybullet_data.getDataPath(),
-                 actionRepeat=50,  # <---- was 80?
+                 actionRepeat=80,  # <---- was 80?
                  isEnableSelfCollision=True,
                  renders=False,
                  isDiscrete=False,
