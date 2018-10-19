@@ -22,11 +22,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
     def __init__(self,
                  urdfRoot=pybullet_data.getDataPath(),
-                 actionRepeat=80,  # <---- was 80?
+                 actionRepeat=50,  # <---- was 80?
                  isEnableSelfCollision=True,
                  renders=False,
                  isDiscrete=False,
-                 maxSteps=20,  # <---- was 8?
+                 maxSteps=20,  # <---- was 20?
                  dv=0.06,
                  removeHeightHack=True,
                  blockRandom=0.3,
@@ -173,7 +173,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Randomize positions of each object urdf.
         objectUids = []
         for _ in range(urdfList):
-            xpos = 0.4 + self._blockRandom * random.random()
+            xpos = 0.5 + self._blockRandom * random.random()
             ypos = self._blockRandom * (random.random() - .5)
             angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
             orn = p.getQuaternionFromEuler([0, 0, angle])
@@ -294,7 +294,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             if self._removeHeightHack:
                 action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
-                action = np.append(action, np.array([0, -pi, 0, 0.3]))
+                self.action = np.append(action, np.array([0, -pi, 0, 0.3]))
                 #action = np.array([dv, dv, dv, 0.25, 2*pi, 2*pi, 2*pi]) * action  # [dx, dy, dz, da, Euler]
                 #action = np.append(action, 0.3)  # [finger angle]
             else:
@@ -306,7 +306,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 action = np.append(action, action[4:])
                 action = np.append(action, 0.3)
 
-        return self._step_continuous(action)
+        return self._step_continuous(self.action)
 
     def _step_continuous(self, action):
         """Applies a continuous velocity-control action.
@@ -387,7 +387,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """Dense reward function R = 1 / (D(*,*) + 1)
         :return: float
         """
-        from math import sqrt
+        #from math import sqrt
+        from numpy.core.umath_tests import inner1d
 
         self._graspSuccess = 0
 
@@ -399,8 +400,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # choose a block to pick
         #print("GOAL:", self._goal, self._goal - 3)
         x, y, z, _, _, _ = block_pos[self._goal - 3]
+
         # Distance
-        d = sqrt((x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2)
+        distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
+        action_norm = inner1d(self.action, self.action)
+        test_norm = sum(i**2 for i in self.action)
+
+        print("DISTANCE",distance,"NORMS COMPARED", action_norm, test_norm)
 
 
         #print("Distance gr: {}, ".format(d))
@@ -408,25 +414,17 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #reward = max(reward, 0.01 / (0.25 + d))
 
 
-        # Difference in the distance to the nearest block plus negative reward for an every step
-        if self.pr_step_distance is None:
-            #print("-------NONE------ is called")
-            self.pr_step_distance = d
-            return 0.0
+        # The distance to the goal block plus negative reward for an every step
+        if self._attempted_grasp:
+            # If the block is above the ground, provide extra reward
+            if z > 0.18:
+                self._graspSuccess += 1
+                return 50
+            return 0
         else:
-            if self._attempted_grasp:
-                # If the block is above the ground, provide extra reward.
-                pick_rwd = 0.0
-                if z > 0.18:
-                    self._graspSuccess += 1
-                    pick_rwd = 10.0
-                reward = pick_rwd
-            else:
-                reward = (self.pr_step_distance - d) - 0.03
-                #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
-                self.pr_step_distance = d
+            return - distance - action_norm
+            #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
 
-            return reward
 
     def _choose_block(self):
         """
