@@ -173,7 +173,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Randomize positions of each object urdf.
         objectUids = []
         for _ in range(urdfList):
-            xpos = 0.4 + self._blockRandom * random.random()
+            xpos = 0.5 + self._blockRandom * random.random()
             ypos = self._blockRandom * (random.random() - .5)
             angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
             orn = p.getQuaternionFromEuler([0, 0, angle])
@@ -320,7 +320,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
           done: Bool of whether or not the episode has ended.
           debug: Dictionary of extra information provided by environment.
         """
-        from math import pi
         # Perform commanded action.
         self._env_step += 1
         self._kuka.applyAction(action)
@@ -328,20 +327,28 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Repeat as many times as set in config
         for _ in range(self._actionRepeat):
             p.stepSimulation()
-            if self._renders:
-                time.sleep(self._timeStep)
+
             if self._termination():
                 break
 
-        # If we are close to the bin, attempt grasp.
+        if self._renders:
+            time.sleep(10 * self._timeStep)
+
+        '''# If we are close to the bin, attempt grasp.
         state = p.getLinkState(self._kuka.kukaUid,
                                self._kuka.kukaEndEffectorIndex)
         end_effector_pos = state[0]
+        '''
+
+        self.distance = self._get_distance_to_goal()
 
         # Hardcoded grasping
-        if end_effector_pos[2] <= 0.23:  # Z coordinate
+        #if end_effector_pos[2] <= 0.23:  # Z coordinate
+        if self.distance < 0.045:  # Z coordinate
+            from math import pi
             finger_angle = 0.3
-            for _ in range(500):
+
+            while finger_angle > 0:
                 grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
                 self._kuka.applyAction(grasp_action)
                 p.stepSimulation()
@@ -358,10 +365,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 p.stepSimulation()
                 if self._renders:
                     time.sleep(self._timeStep)
-                finger_angle -= 0.3 / 100.
-                if finger_angle < 0:
-                    finger_angle = 0
-
+                #finger_angle -= 0.3 / 100.
+                #if finger_angle < 0:
+                #    finger_angle = 0
+        
             self._attempted_grasp = True  # TODO: delete attempted_grasp
 
         observation = self._get_observation(isGripperIndex=True)
@@ -385,7 +392,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             return self._dense_reward()
 
     def _dense_reward(self):
-        """Dense reward function R = 1 / (D(*,*) + 1)
+        """Dense reward function
         :return: float
         """
         #from math import sqrt
@@ -396,40 +403,37 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Unpack the block's coordinate
         grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
 
-        #grip_pos1, *block_pos1 = self._get_observation(inMatrixForm=True, isGripperIndex=False)
-
-        # choose a block to pick
-        #print("GOAL:", self._goal, self._goal - 3)
+        # Get the goal block's coordinates
         x, y, z, _, _, _ = block_pos[self._goal - 3]
 
-        # Distance
-        distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
-        #max_distance = 1.0
+        max_distance = 1.0
 
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
 
-        #print("DISTANCE", distance, "REWARD", 1 - distance / max_distance, "NORMS ACTION", action_norm, "ACTION", self.action[0:4])
+        #print("DISTANCE", self.distance, "REWARD", 1 - self.distance / max_distance, "NORMS ACTION", action_norm, "ACTION", self.action[0:4])
 
         # One over distance reward
         #reward = max(reward, 0.01 / (0.25 + d))
 
-
+        #print("Z table:", z)
         # The distance to the goal block plus negative reward for an every step
         if self._attempted_grasp:
             # If the block is above the ground, provide extra reward
-            if z > 0.18:
+            #print("Z tried:", z)
+            if z > 0.05:
                 self._graspSuccess += 1
+                #print("Z + 50:", z)
                 return 50
             return 0
         else:
-            return - distance - action_norm
+            return - self.distance - action_norm
             #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
 
 
     def _choose_block(self):
         """
-        choose a random block ID
+        Choose a random block ID
         :return: the block's ID (int)
         """
         import random
@@ -441,6 +445,22 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         p.changeVisualShape(id_, -1, rgbaColor=[0, 0.1, 1, 1])
 
         return id_
+
+    def _get_distance_to_goal(self):
+        """
+        To get the distance from the effector to the goal block
+        :return: float
+        """
+
+        # Unpack the block's coordinate
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
+
+        # Get the goal block's coordinates
+        x, y, z, _, _, _ = block_pos[self._goal - 3]
+
+        # Distance
+        distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
+        return distance
 
     def _sparse_reward(self):
         """Calculates the reward for the episode.
