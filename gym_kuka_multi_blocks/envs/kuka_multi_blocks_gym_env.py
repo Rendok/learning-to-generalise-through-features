@@ -391,7 +391,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         debug = {
             'grasp_success': self._graspSuccess,
-            'goal_id': self._goal
+            'goal_id': self._goal,
+            'distance': self.distance
         }
         return observation, reward, done, debug
 
@@ -437,8 +438,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             if z > 0.05:
                 self._graspSuccess += 1
                 #print("Z + 50:", z)
-                return 50
-            return 0
+                return 50.0 + z * 10.0
+            return -1.0
         else:
             return - self.distance - action_norm
             #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
