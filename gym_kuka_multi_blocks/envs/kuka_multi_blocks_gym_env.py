@@ -199,12 +199,25 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Just to test the difference
         if isGripperIndex:
             gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaGripperIndex)
+            gripperOrn = gripperState[1]  # Quaternion
+            gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
+
+            gripperState = p.getLinkState(self._kuka.kukaUid, 10)
+            gripperPos_l = gripperState[0]  # (X, Y, Z)
+
+            gripperState = p.getLinkState(self._kuka.kukaUid, 13)
+            gripperPos_r = gripperState[0]  # (X, Y, Z)
+
+            gripperPos = (np.array(gripperPos_l) + np.array(gripperPos_r)) / 2  # (X, Y, Z)
+
         else:
             gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaEndEffectorIndex)
-        gripperPos = gripperState[0]  # (X, Y, Z)
-        gripperOrn = gripperState[1]  # Quaternion
-        gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
+        #gripperPos = gripperState[0]  # (X, Y, Z)
+        #gripperOrn = gripperState[1]  # Quaternion
+        #gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
         # print("gripperEul:", gripperEul)
+
+        #print("gripperPos_l: {}, gripperPos_r: {},  midpoint: {}", gripperPos_l, gripperPos_r, gripperPos)
 
         observation = []
         if inMatrixForm:
@@ -344,7 +357,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         # Hardcoded grasping
         #if end_effector_pos[2] <= 0.23:  # Z coordinate
-        if self.distance < 0.045:  # Z coordinate
+        if self.distance < 0.005: #0.045:  # Z coordinate
             from math import pi
             finger_angle = 0.3
 
