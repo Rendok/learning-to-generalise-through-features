@@ -199,25 +199,27 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Just to test the difference
         if isGripperIndex:
             gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaGripperIndex)
+            gripperPos = np.array(gripperState[0] + np.array([0.00028128,  0.02405984, -0.19820549]))
             gripperOrn = gripperState[1]  # Quaternion
             gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
 
-            gripperState = p.getLinkState(self._kuka.kukaUid, 10)
-            gripperPos_l = gripperState[0]  # (X, Y, Z)
+            #gripperState = p.getLinkState(self._kuka.kukaUid, 10)
+            #gripperPos_l = gripperState[0]  # (X, Y, Z)
 
-            gripperState = p.getLinkState(self._kuka.kukaUid, 13)
-            gripperPos_r = gripperState[0]  # (X, Y, Z)
+            #gripperState = p.getLinkState(self._kuka.kukaUid, 13)
+            #gripperPos_r = gripperState[0]  # (X, Y, Z)
 
-            gripperPos = (np.array(gripperPos_l) + np.array(gripperPos_r)) / 2  # (X, Y, Z)
+            #gripperPos = (np.array(gripperPos_l) + np.array(gripperPos_r)) / 2  # (X, Y, Z)
 
         else:
             gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaEndEffectorIndex)
+            raise ImportError
         #gripperPos = gripperState[0]  # (X, Y, Z)
         #gripperOrn = gripperState[1]  # Quaternion
         #gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
         # print("gripperEul:", gripperEul)
 
-        #print("gripperPos_l: {}, gripperPos_r: {},  midpoint: {}", gripperPos_l, gripperPos_r, gripperPos)
+        #print("midpoint: {}, base: {}".format(gripperPos, gripperPos_base))
 
         observation = []
         if inMatrixForm:
@@ -420,11 +422,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Get the goal block's coordinates
         x, y, z, _, _, _ = block_pos[self._goal - 3]
 
-        max_distance = 1.0
+        #max_distance = 1.0
 
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
-
+        # a hack to be fixed in future
+        action_fingers = abs(0.3 - self.action[7])
+        #print("DISTANCE", self.distance, "NORMS ACTION", action_norm, "FINGERS NORM", action_fingers, "FINGERS", self.action[7])
         #print("DISTANCE", self.distance, "REWARD", 1 - self.distance / max_distance, "NORMS ACTION", action_norm, "ACTION", self.action[0:4])
 
         # One over distance reward
@@ -441,7 +445,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 return 50.0 + z * 10.0
             return -1.0
         else:
-            return - self.distance - action_norm
+            return - self.distance - action_norm - action_fingers
             #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
 
 
