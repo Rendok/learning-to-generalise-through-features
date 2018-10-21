@@ -151,13 +151,12 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Generate the # of blocks
         self._objectUids = self._randomly_place_objects(self._numObjects)
 
-        # set observations
-        observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
-
         # randomly choose a block to be a goal
         self._goal = self._choose_block()
 
-        # return observations
+        # set observations
+        observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
+
         return np.array(observation)  # FIXME: ditto
 
     def _randomly_place_objects(self, urdfList):
@@ -230,7 +229,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             observation.extend(list(gripperPos))
             observation.extend(list(gripperEul))
-            observation.extend(self._goal)
+            observation.append(self._goal)
 
         invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
         #print("gripper pos {}, effector pos {}".format(gripperPos, grps[0]))
@@ -422,7 +421,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
 
         # Get the goal block's coordinates
-        x, y, z, _, _, _ = block_pos[self._goal - 3]
+        x, y, z, _, _, _ = block_pos[self._goal - 2]
 
         #max_distance = 1.0
 
@@ -476,7 +475,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
 
         # Get the goal block's coordinates
-        x, y, z, _, _, _ = block_pos[self._goal - 3]
+        x, y, z, _, _, _ = block_pos[self._goal - 2]
 
         # Distance
         distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
