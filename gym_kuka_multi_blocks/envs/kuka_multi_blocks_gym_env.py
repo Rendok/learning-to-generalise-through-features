@@ -172,14 +172,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Randomize positions of each object urdf.
         objectUids = []
         for _ in range(urdfList):
-            if not objectUids:
-                xpos = 0.4
-                ypos = 0
-                angle = np.pi / 2
-            else:
-                xpos = 0.7 + self._blockRandom * random.random()
-                ypos = self._blockRandom * (random.random() - .5)
-                angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+            xpos = 0.5 + self._blockRandom * random.random()
+            ypos = self._blockRandom * (random.random() - .5)
+            angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
             orn = p.getQuaternionFromEuler([0, 0, angle])
             urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
             uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
