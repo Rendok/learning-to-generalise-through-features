@@ -111,7 +111,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         self.observation_space = spaces.Box(low=-100,
                                             high=100,
-                                            shape=(7 + 6 * self._numObjects,),
+                                            shape=(6 + 3 + 6 * self._numObjects,),
                                             dtype=np.float32)
 
         self.viewer = None
