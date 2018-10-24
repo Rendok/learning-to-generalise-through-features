@@ -455,10 +455,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         Choose a random block ID
         :return: the block's ID (int)
         """
-        #import random
 
-        #random.seed()
-        id_ = 3 #random.choice(self._objectUids)
+        # choose randomly a goal block
+        id_ = random.choice(self._objectUids)
 
         # change the colour of the goal block
         p.changeVisualShape(id_, -1, rgbaColor=[0, 0.1, 1, 1])
