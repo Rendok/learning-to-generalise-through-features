@@ -225,11 +225,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             to_add = list(gripperPos)
             to_add.extend(list(gripperEul))
             observation.append(to_add)
-            observation.append(self._goal)
+            blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
+            observation.append(list(blockPos1))
         else:
             observation.extend(list(gripperPos))
             observation.extend(list(gripperEul))
-            observation.append(self._goal)
+            blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
+            observation.extend(list(blockPos1))
 
         invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
         #print("gripper pos {}, effector pos {}".format(gripperPos, grps[0]))
