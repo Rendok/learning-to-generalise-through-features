@@ -463,11 +463,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """
 
         # to train to pick one block at a time
-        if self._num_env_rep < 20:
+        if self._num_env_rep < 9000:
             id_ = 3
-        elif self._num_env_rep < 40:
+        elif self._num_env_rep < 13500:
             id_ = 4
-        elif self._num_env_rep < 60:
+        elif self._num_env_rep < 18000:
             id_ = 5
         else:
             # choose randomly a goal block
