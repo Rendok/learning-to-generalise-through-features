@@ -111,13 +111,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         self.observation_space = spaces.Box(low=-100,
                                             high=100,
-                                            shape=(6 + (6 + 1) * self._numObjects,),
+                                            shape=(7 + 6 * self._numObjects,),
                                             dtype=np.float32)
 
         self.viewer = None
 
-        # the distance to the nearest block recoded in a previous step
-        self.pr_step_distance = None
+        # how many times the environment is repeated
+        self._num_env_rep = 0
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
@@ -156,6 +156,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         # set observations
         observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
+
+        self._num_env_rep += 1
 
         return np.array(observation)  # FIXME: ditto
 
@@ -225,17 +227,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             to_add = list(gripperPos)
             to_add.extend(list(gripperEul))
             observation.append(to_add)
-            zeros = np.zeros(self._numObjects)
-            zeros[self._goal - 3] = 1
-            observation.append(list(zeros))
+            observation.append(self._goal - 3)
             #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
             #observation.append(list(blockPos1))
         else:
             observation.extend(list(gripperPos))
             observation.extend(list(gripperEul))
-            zeros = np.zeros(self._numObjects)
-            zeros[self._goal - 3] = 1
-            observation.extend(list(zeros))
+            observation.append(self._goal - 3)
             #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
             #observation.extend(list(blockPos1))
 
@@ -464,8 +462,16 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: the block's ID (int)
         """
 
-        # choose randomly a goal block
-        id_ = random.choice(self._objectUids)
+        # to train to pick one block at a time
+        if self._num_env_rep < 20:
+            id_ = 3
+        elif self._num_env_rep < 40:
+            id_ = 4
+        elif self._num_env_rep < 60:
+            id_ = 5
+        else:
+            # choose randomly a goal block
+            id_ = random.choice(self._objectUids)
 
         # change the colour of the goal block
         p.changeVisualShape(id_, -1, rgbaColor=[0, 0.1, 1, 1])
