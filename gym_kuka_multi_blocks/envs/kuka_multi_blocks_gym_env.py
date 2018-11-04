@@ -462,16 +462,19 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: the block's ID (int)
         """
 
-        # to train to pick one block at a time
-        if self._num_env_rep < 9000:
-            id_ = 3
-        elif self._num_env_rep < 13500:
-            id_ = 4
-        elif self._num_env_rep < 18000:
-            id_ = 5
+        if not self._isTest:
+            # to train to pick one block at a time
+            if self._num_env_rep < 18000:
+                id_ = 3
+            elif self._num_env_rep < 36000:
+                id_ = 4
+            elif self._num_env_rep < 54000:
+                id_ = 5
+            else:
+                # choose randomly a goal block
+                id_ = random.choice(self._objectUids)
         else:
-            # choose randomly a goal block
-            id_ = random.choice(self._objectUids)
+            id_ = 3
 
         # change the colour of the goal block
         p.changeVisualShape(id_, -1, rgbaColor=[0, 0.1, 1, 1])
