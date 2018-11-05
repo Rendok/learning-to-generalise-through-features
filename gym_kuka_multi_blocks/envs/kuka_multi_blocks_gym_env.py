@@ -29,7 +29,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                  maxSteps=20,  # <---- was 20?
                  dv=0.06,
                  removeHeightHack=True,
-                 blockRandom=0.3,
+                 blockRandom=0.5,
                  cameraRandom=0,
                  width=48,
                  height=48,
@@ -364,6 +364,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         self.distance, self.bl_bl_distance = self._get_distance_to_goal()
 
+        '''
         # Hardcoded grasping
         #if end_effector_pos[2] <= 0.23:  # Z coordinate
         if self.distance < 0.005: #0.045:  # Z coordinate
@@ -392,7 +393,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 #    finger_angle = 0
         
             self._attempted_grasp = True  # TODO: delete attempted_grasp
-
+            '''
         observation = self._get_observation(isGripperIndex=True)
         done = self._termination()
         reward = self._reward()
@@ -472,9 +473,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # a hack to be fixed in future
         action_fingers = abs(0.3 - self.action[7])
 
-        #print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
+        print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
 
-        return - self.distance - self.bl_bl_distance - action_norm - action_fingers
+        if self.bl_bl_distance < 0.01:
+            self._attempted_grasp = True
+            return - self.distance - self.bl_bl_distance - action_norm - action_fingers + 50.0
+        else:
+            return - self.distance - self.bl_bl_distance - action_norm - action_fingers
 
 
     def _choose_block(self):
