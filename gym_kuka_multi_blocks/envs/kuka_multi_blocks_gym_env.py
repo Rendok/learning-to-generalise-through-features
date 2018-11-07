@@ -316,7 +316,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             if self._removeHeightHack:
                 action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
-                self.action = np.append(action, np.array([0, -pi, 0, 0.3]))
+                self.action = np.append(action, np.array([0, -pi, 0, 0.0]))
                 #action = np.array([dv, dv, dv, 0.25, 2*pi, 2*pi, 2*pi]) * action  # [dx, dy, dz, da, Euler]
                 #action = np.append(action, 0.3)  # [finger angle]
             else:
@@ -395,8 +395,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             self._attempted_grasp = True  # TODO: delete attempted_grasp
             '''
         observation = self._get_observation(isGripperIndex=True)
-        done = self._termination()
         reward = self._reward()
+        done = self._termination()
         #print("_________INTERNAL REWARD________", reward)
 
         debug = {
@@ -471,7 +471,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
         # a hack to be fixed in future
-        action_fingers = abs(0.3 - self.action[7])
+        action_fingers = abs(0.0 - self.action[7])
 
         print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
 
@@ -505,6 +505,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         id_ = 3 #random.choice(self._objectUids)
         # change the colour of the goal block
         p.changeVisualShape(id_, -1, rgbaColor=[0, 0.1, 1, 1])
+        p.changeVisualShape(4, -1, rgbaColor=[1, 0.1, 0, 1])
 
         return id_
 
