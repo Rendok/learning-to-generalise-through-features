@@ -33,7 +33,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                  cameraRandom=0,
                  width=48,
                  height=48,
-                 numObjects=2,
+                 numObjects=3,
                  isTest=False,
                  isSparseReward=False):
         """Initializes the KukaDiverseObjectEnv.
@@ -477,9 +477,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         if self.bl_bl_distance < 0.01:
             self._attempted_grasp = True
-            return - self.distance - 10 * self.bl_bl_distance - action_norm - action_fingers + 50.0
+            return - 0.1 * self.distance - 10 * self.bl_bl_distance - action_norm - action_fingers + 50.0
         else:
-            return - self.distance - 10 * self.bl_bl_distance - action_norm - action_fingers
+            return - 0.1 * self.distance - 10 * self.bl_bl_distance - action_norm - action_fingers
 
 
     def _choose_block(self):
