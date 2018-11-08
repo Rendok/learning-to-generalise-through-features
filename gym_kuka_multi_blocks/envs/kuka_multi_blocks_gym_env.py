@@ -111,7 +111,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         self.observation_space = spaces.Box(low=-100,
                                             high=100,
-                                            shape=(7 + 6 * self._numObjects,),
+                                            shape=(7 + 6 + 6 * self._numObjects,),
                                             dtype=np.float32)
 
         self.viewer = None
@@ -199,8 +199,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         # Just to test the difference
         if isGripperIndex:
+            # The coorditates of the gripper and fingers (X, Y, Z)
             gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaGripperIndex)
-            gripperPos = np.array(gripperState[0] + np.array([0.00028128,  0.02405984, -0.19820549]))
+            fingerState_l = p.getLinkState(self._kuka.kukaUid, 10)[0]
+            fingerState_r = p.getLinkState(self._kuka.kukaUid, 13)[0]
+
+            gripperPos = gripperState[0]
+
+            #gripperPos = np.array(gripperState[0] + np.array([0.00028128,  0.02405984, -0.19820549]))
             gripperOrn = gripperState[1]  # Quaternion
             gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
 
@@ -212,32 +218,28 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
             #gripperPos = (np.array(gripperPos_l) + np.array(gripperPos_r)) / 2  # (X, Y, Z)
 
-        else:
+        else: # TODO: delete
             gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaEndEffectorIndex)
-            raise ImportError
-        #gripperPos = gripperState[0]  # (X, Y, Z)
-        #gripperOrn = gripperState[1]  # Quaternion
-        #gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
-        # print("gripperEul:", gripperEul)
+            raise NotImplementedError
 
         #print("midpoint: {}, base: {}".format(gripperPos, gripperPos_base))
 
         observation = []
         if inMatrixForm:
-            to_add = list(gripperPos)
+            to_add = list(gripperPos + fingerState_l + fingerState_l)
             to_add.extend(list(gripperEul))
             observation.append(to_add)
             observation.append(self._goal - 3)
             #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
             #observation.append(list(blockPos1))
         else:
-            observation.extend(list(gripperPos))
+            observation.extend(list(gripperPos + fingerState_l + fingerState_l))
             observation.extend(list(gripperEul))
             observation.append(self._goal - 3)
             #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
             #observation.extend(list(blockPos1))
 
-        invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
+        #invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
         #print("gripper pos {}, effector pos {}".format(gripperPos, grps[0]))
 
         # gripperMat = p.getMatrixFromQuaternion(gripperOrn)
