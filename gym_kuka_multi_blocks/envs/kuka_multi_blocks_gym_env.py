@@ -478,7 +478,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # a hack to be fixed in future
         action_fingers = abs(0.0 - self.action[7])
 
-        print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
+        #print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
 
         if self.bl_bl_distance < 0.005:
             self._attempted_grasp = True  # here it is an attempt to push
