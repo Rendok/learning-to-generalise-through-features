@@ -390,7 +390,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         end_effector_pos = state[0]
         '''
 
-        self.distance, self.bl_bl_distance = self._get_distance_to_goal()
+        self.distance1, self.distance2, self.bl_bl_distance = self._get_distance_to_goal()
 
         '''
         # Hardcoded grasping
@@ -430,7 +430,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         debug = {
             'grasp_success': self._graspSuccess,
             'goal_id': self._goal,
-            'distance': self.distance
+            'distance1': self.distance1,
+            'distance2': self.distance2,
+            'dif': self.distance1 - self.distance2
         }
         return observation, reward, done, debug
 
@@ -503,11 +505,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         #print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
 
-        if self.bl_bl_distance < 0.005:
+        if self.distance1 < 0.001:
             self._attempted_grasp = True  # here it is an attempt to push
-            return - self.bl_bl_distance - action_norm - action_fingers + 50.0
+            return 50.0
         else:
-            return - self.bl_bl_distance - action_norm - action_fingers
+            return - self.distance1 + self.distance2 - action_norm - action_fingers
 
 
     def _choose_block(self):
@@ -553,12 +555,15 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         x1, y1, z1, _, _, _ = block_pos[self._goal - 1]
 
         # Distance
-        gr_bl_distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
+        gr_bl1_distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
+
+        # Distance
+        gr_bl2_distance = (x1 - grip_pos[0]) ** 2 + (y1 - grip_pos[1]) ** 2 + (z1 - grip_pos[2]) ** 2
 
         # Distance
         bl_bl_distance = (x1 - x) ** 2 + (y1 - y) ** 2 + (z1 - z) ** 2
 
-        return gr_bl_distance, bl_bl_distance
+        return gr_bl1_distance, gr_bl2_distance, bl_bl_distance
 
     def _sparse_reward(self):
         """Calculates the reward for the episode.
