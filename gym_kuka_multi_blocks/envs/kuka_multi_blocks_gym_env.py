@@ -170,7 +170,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         Returns:
           The list of object unique ID's.
         """
-
+        '''
         # Randomize positions of each object urdf.
         objectUids = []
         for _ in range(urdfList):
@@ -186,6 +186,29 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # intersection.
             for _ in range(500):
                 p.stepSimulation()
+        '''
+        # Randomize positions of each object urdf.
+        objectUids = []
+        i = 0
+        for _ in range(urdfList):
+            xpos = 0.3 + self._blockRandom * random.random()
+            ypos = self._blockRandom * (random.random() - .5)
+
+            if i == 1:
+                xpos = xpos + 0.1 + self._blockRandom * random.random()
+                ypos = self._blockRandom * (random.random() - .5)
+            angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+            orn = p.getQuaternionFromEuler([0, 0, angle])
+            urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
+            uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
+                             [orn[0], orn[1], orn[2], orn[3]])
+            objectUids.append(uid)
+            # Let each object fall to the tray individual, to prevent object
+            # intersection.
+            for _ in range(500):
+                p.stepSimulation()
+
+            i += 1
         return objectUids
 
     def _get_observation(self, inMatrixForm=False, isGripperIndex=True):
