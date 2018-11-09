@@ -300,6 +300,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # Static type assertion for integers.
             assert isinstance(action, int)
             if self._removeHeightHack:
+                raise NotImplementedError
                 dx = [0, -dv, dv, 0, 0, 0, 0, 0, 0][action]
                 dy = [0, 0, 0, -dv, dv, 0, 0, 0, 0][action]
                 dz = [0, 0, 0, 0, 0, -dv, dv, 0, 0][action]
@@ -308,6 +309,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 action = np.append(action, action[4:])
                 action = np.append(action, 0.3)
             else:
+                raise NotImplementedError
                 dx = [0, -dv, dv, 0, 0, 0, 0][action]
                 dy = [0, 0, 0, -dv, dv, 0, 0][action]
                 dz = -dv
@@ -318,10 +320,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             if self._removeHeightHack:
                 action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
-                self.action = np.append(action, np.array([0, -pi, 0, 0.0]))
+                self.action = np.append(action, np.array([0, -pi, 0, 0.3]))
                 #action = np.array([dv, dv, dv, 0.25, 2*pi, 2*pi, 2*pi]) * action  # [dx, dy, dz, da, Euler]
                 #action = np.append(action, 0.3)  # [finger angle]
             else:
+                raise NotImplementedError
                 dx = dv * action[0]
                 dy = dv * action[1]
                 dz = -dv
@@ -479,9 +482,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         if self.bl_bl_distance < 0.005:
             self._attempted_grasp = True  # here it is an attempt to push
-            return - self.distance - self.bl_bl_distance - action_norm - action_fingers + 50.0
+            return - self.distance - 10 * self.bl_bl_distance - action_norm - action_fingers + 50.0
         else:
-            return - self.distance - self.bl_bl_distance - action_norm - action_fingers
+            return - self.distance - 10 * self.bl_bl_distance - action_norm - action_fingers
 
 
     def _choose_block(self):
