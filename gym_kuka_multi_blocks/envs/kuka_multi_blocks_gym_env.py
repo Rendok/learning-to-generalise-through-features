@@ -505,9 +505,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         if self.bl_bl_distance < 0.005:
             self._attempted_grasp = True  # here it is an attempt to push
-            return - self.distance - 10 * self.bl_bl_distance - action_norm - action_fingers + 50.0
+            return - self.bl_bl_distance - action_norm - action_fingers + 50.0
         else:
-            return - self.distance - 10 * self.bl_bl_distance - action_norm - action_fingers
+            return - self.bl_bl_distance - action_norm - action_fingers
 
 
     def _choose_block(self):
