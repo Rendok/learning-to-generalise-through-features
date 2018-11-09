@@ -204,9 +204,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             fingerState_l = p.getLinkState(self._kuka.kukaUid, 10)[0]
             fingerState_r = p.getLinkState(self._kuka.kukaUid, 13)[0]
 
-            gripperPos = gripperState[0]
+            #gripperPos = gripperState[0]
 
-            #gripperPos = np.array(gripperState[0] + np.array([0.00028128,  0.02405984, -0.19820549]))
+            gripperPos = np.array(gripperState[0] + np.array([0.00028128,  0.02405984, -0.19820549]))
             gripperOrn = gripperState[1]  # Quaternion
             gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
 
@@ -226,15 +226,15 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         observation = []
         if inMatrixForm:
-            to_add = list(gripperPos + fingerState_l + fingerState_l)
-            to_add.extend(list(gripperEul))
+            to_add = list(gripperPos)
+            to_add.extend(list(fingerState_l + fingerState_l + gripperEul))
             observation.append(to_add)
             observation.append(self._goal - 3)
             #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
             #observation.append(list(blockPos1))
         else:
-            observation.extend(list(gripperPos + fingerState_l + fingerState_l))
-            observation.extend(list(gripperEul))
+            observation.extend(list(gripperPos))
+            observation.extend(list(fingerState_l + fingerState_l + gripperEul))
             observation.append(self._goal - 3)
             #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
             #observation.extend(list(blockPos1))
@@ -320,7 +320,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             if self._removeHeightHack:
                 action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
-                self.action = np.append(action, np.array([0, -pi, 0, 0.3]))
+                self.action = np.append(action, np.array([0, -pi, 0, 0.0]))
                 #action = np.array([dv, dv, dv, 0.25, 2*pi, 2*pi, 2*pi]) * action  # [dx, dy, dz, da, Euler]
                 #action = np.append(action, 0.3)  # [finger angle]
             else:
