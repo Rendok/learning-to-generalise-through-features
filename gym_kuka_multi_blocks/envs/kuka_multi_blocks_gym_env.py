@@ -505,7 +505,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         #print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
 
-        if self.distance1 < 0.001:
+        if self.distance1 < 0.01:
             self._attempted_grasp = True  # here it is an attempt to push
             return 50.0
         else:
