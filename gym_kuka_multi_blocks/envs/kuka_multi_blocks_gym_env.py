@@ -119,6 +119,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # how many times the environment is repeated
         self._num_env_rep = 0
 
+        self._isInProximity = False
+
     def _reset(self):
         """Environment reset called at the beginning of an episode.
         """
@@ -506,8 +508,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
 
         if self.distance1 < 0.01:
-            self._attempted_grasp = True  # here it is an attempt to push
-            return 50.0
+            if not self._isInProximity:
+                self._isInProximity = True
+                return - self.bl_bl_distance - action_norm - action_fingers + 50.0
+            else:
+                return - self.bl_bl_distance - action_norm - action_fingers
         else:
             return - self.distance1 + self.distance2 - self.bl_bl_distance - action_norm - action_fingers
 
