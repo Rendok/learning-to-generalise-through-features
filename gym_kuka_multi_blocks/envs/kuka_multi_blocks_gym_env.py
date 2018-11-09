@@ -513,6 +513,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 return - self.bl_bl_distance - action_norm - action_fingers + 50.0
             else:
                 return - self.bl_bl_distance - action_norm - action_fingers
+        elif self.bl_bl_distance < 0.01:
+            self._attempted_grasp = True
+            return 50
         else:
             return - self.distance1 + self.distance2 - self.bl_bl_distance - action_norm - action_fingers
 
