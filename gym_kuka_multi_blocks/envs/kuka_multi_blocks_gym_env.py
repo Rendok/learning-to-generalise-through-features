@@ -438,7 +438,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             'goal_id': self._goal,
             'distance1': self.distance1,
             'distance2': self.distance2,
-            'dif': self.distance1 - self.distance2
+            'dif': self.distance1 - self.distance2,
+            'bl_bl_dist': self.bl_bl_distance
         }
         return observation, reward, done, debug
 
