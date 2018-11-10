@@ -29,7 +29,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                  maxSteps=20,  # <---- was 20?
                  dv=0.06,
                  removeHeightHack=True,
-                 blockRandom=0.5,
+                 blockRandom=0.3,
                  cameraRandom=0,
                  width=48,
                  height=48,
@@ -198,7 +198,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             ypos = self._blockRandom * (random.random() - .5)
 
             if i == 1:
-                xpos = xpos + 0.1 + self._blockRandom * random.random()
+                xpos = xpos + 0.12 + self._blockRandom * random.random()
                 ypos = self._blockRandom * (random.random() - .5)
             angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
             orn = p.getQuaternionFromEuler([0, 0, angle])
@@ -522,6 +522,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     return 50
                 else:
                     return 1 - self.bl_bl_distance / self._bl_bl_dist_origin - action_norm - action_fingers
+        elif self.distance1 > 0.01 and self._isInProximity:
+            return -5
         else:
             return - 10 * self.distance1 - action_norm - action_fingers
 
