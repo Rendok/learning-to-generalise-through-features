@@ -522,7 +522,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 else:
                     return 1 - self.bl_bl_distance / self._bl_bl_dist_origin - action_norm - action_fingers
         else:
-            return - self.distance1 - action_norm - action_fingers
+            return - 10 * self.distance1 - action_norm - action_fingers
 
 
     def _choose_block(self):
