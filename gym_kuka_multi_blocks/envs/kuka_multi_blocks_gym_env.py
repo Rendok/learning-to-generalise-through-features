@@ -117,9 +117,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self.viewer = None
 
         # how many times the environment is repeated
-        self._num_env_rep = 0
+        #self._num_env_rep = 0 # TODO: delete
 
         self._isInProximity = False
+        self._bl_bl_dist_origin = None
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
@@ -159,7 +160,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # set observations
         observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
 
-        self._num_env_rep += 1
+        #self._num_env_rep += 1 TODO: delete
 
         return np.array(observation)  # FIXME: ditto
 
@@ -394,6 +395,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         self.distance1, self.distance2, self.bl_bl_distance = self._get_distance_to_goal()
 
+        if not self._bl_bl_dist_origin:
+            self._bl_bl_dist_origin = self.bl_bl_distance
+
         '''
         # Hardcoded grasping
         #if end_effector_pos[2] <= 0.23:  # Z coordinate
@@ -516,9 +520,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     self._attempted_grasp = True
                     return 50
                 else:
-                    return 1 - self.bl_bl_distance - action_norm - action_fingers
-        elif self.distance1 >= 0.01 and self._isInProximity:
-            return -5
+                    return 1 - self.bl_bl_distance / self._bl_bl_dist_origin - action_norm - action_fingers
         else:
             return - self.distance1 + self.distance2 - self.bl_bl_distance - action_norm - action_fingers
 
