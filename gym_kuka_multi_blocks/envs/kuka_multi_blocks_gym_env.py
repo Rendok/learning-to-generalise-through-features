@@ -160,6 +160,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # set observations
         observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
 
+        #self._kuka.applyAction([])  #here I will add the start position of effector if needed
+
         #self._num_env_rep += 1 TODO: delete
 
         return np.array(observation)  # FIXME: ditto
@@ -359,7 +361,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 action = np.append(action, action[4:])
                 self.action = np.append(action, 0.3)
 
-        return self._step_continuous(self.action)
+        return self._step_continuous(self.action) # [dx, dy, dz, da, Al, Bt, Gm, Fn_angle]
 
     def _step_continuous(self, action):
         """Applies a continuous velocity-control action.
@@ -375,6 +377,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """
         # Perform commanded action.
         self._env_step += 1
+
         self._kuka.applyAction(action)
 
         # Repeat as many times as set in config
