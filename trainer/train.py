@@ -8,7 +8,7 @@ import argparse
 def env_creator(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
-                               numObjects=2,
+                               numObjects=3,
                                removeHeightHack=True,
                                isDiscrete=False)
     return env
