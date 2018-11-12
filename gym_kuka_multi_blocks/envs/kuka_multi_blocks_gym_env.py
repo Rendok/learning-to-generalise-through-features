@@ -525,7 +525,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         action_fingers = abs(0.0 - self.action[7])
 
         #print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
-
+        '''
         if self.distance1 < 0.01:
             if not self._isInProximity:
                 self._isInProximity = True
@@ -540,6 +540,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             return -5
         else:
             return - 10 * self.distance1 - action_norm - action_fingers
+        '''
+        return - self.bl_bl_distance - action_norm - action_fingers
 
 
     def _choose_block(self):
