@@ -160,7 +160,18 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # set observations
         observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
 
-        #self._kuka.applyAction([])  #here I will add the start position of effector if needed
+        # move the effector to the block
+        # y = k * x + b
+        k = (observation[20] - observation[14]) / (observation[19] - observation[13])
+        b = observation[14] - k * observation[13]
+
+        self._kuka.endEffectorPos[0] = observation[13] - 0.1
+        self._kuka.endEffectorPos[1] = k * (observation[13] - 0.1) + b
+        self._kuka.endEffectorPos[2] = observation[15] + 0.251
+        self._kuka.endEffectorAngle = 1.5
+
+        for _ in range(self._actionRepeat):
+            p.stepSimulation()
 
         #self._num_env_rep += 1 TODO: delete
 
@@ -196,7 +207,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         objectUids = []
         i = 0
         for _ in range(urdfList):
-            xpos = 0.3 + self._blockRandom * random.random()
+            xpos = 0.4 + self._blockRandom * random.random()
             ypos = self._blockRandom * (random.random() - .5)
 
             if i == 1:
