@@ -213,6 +213,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             if i == 1:
                 xpos = xpos + 0.12 + self._blockRandom * random.random()
                 ypos = self._blockRandom * (random.random() - .5)
+
             angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
             orn = p.getQuaternionFromEuler([0, 0, angle])
             urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
@@ -510,6 +511,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return:
         """
         from numpy.core.umath_tests import inner1d
+        from math import pi
 
         self._graspSuccess = 0 # TODO: delete
 
@@ -522,7 +524,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
         # a hack to be fixed in future
-        action_fingers = abs(0.0 - self.action[7])
+        action_fingers = (0.0 - self.action[7]) ** 2 + (0.0 - self.action[4]) ** 2 +\
+                         (-pi - self.action[5]) ** 2 + (0.0 - self.action[6]) ** 2
 
         #print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
         '''
