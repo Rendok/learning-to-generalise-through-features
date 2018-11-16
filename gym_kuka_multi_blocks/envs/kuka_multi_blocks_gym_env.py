@@ -34,8 +34,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                  width=48,
                  height=48,
                  numObjects=3,
-                 isTest=False,
-                 isSparseReward=False):
+                 isTest=0,
+                 isSparseReward=False,
+                 operation="put"):
         """Initializes the KukaDiverseObjectEnv.
 
         Args:
@@ -57,9 +58,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
           width: The image width.
           height: The observation image height.
           numObjects: The number of objects in the bin.
-          isTest: If true, use the test set of objects. If false, use the train
-            set of objects.
+          isTest: If 0, blocks are placed in random. If 1, blocks are placed in a test configuration.
           isSparseReward: If true, the reward function is sparse.
+          operation: a string: pick, push, put
         """
 
         self._isDiscrete = isDiscrete
@@ -119,8 +120,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # how many times the environment is repeated
         #self._num_env_rep = 0 # TODO: delete
 
-        self._isInProximity = False
+        #self._isInProximity = False
         self._bl_bl_dist_origin = None
+        self._operation = operation
+        self._done = False
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
@@ -160,18 +163,29 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # set observations
         observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
 
-        # move the effector to the block
-        # y = k * x + b
-        k = (observation[20] - observation[14]) / (observation[19] - observation[13])
-        b = observation[14] - k * observation[13]
+        if self._operation == "push":
+            # move the effector in the position next to the block
+            # y = k * x + b
+            k = (observation[20] - observation[14]) / (observation[19] - observation[13])
+            b = observation[14] - k * observation[13]
 
-        self._kuka.endEffectorPos[0] = observation[13] - 0.1
-        self._kuka.endEffectorPos[1] = k * (observation[13] - 0.1) + b
-        self._kuka.endEffectorPos[2] = observation[15] + 0.251
-        self._kuka.endEffectorAngle = 1.5
+            self._kuka.endEffectorPos[0] = observation[13] - 0.1
+            self._kuka.endEffectorPos[1] = k * (observation[13] - 0.1) + b
+            self._kuka.endEffectorPos[2] = observation[15] + 0.251
+            self._kuka.endEffectorAngle = 1.5
 
-        for _ in range(self._actionRepeat):
-            p.stepSimulation()
+            for _ in range(self._actionRepeat):
+                p.stepSimulation()
+
+        elif self._operation == "put":
+            # move th effector in the position above the block
+            self._kuka.endEffectorPos[0] = observation[13]
+            self._kuka.endEffectorPos[1] = observation[14]
+            self._kuka.endEffectorPos[2] = observation[15] + 0.251
+            self._kuka.endEffectorAngle = 1.5
+
+            for _ in range(self._actionRepeat):
+                p.stepSimulation()
 
         #self._num_env_rep += 1 TODO: delete
 
@@ -207,12 +221,32 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         objectUids = []
         i = 0
         for _ in range(urdfList):
-            xpos = 0.4 + self._blockRandom * random.random()
-            ypos = self._blockRandom * (random.random() - .5)
 
-            if i == 1:
-                xpos = xpos + 0.12 + self._blockRandom * random.random()
-                ypos = self._blockRandom * (random.random() - .5)
+            if self._isTest == 0:
+
+                if i != 1:
+                    xpos = 0.4 + self._blockRandom * random.random()
+                    ypos = self._blockRandom * (random.random() - .5)
+
+                elif i == 1:
+
+                    if self._isTest == 0:
+                        xpos = xpos + 0.22 + self._blockRandom * random.random()
+                        ypos = self._blockRandom * (random.random() - .5)
+
+            elif self._isTest == 1:
+
+                if i == 0:
+                    xpos = 0.5
+                    ypos = 0.1
+
+                elif i == 1:
+                    xpos = xpos + 0.3
+                    ypos = -0.1
+
+                elif i == 2:
+                    xpos = 0.6
+                    ypos = -0.2
 
             angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
             orn = p.getQuaternionFromEuler([0, 0, angle])
@@ -413,67 +447,60 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if not self._bl_bl_dist_origin:
             self._bl_bl_dist_origin = self.bl_bl_distance
 
-        '''
-        # Hardcoded grasping
-        #if end_effector_pos[2] <= 0.23:  # Z coordinate
-        if self.distance < 0.005: #0.045:  # Z coordinate
-            from math import pi
-            finger_angle = 0.3
+        if self._operation == "pick" or self._operation == "put":
+            # Hardcoded grasping
+            if self.distance1 < 0.005 and not self._attempted_grasp:
+                from math import pi
+                finger_angle = 0.3
 
-            while finger_angle > 0:
-                grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
-                self._kuka.applyAction(grasp_action)
-                p.stepSimulation()
-                #if self._renders:
-                #    time.sleep(self._timeStep)
-                finger_angle -= 0.3 / 100.
-                if finger_angle < 0:
-                    finger_angle = 0
+                while finger_angle > 0:
+                    grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
+                    self._kuka.applyAction(grasp_action)
+                    p.stepSimulation()
+                    #if self._renders:
+                    #    time.sleep(self._timeStep)
+                    finger_angle -= 0.3 / 100.
+                    if finger_angle < 0:
+                        finger_angle = 0
 
-            # Move the hand up TODO: delete
-            for _ in range(250):
-                grasp_action = [0, 0, 0.001, 0, 0, -pi, 0, finger_angle]
-                self._kuka.applyAction(grasp_action)
-                p.stepSimulation()
-                if self._renders:
-                    time.sleep(self._timeStep)
-                #finger_angle -= 0.3 / 100.
-                #if finger_angle < 0:
-                #    finger_angle = 0
-        
-            self._attempted_grasp = True  # TODO: delete attempted_grasp
-            '''
+                # Move the hand up
+                for _ in range(1):
+                    grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
+                    self._kuka.applyAction(grasp_action)
+                    p.stepSimulation()
+                    if self._renders:
+                        time.sleep(self._timeStep)
+
+                self._attempted_grasp = True  # TODO: delete attempted_grasp
+
         observation = self._get_observation(isGripperIndex=True)
         reward = self._reward()
         done = self._termination()
         #print("_________INTERNAL REWARD________", reward)
 
         debug = {
-            'grasp_success': self._graspSuccess,
             'goal_id': self._goal,
             'distance1': self.distance1,
-            'distance2': self.distance2,
-            'dif': self.distance1 - self.distance2,
-            'bl_bl_dist': self.bl_bl_distance
+            'distance2': self.distance2
         }
         return observation, reward, done, debug
 
     def _reward(self):
         """Calculates the reward for the episode.
-
+        :return: float
         """
-        if self._isSparseReward:
-            return self._sparse_reward()
-        else:
+        if self._operation == "pick":
+            return self._reward_pick()
+        elif self._operation == "push":
             return self._reward_push()
+        elif self._operation == "put":
+            return self._reward_put()
 
-    def _dense_reward(self):
+    def _reward_pick(self):
         """Dense reward function for picking
         :return: float
         """
         from numpy.core.umath_tests import inner1d
-
-        self._graspSuccess = 0
 
         # Unpack the block's coordinate
         grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
@@ -496,7 +523,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # If the block is above the ground, provide extra reward
             #print("Z tried:", z)
             if z > 0.05:
-                self._graspSuccess += 1
                 #print("Z + 50:", z)
                 return 50.0 + z * 10.0
             return -1.0
@@ -508,12 +534,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
     def _reward_push(self):
         """
         Reward function for pushing
-        :return:
+        :return: float
         """
         from numpy.core.umath_tests import inner1d
         from math import pi
-
-        self._graspSuccess = 0 # TODO: delete
 
         # Unpack the block's coordinate
         grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
@@ -549,6 +573,49 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             return 50
         else:
             return - self.bl_bl_distance - action_norm - action_fingers
+
+    def _reward_put(self):
+        """
+        Reward function for putting
+        :return: float
+        """
+        from numpy.core.umath_tests import inner1d
+        from math import pi
+
+        # Unpack the block's coordinate
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
+
+        # Get the goal block's coordinates
+        x, y, z, _, _, _ = block_pos[self._goal - 2]
+
+        # Negative reward for every extra action
+        action_norm = inner1d(self.action[0:4], self.action[0:4])
+        # a hack to be fixed in future
+        action_fingers = (0.0 - self.action[7]) ** 2 + (0.0 - self.action[4]) ** 2 +\
+                         (-pi - self.action[5]) ** 2 + (0.0 - self.action[6]) ** 2
+
+        #print("DISTANCE", self.distance, "BL BL DST", self.bl_bl_distance)
+        '''
+        if self.distance1 < 0.01:
+            if not self._isInProximity:
+                self._isInProximity = True
+                return 50.0
+            else:
+                if self.bl_bl_distance < 0.01:
+                    self._attempted_grasp = True
+                    return 50
+                else:
+                    return 1 - self.bl_bl_distance / self._bl_bl_dist_origin - action_norm - action_fingers
+        elif self.distance1 > 0.01 and self._isInProximity:
+            return -5
+        else:
+            return - 10 * self.distance1 - action_norm - action_fingers
+        '''
+        if self.distance2 < 0.01:
+            self._done = True
+            return 50
+        else:
+            return - self.distance2 - action_norm - action_fingers
 
 
     def _choose_block(self):
@@ -604,29 +671,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         return gr_bl1_distance, gr_bl2_distance, bl_bl_distance
 
-    def _sparse_reward(self):
-        """Calculates the reward for the episode.
-
-        The reward is 1 if one of the objects is above height .2 at the end of the
-        episode.
-        """
-        reward = 0
-        self._graspSuccess = 0
-        for uid in self._objectUids:
-            pos, _ = p.getBasePositionAndOrientation(uid)
-            # If any block is above height, provide reward.
-            if pos[2] > 0.2:
-                self._graspSuccess += 1
-                reward = 1
-                break
-        return reward
-
     def _termination(self):
         """Terminates the episode if we have tried to grasp or if we are above
         maxSteps steps.
         """
-        # return self._env_step >= self._maxSteps  # TODO: add new termination requirements
-        return self._attempted_grasp or self._env_step >= self._maxSteps  # TODO: delete attempted_grasp
+        if self._operation == "pick":
+            return self._attempted_grasp or self._env_step >= self._maxSteps
+        else:
+            return self._env_step >= self._maxSteps
 
     def _get_random_object(self, num_objects, test):
         """Randomly choose an object urdf from the random_urdfs directory.
