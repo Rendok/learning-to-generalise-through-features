@@ -678,7 +678,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._operation == "pick":
             return self._attempted_grasp or self._env_step >= self._maxSteps
         else:
-            return self._env_step >= self._maxSteps
+            return self._done or self._env_step >= self._maxSteps
 
     def _get_random_object(self, num_objects, test):
         """Randomly choose an object urdf from the random_urdfs directory.
