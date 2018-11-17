@@ -174,7 +174,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             self._kuka.endEffectorPos[0] = observation[13] - 0.1
             self._kuka.endEffectorPos[1] = k * (observation[13] - 0.1) + b
             self._kuka.endEffectorPos[2] = observation[15] + 0.251
-            self._kuka.endEffectorAngle = observation[17] #1.5
+            self._kuka.endEffectorAngle = 1.5
 
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
@@ -182,12 +182,17 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         elif self._operation == "put":
             # move th effector in the position above the block
             self._kuka.endEffectorPos[0] = observation[13]
-            self._kuka.endEffectorPos[1] = observation[14]
-            self._kuka.endEffectorPos[2] = observation[15] + 0.251
-            self._kuka.endEffectorAngle = 1.0
+            self._kuka.endEffectorPos[1] = observation[14] - 0.01
+            self._kuka.endEffectorPos[2] = observation[15] + 0.27
+            self._kuka.endEffectorAngle = observation[16]
 
-            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.3])
+            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(5*self._actionRepeat):
+                p.stepSimulation()
+
+            self._kuka.endEffectorPos[2] = observation[15] + 0.251
+            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
+            for _ in range(self._actionRepeat):
                 p.stepSimulation()
 
         if self._operation == "put":
@@ -254,14 +259,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 if i != 1:
                     xpos = 0.4 + self._blockRandom * random.random()
                     ypos = self._blockRandom * (random.random() - .5)
-                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+                    angle = np.pi / 2
                     orn = p.getQuaternionFromEuler([0, 0, angle])
 
                 elif i == 1:
 
                     xpos = xpos + 0.22 + self._blockRandom * random.random()
                     ypos = self._blockRandom * (random.random() - .5)
-                    angle = np.pi / 2
+                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
                     orn = p.getQuaternionFromEuler([0, 0, angle])
 
             elif self._isTest == 1:

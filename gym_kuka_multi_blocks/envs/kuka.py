@@ -39,7 +39,8 @@ class Kuka:
     self.reset()
     
   def reset(self):
-    objects = p.loadSDF(os.path.join(self.urdfRootPath,"kuka_iiwa/kuka_with_gripper2.sdf"))
+    #objects = p.loadSDF(os.path.join(self.urdfRootPath,"kuka/kuka_with_gripper.sdf"))
+    objects = p.loadSDF("/Users/dgrebenyuk/research/rl-task-planning/gym_kuka_multi_blocks/envs/assets/kuka/kuka_with_gripper.sdf")
     self.kukaUid = objects[0]
     #for i in range (p.getNumJoints(self.kukaUid)):
     #  print(p.getJointInfo(self.kukaUid,i))
