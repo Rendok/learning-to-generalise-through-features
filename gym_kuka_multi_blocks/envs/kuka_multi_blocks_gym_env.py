@@ -627,7 +627,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         action_fingers = (0.0 - self.action[7]) ** 2 + (0.0 - self.action[4]) ** 2 +\
                          (-pi - self.action[5]) ** 2 + (0.0 - self.action[6]) ** 2
 
-        if self.bl_bl_distance[0] < 0.001 and self.bl_bl_distance[1] < 0.05:
+        if self.bl_bl_distance[0] < 0.001 and self.bl_bl_distance[1] < 0.01:
             self._done = True
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(self._actionRepeat):
