@@ -645,11 +645,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             return - 10 * self.distance1 - action_norm - action_fingers
         '''
-        if self.distance2 < 0.01:
+        if self.bl_bl_distance < 0.01:
             self._done = True
             return 50
         else:
-            return - self.distance2 - action_norm - action_fingers
+            return - self.bl_bl_distance - action_norm - action_fingers
 
 
     def _choose_block(self):
