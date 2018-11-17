@@ -121,14 +121,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #self._num_env_rep = 0 # TODO: delete
 
         #self._isInProximity = False
-        self._bl_bl_dist_origin = None
+        #self._bl_bl_dist_origin = None
         self._operation = operation
-        self._done = False
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
         """
         self._attempted_grasp = False  # TODO delete
+        self._done = False
         self._env_step = 0
         self.terminated = 0
 
