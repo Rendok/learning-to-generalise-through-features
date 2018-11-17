@@ -477,7 +477,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._renders:
             time.sleep(10 * self._timeStep)
 
-
         self.distance1, self.distance2, self.bl_bl_distance = self._get_distance_to_goal()
 
 
@@ -645,8 +644,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             return - 10 * self.distance1 - action_norm - action_fingers
         '''
-        if self.bl_bl_distance < 0.01:
+        if self.distance2[0] < 0.001 and self.distance2[1] < 0.1:
             self._done = True
+            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
+            for _ in range(self._actionRepeat):
+                p.stepSimulation()
             return 50
         else:
             return - self.bl_bl_distance - self.distance1 - action_norm - action_fingers
@@ -698,12 +700,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         gr_bl1_distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
 
         # Distance
-        gr_bl2_distance = (x1 - grip_pos[0]) ** 2 + (y1 - grip_pos[1]) ** 2 + (z1 - grip_pos[2]) ** 2
+        #gr_bl2_distance = (x1 - grip_pos[0]) ** 2 + (y1 - grip_pos[1]) ** 2 + (z1 - grip_pos[2]) ** 2
+        gr_bl2_distance_x_y = (x1 - grip_pos[0]) ** 2 + (y1 - grip_pos[1]) ** 2
+        gr_bl2_distance_z = (z1 - grip_pos[2]) ** 2
 
         # Distance
         bl_bl_distance = (x1 - x) ** 2 + (y1 - y) ** 2 + (z1 - z) ** 2
 
-        return gr_bl1_distance, gr_bl2_distance, bl_bl_distance
+        return gr_bl1_distance, [gr_bl2_distance_x_y, gr_bl2_distance_z], bl_bl_distance
 
     def _termination(self):
         """Terminates the episode if we have tried to grasp or if we are above
