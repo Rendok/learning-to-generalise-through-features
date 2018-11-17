@@ -264,7 +264,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
                 elif i == 1:
 
-                    xpos = xpos + 0.22 + self._blockRandom * random.random()
+                    xpos = xpos + 0.1 + self._blockRandom * random.random()
                     ypos = self._blockRandom * (random.random() - .5)
                     angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
                     orn = p.getQuaternionFromEuler([0, 0, angle])
@@ -644,7 +644,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             return - 10 * self.distance1 - action_norm - action_fingers
         '''
-        if self.distance2[0] < 0.001 and self.distance2[1] < 0.1:
+        if self.distance2[0] < 0.001 and self.distance2[1] < 0.01:
             self._done = True
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(self._actionRepeat):
