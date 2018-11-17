@@ -163,6 +163,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # set observations
         observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
 
+        from math import pi
+
         if self._operation == "push":
             # move the effector in the position next to the block
             # y = k * x + b
@@ -172,7 +174,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             self._kuka.endEffectorPos[0] = observation[13] - 0.1
             self._kuka.endEffectorPos[1] = k * (observation[13] - 0.1) + b
             self._kuka.endEffectorPos[2] = observation[15] + 0.251
-            self._kuka.endEffectorAngle = 1.5
+            self._kuka.endEffectorAngle = observation[17] #1.5
 
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
@@ -182,10 +184,35 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             self._kuka.endEffectorPos[0] = observation[13]
             self._kuka.endEffectorPos[1] = observation[14]
             self._kuka.endEffectorPos[2] = observation[15] + 0.251
-            self._kuka.endEffectorAngle = 1.5
+            self._kuka.endEffectorAngle = 1.0
 
-            for _ in range(self._actionRepeat):
+            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.3])
+            for _ in range(5*self._actionRepeat):
                 p.stepSimulation()
+
+        if self._operation == "put":
+            # Hardcoded grasping
+
+            finger_angle = 0.3
+
+            while finger_angle > 0:
+                grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
+                self._kuka.applyAction(grasp_action)
+                p.stepSimulation()
+                #if self._renders:
+                #    time.sleep(self._timeStep)
+                finger_angle -= 0.3 / 100.
+                if finger_angle < 0:
+                    finger_angle = 0
+
+            # Move the hand up
+            for _ in range(1):
+                grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
+                self._kuka.applyAction(grasp_action)
+                p.stepSimulation()
+                if self._renders:
+                    time.sleep(self._timeStep)
+
 
         #self._num_env_rep += 1 TODO: delete
 
@@ -227,29 +254,38 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 if i != 1:
                     xpos = 0.4 + self._blockRandom * random.random()
                     ypos = self._blockRandom * (random.random() - .5)
+                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
 
                 elif i == 1:
 
-                    if self._isTest == 0:
-                        xpos = xpos + 0.22 + self._blockRandom * random.random()
-                        ypos = self._blockRandom * (random.random() - .5)
+                    xpos = xpos + 0.22 + self._blockRandom * random.random()
+                    ypos = self._blockRandom * (random.random() - .5)
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
 
             elif self._isTest == 1:
 
                 if i == 0:
                     xpos = 0.5
                     ypos = 0.1
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
 
                 elif i == 1:
                     xpos = xpos + 0.3
                     ypos = -0.1
+                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
 
                 elif i == 2:
                     xpos = 0.6
                     ypos = -0.2
+                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
 
-            angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
-            orn = p.getQuaternionFromEuler([0, 0, angle])
+            #angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+            #orn = p.getQuaternionFromEuler([0, 0, angle])
             urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
             uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
                              [orn[0], orn[1], orn[2], orn[3]])
@@ -436,18 +472,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._renders:
             time.sleep(10 * self._timeStep)
 
-        '''# If we are close to the bin, attempt grasp.
-        state = p.getLinkState(self._kuka.kukaUid,
-                               self._kuka.kukaEndEffectorIndex)
-        end_effector_pos = state[0]
-        '''
 
         self.distance1, self.distance2, self.bl_bl_distance = self._get_distance_to_goal()
 
-        if not self._bl_bl_dist_origin:
-            self._bl_bl_dist_origin = self.bl_bl_distance
 
-        if self._operation == "pick" or self._operation == "put":
+        if self._operation == "pick":
             # Hardcoded grasping
             if self.distance1 < 0.005 and not self._attempted_grasp:
                 from math import pi
