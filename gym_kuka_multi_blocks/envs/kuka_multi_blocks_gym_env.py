@@ -272,15 +272,15 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             elif self._isTest == 1:
 
                 if i == 0:
-                    xpos = 0.5
+                    xpos = 0.55
                     ypos = 0.1
                     angle = np.pi / 2
                     orn = p.getQuaternionFromEuler([0, 0, angle])
 
                 elif i == 1:
-                    xpos = xpos + 0.3
+                    xpos = xpos + 0.25
                     ypos = -0.1
-                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+                    angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
                     orn = p.getQuaternionFromEuler([0, 0, angle])
 
                 elif i == 2:
