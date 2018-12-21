@@ -20,9 +20,6 @@ from pddlstream.language.generator import from_gen_fn, from_fn, empty_gen
 from pddlstream.language.synthesizer import StreamSynthesizer
 from pddlstream.utils import print_solution, read, INF, get_file_path, find_unique
 
-import pybullet as p
-import pybullet_data
-import os
 
 USE_SYNTHESIZERS = False
 
@@ -159,13 +156,7 @@ def load_world():
         block5 = load_model(BLOCK_URDF, fixed_base=False)
         block6 = load_model(BLOCK_URDF, fixed_base=False)
         block7 = load_model(BLOCK_URDF, fixed_base=False)
-
-        _urdfRoot = pybullet_data.getDataPath()
-        #urdf_path = os.path.join(_urdfRoot, "cube_small.urdf")  # urdf_name
-
-        #angle = 3.1481 / 2
-        #orn = p.getQuaternionFromEuler([0, 0, angle])
-        #uid = p.loadURDF(urdf_path, [0.55, 0.1, 1.15], orn)
+        block8 = load_model(BLOCK_URDF, fixed_base=False)
 
         cup = load_model('models/cup.urdf',  #'models/dinnerware/cup/cup_small.urdf'
                          fixed_base=False)
@@ -176,7 +167,7 @@ def load_world():
         block: 'celery',
         cup: 'cup',
     }
-    movable_bodies = [block, cup, block1, block2, block3, block4, block5, block6, block7]
+    movable_bodies = [block, cup, block1, block2, block3, block4, block5, block6, block7, block8]
 
     set_pose(block, Pose(Point(x=0.1, y=0.5, z=stable_z(block, floor))))
 
@@ -187,6 +178,7 @@ def load_world():
     set_pose(block5, Pose(Point(x=-0.1, y=0.65, z=stable_z(block5, floor))))
     set_pose(block6, Pose(Point(x=0.1, y=0.35, z=stable_z(block6, floor))))
     set_pose(block7, Pose(Point(x=-0.1, y=0.35, z=stable_z(block7, floor))))
+    set_pose(block8, Pose(Point(x=0, y=0.5, z=0.45)))
 
     set_pose(cup, Pose(Point(y=0.5, z=stable_z(cup, floor))))
     set_default_camera()
@@ -216,22 +208,11 @@ def main(viewer=False, display=True, simulate=False, teleport=False):
     # TODO: getopt
 
     connect(use_gui=viewer)
-    #connect(p.DIRECT)
-
-    p.setPhysicsEngineParameter(numSolverIterations=150)
-    #_timeStep = 1. / 240.
-    #p.setTimeStep(_timeStep)
-    p.setGravity(0, 0, -10)
 
     robot, names, movable = load_world()
 
-    #for _ in range(500):
-    #    p.stepSimulation()
-
     saved_world = WorldSaver()
     # dump_world()
-
-    #print(p.getBasePositionAndOrientation(6))
 
     pddlstream_problem = pddlstream_from_problem(robot, movable=movable,
                                                  teleport=teleport, movable_collisions=True)
