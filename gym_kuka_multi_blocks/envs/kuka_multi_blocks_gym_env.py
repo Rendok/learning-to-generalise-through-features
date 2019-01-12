@@ -138,21 +138,18 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         p.setTimeStep(self._timeStep)
         p.setGravity(0, 0, -10)
 
-        # load a table
-        p.loadURDF(os.path.join(self._urdfRoot, "plane.urdf"), [0, 0, -1]) #-.820000
+        self.load_world()
 
-        p.loadURDF(os.path.join(self._urdfRoot, "table/table.urdf"), 0.5000000, 0.00000, -.700000, 0.000000, 0.000000,
-                   0.0, 1.0)
+        # load a table
+        #p.loadURDF(os.path.join(self._urdfRoot, "plane.urdf"), [0, 0, -1]) #-.820000
+
+        #p.loadURDF(os.path.join(self._urdfRoot, "table/table.urdf"), 0.5000000, 0.00000, -.700000, 0.000000, 0.000000,
+        #           0.0, 1.0)
 
         # load a kuka arm
         self._kuka = kuka.Kuka(urdfRootPath=self._urdfRoot, timeStep=self._timeStep)
         self._envStepCounter = 0
         p.stepSimulation()
-
-        # Choose the objects in the bin.
-        # urdfList = self._get_random_object(
-        #    self._numObjects, self._isTest)
-        # self._objectUids = self._randomly_place_objects(urdfList)
 
         # Generate the # of blocks
         self._objectUids = self._randomly_place_objects(self._numObjects)
@@ -730,3 +727,59 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         reset = _reset
 
         step = _step
+
+    def load_world(self):
+        """
+        Loads the environment initial state
+        :return:
+        """
+        import sys
+        sys.path.append("/Users/dgrebenyuk/Research/pddlstream")
+        from examples.pybullet.utils.pybullet_tools.utils import load_model
+
+        from examples.pybullet.utils.pybullet_tools.kuka_primitives import BodyPose, BodyConf, Command, get_grasp_gen, \
+            get_stable_gen, get_ik_fn, get_free_motion_gen, \
+            get_holding_motion_gen, get_movable_collision_test
+
+        from examples.pybullet.utils.pybullet_tools.utils import WorldSaver, connect, dump_world, get_pose, set_pose, \
+            Pose, \
+            Point, set_default_camera, stable_z, \
+            BLOCK_URDF, get_configuration, SINK_URDF, STOVE_URDF, load_model, is_placement, get_body_name, \
+            disconnect, DRAKE_IIWA_URDF, get_bodies, user_input, HideOutput, KUKA_IIWA_URDF
+
+        # load a table
+        #p.loadURDF(os.path.join(self._urdfRoot, "plane.urdf"), [0, 0, -1])
+
+        #p.loadURDF(os.path.join(self._urdfRoot, "table/table.urdf"), 0.5000000, 0.00000, -.700000, 0.000000, 0.000000,
+        #           0.0, 1.0)
+
+        # load a kuka arm
+        #self._kuka = kuka.Kuka(urdfRootPath=self._urdfRoot, timeStep=self._timeStep)
+
+        robot = load_model(os.path.join(self._urdfRoot,"kuka_iiwa/kuka_with_gripper2.sdf"))
+
+        floor = load_model('models/short_floor.urdf')
+        table = load_model(os.path.join(self._urdfRoot, "plane.urdf"))
+        #sink = load_model(SINK_URDF, pose=Pose(Point(x=-0.5)))
+        #stove = load_model(STOVE_URDF, pose=Pose(Point(x=+0.5)))
+        #block = load_model(BLOCK_URDF, fixed_base=False)
+
+        cup = load_model('models/cup.urdf',  #'models/dinnerware/cup/cup_small.urdf'
+                             fixed_base=False)
+
+        body_names = {
+            #sink: 'sink',
+            #stove: 'stove',
+            #block: 'celery',
+            table: 'table',
+            cup: 'cup',
+        }
+        movable_bodies = [cup]
+
+        #set_pose(block, Pose(Point(x=0.1, y=0.5, z=stable_z(block, floor))))
+
+        set_pose(cup, Pose(Point(y=0.5, z=stable_z(cup, floor))))
+        set_default_camera()
+
+
+        return robot, body_names, movable_bodies

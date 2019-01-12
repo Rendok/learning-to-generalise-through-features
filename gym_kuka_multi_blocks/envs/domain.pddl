@@ -3,7 +3,7 @@
   (:predicates
     (Stackable ?o ?r)
     (Sink ?r)
-    (Stove ?r)
+    ;(Stove ?r)
 
     (Grasp ?o ?g)
     (Kin ?o ?p ?g ?q ?t)
@@ -18,7 +18,7 @@
     (AtConf ?q)
     (CanMove)
     (Cleaned ?o)
-    (Cooked ?o)
+    ;(Cooked ?o)
 
     (On ?o ?r)
     (Holding ?o)
@@ -59,13 +59,13 @@
                        (On ?o ?r))
     :effect (Cleaned ?o)
   )
-  (:action cook
-    :parameters (?o ?r)
-    :precondition (and (Stackable ?o ?r) (Stove ?r)
-                       (On ?o ?r) (Cleaned ?o))
-    :effect (and (Cooked ?o)
-                 (not (Cleaned ?o)))
-  )
+  ;(:action cook
+  ;  :parameters (?o ?r)
+  ;  :precondition (and (Stackable ?o ?r) (Stove ?r)
+  ;                     (On ?o ?r) (Cleaned ?o))
+  ;  :effect (and (Cooked ?o)
+  ;               (not (Cleaned ?o)))
+  ;)
 
   (:derived (On ?o ?r)
     (exists (?p) (and (Supported ?o ?p ?r)

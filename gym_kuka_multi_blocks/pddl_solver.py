@@ -14,11 +14,12 @@ from examples.pybullet.utils.pybullet_tools.kuka_primitives import BodyPose, Bod
 from examples.pybullet.utils.pybullet_tools.utils import WorldSaver, connect, dump_world, get_pose, set_pose, Pose, \
     Point, set_default_camera, stable_z, \
     BLOCK_URDF, get_configuration, SINK_URDF, STOVE_URDF, load_model, is_placement, get_body_name, \
-    disconnect, DRAKE_IIWA_URDF, get_bodies, user_input, HideOutput
+    disconnect, DRAKE_IIWA_URDF, get_bodies, user_input, HideOutput, KUKA_IIWA_URDF
 from pddlstream.algorithms.focused import solve_focused
 from pddlstream.language.generator import from_gen_fn, from_fn, empty_gen
 from pddlstream.language.synthesizer import StreamSynthesizer
 from pddlstream.utils import print_solution, read, INF, get_file_path, find_unique
+import pybullet as p
 
 
 USE_SYNTHESIZERS = False
@@ -149,15 +150,6 @@ def load_world():
         stove = load_model(STOVE_URDF, pose=Pose(Point(x=+0.5)))
         block = load_model(BLOCK_URDF, fixed_base=False)
 
-        block1 = load_model(BLOCK_URDF, fixed_base=False)
-        block2 = load_model(BLOCK_URDF, fixed_base=False)
-        block3 = load_model(BLOCK_URDF, fixed_base=False)
-        block4 = load_model(BLOCK_URDF, fixed_base=False)
-        block5 = load_model(BLOCK_URDF, fixed_base=False)
-        block6 = load_model(BLOCK_URDF, fixed_base=False)
-        block7 = load_model(BLOCK_URDF, fixed_base=False)
-        block8 = load_model(BLOCK_URDF, fixed_base=False)
-
         cup = load_model('models/cup.urdf',  #'models/dinnerware/cup/cup_small.urdf'
                          fixed_base=False)
 
@@ -167,18 +159,9 @@ def load_world():
         block: 'celery',
         cup: 'cup',
     }
-    movable_bodies = [block, cup, block1, block2, block3, block4, block5, block6, block7, block8]
+    movable_bodies = [block, cup]
 
     set_pose(block, Pose(Point(x=0.1, y=0.5, z=stable_z(block, floor))))
-
-    set_pose(block1, Pose(Point(x=-0.1, y=0.5, z=stable_z(block1, floor))))
-    set_pose(block2, Pose(Point(y=0.35, z=stable_z(block2, floor))))
-    set_pose(block3, Pose(Point(y=0.65, z=stable_z(block3, floor))))
-    set_pose(block4, Pose(Point(x=0.1, y=0.65, z=stable_z(block4, floor))))
-    set_pose(block5, Pose(Point(x=-0.1, y=0.65, z=stable_z(block5, floor))))
-    set_pose(block6, Pose(Point(x=0.1, y=0.35, z=stable_z(block6, floor))))
-    set_pose(block7, Pose(Point(x=-0.1, y=0.35, z=stable_z(block7, floor))))
-    set_pose(block8, Pose(Point(x=0, y=0.5, z=0.45)))
 
     set_pose(cup, Pose(Point(y=0.5, z=stable_z(cup, floor))))
     set_default_camera()
@@ -194,12 +177,14 @@ def postprocess_plan(plan):
         elif name in ['move', 'move_free', 'move_holding', 'pick']:
             paths += args[-1].body_paths
 
+    print(paths)
+
     return Command(paths)
 
 
 #######################################################
 
-def main(viewer=False, display=True, simulate=False, teleport=False):
+def solve(viewer=False, display=True, simulate=False, teleport=False):
     # TODO: fix argparse & FastDownward
     # parser = argparse.ArgumentParser()  # Automatically includes help
     # parser.add_argument('-viewer', action='store_true', help='enable viewer.')
@@ -207,7 +192,8 @@ def main(viewer=False, display=True, simulate=False, teleport=False):
     # args = parser.parse_args()
     # TODO: getopt
 
-    connect(use_gui=viewer)
+    # the solver needs to be connected to an environment to check ?something?
+    connect(use_gui=False)
 
     robot, names, movable = load_world()
 
@@ -234,10 +220,16 @@ def main(viewer=False, display=True, simulate=False, teleport=False):
     pr.enable()
     solution = solve_focused(pddlstream_problem, synthesizers=synthesizers, max_cost=INF)
     print_solution(solution)
-    plan, cost, evaluations = solution
+    #plan, cost, evaluations = solution
     pr.disable()
     # print stats
     pstats.Stats(pr).sort_stats('tottime').print_stats(10)
+    p.disconnect()
+    #disconnect()
+
+    return solution
+
+def execute(plan, viewer=False, display=True, simulate=False, teleport=False):
 
     if plan is None:
         return
@@ -246,12 +238,12 @@ def main(viewer=False, display=True, simulate=False, teleport=False):
         disconnect()
         return
 
-    if not viewer:  # TODO: how to reenable the viewer
-        disconnect()
+    if not viewer:
+        #disconnect()
         connect(use_gui=True)
         load_world()
     else:
-        saved_world.restore()
+        pass #saved_world.restore()
 
     command = postprocess_plan(plan)
 
@@ -264,8 +256,10 @@ def main(viewer=False, display=True, simulate=False, teleport=False):
 
     # wait_for_interrupt()
     #user_input('Finish?')
-    disconnect()
 
 
 if __name__ == '__main__':
-    main()
+    plan, cost, evaluations = solve()
+    a, b = plan[1]
+    print(plan[1], b[-3], b[-3].body, b[-3].grasp_pose, b[-3].approach_pose, b[-3].robot, b[-3].link, type(b[-3]))
+    #execute(plan)
