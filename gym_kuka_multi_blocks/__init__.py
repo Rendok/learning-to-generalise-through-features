@@ -20,10 +20,8 @@ register(
 )
 
 register(
-    id='KukaCamMultiBlocks-v0',
-    entry_point='gym_kuka_multi_blocks.envs:KukaCamMultiBlocksEnv',
-    timestep_limit=1000,
-    reward_threshold=5.0,
+    id='KukaHRLEnv-v0',
+    entry_point='gym_kuka_multi_blocks.envs:KukaHRLEnv',
 )
 
 

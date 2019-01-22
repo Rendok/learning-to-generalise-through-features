@@ -39,3 +39,4 @@ def inverse_kinematics(robot, link, pose, max_iterations=200, tolerance=1e-3):
         return None
     #set_joint_positions(robot, movable_joints, kinematic_conf)
     return kinematic_conf
+    #return (target_pos, target_orn)
