@@ -14,34 +14,39 @@ import argparse
 def env_creator(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_hrl_env as e
 
-    print("plan: \n", plan)
+    #print("plan: \n", plan)
 
-    env = e.KukaHRLEnv(renders=renders, plan=plan)
-    return env
+    return e.KukaHRLEnv(renders=renders)
 
 if __name__ == '__main__':
-    env = e.KukaHRLEnv(renders=False, plan=[])
+    env = e.KukaHRLEnv(renders=True)
 
 
-    plan, cost, evaluations = env.solve(load_world=env.load_world,
-                                        pddlstream_from_problem=env.pddlstream_from_problem,
-                                        teleport=True)
+    #plan, cost, evaluations = env.solve(load_world=env.load_world,
+    #                                    pddlstream_from_problem=env.pddlstream_from_problem,
+    #                                    teleport=True)
+
+    for _ in range(5):
+        obs, *args = env.step([0, 0, 0, 0])
+    #obs = env.reset()
+
+    print("shape", obs.shape)
 
     #print("plan: \n", plan)
     #print("cost", cost)
     #print("evaluation", evaluations)
 
-    #env.execute_rl_action(plan[0])
+    #env.execute_rl_action(plan[0]);
     #env.reset(render=True)
 
     # register a custom environment
     register_env("KukaHRLEnv-v0", env_creator)
 
     # assign model variables to commandline arguments
-    ray.init()
+    #ray.init()
 
     # run an experiment with a config
-    tune.run_experiments({
+    '''tune.run_experiments({
         "my_experiment": {
             "run": "PPO",
             "env": "KukaHRLEnv-v0",
@@ -53,11 +58,11 @@ if __name__ == '__main__':
                 "num_workers": 1,
                 "num_envs_per_worker": 1,
                 "horizon": 20,
-                "sample_batch_size": 50,
-                "train_batch_size": 2500,
+                "sample_batch_size": 5,
+                "train_batch_size": 128, #2500,
             },
         },
-    })
+    })'''
 
     #observation, reward, _, info = env.step([0, 0, 0, 0])
 
