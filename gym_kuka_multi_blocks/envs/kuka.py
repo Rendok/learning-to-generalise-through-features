@@ -125,8 +125,7 @@ class Kuka:
       #print(actualEndEffectorPos[2])
       #if (dz<0 or actualEndEffectorPos[2]<0.5):
       self.endEffectorPos[2] = self.endEffectorPos[2]+dz
-    
-     
+
       self.endEffectorAngle = self.endEffectorAngle + da
       pos = self.endEffectorPos
       orn = p.getQuaternionFromEuler(fingerOrn)  # -math.pi,yaw])

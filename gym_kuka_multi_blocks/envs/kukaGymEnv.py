@@ -98,8 +98,8 @@ class KukaGymEnv(gym.Env):
     self._observation = self.getExtendedObservation()
     return np.array(self._observation)
 
-  def __del__(self):
-    p.disconnect()
+  #def __del__(self):
+  #  p.disconnect()
 
   def _seed(self, seed=None):
     self.np_random, seed = seeding.np_random(seed)

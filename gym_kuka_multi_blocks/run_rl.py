@@ -22,23 +22,13 @@ def env_creator_kuka_bl(renders=False):
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=2,
                                isDiscrete=False,
-                               isTest=1,
+                               isTest=2,
                                maxSteps=20, # 300,
                                actionRepeat=80,
                                blockRandom=0.3,
-                               operation="put")
+                               operation="pick")
     return env
 #------------------------------------
-
-
-def env_creator_kuka_cam(renders=False):
-    import pybullet_envs.bullet.kuka_diverse_object_gym_env as e
-    env = e.KukaDiverseObjectEnv(renders=True,
-                                 numObjects=3,
-                                 removeHeightHack=True,
-                                 actionRepeat=80,
-                                 maxSteps=20)
-    return env
 
 
 def init_ppo():
@@ -48,13 +38,18 @@ def init_ppo():
 
     config = ppo.DEFAULT_CONFIG.copy()
     config["num_workers"] = 3
-    ray.init()
+
+    #ray.init()
+
     env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_kuka_bl(renders=True))
 
     agent = ppo.PPOAgent(config=config, env="my_env")
-    agent.restore("/Users/dgrebenyuk/ray_results/my_experiment/PPO_KukaMultiBlocks-v0_0_2018-11-17_10-32-28vymty4uw/checkpoint_120/checkpoint-120")
+    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-18_11-36-23ex0za2yl/checkpoint_60/checkpoint-60")
+
+    #agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-03-13_20-40-439sc4vld7/checkpoint_120/checkpoint-120")
 
     return agent, env
+
 
 def init_ddpg():
     from ray.rllib.models import ModelCatalog
@@ -90,12 +85,14 @@ def test_kuka(run, iter = 1):
         while not done:
             action = agent.compute_action(obs)
             obs, rew, done, info = env.step(action)
-            #obs, rew, done, info = env.step([0, 0, 0, 0.1])
+            #obs, rew, done, info = env.step([0, 0, -1, 0])
             print("__________REWARD____________", rew, info)
             reward += rew
         total_reward += reward
     return total_reward / iter
 
 
-print("Kuka's mean reward", test_kuka("PPO"))
+ray.init()
+#print("Kuka's mean reward", test_kuka("PPO"))
+test_kuka("PPO")
 # [ 0.00028128  0.02405984 -0.19820549]

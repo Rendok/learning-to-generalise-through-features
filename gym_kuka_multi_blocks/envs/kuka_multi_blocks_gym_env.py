@@ -36,7 +36,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                  numObjects=3,
                  isTest=0,
                  isSparseReward=False,
-                 operation="put"):
+                 operation="place",
+                 ):
         """Initializes the KukaDiverseObjectEnv.
 
         Args:
@@ -60,10 +61,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
           numObjects: The number of objects in the bin.
           isTest: If 0, blocks are placed in random. If 1, blocks are placed in a test configuration.
           isSparseReward: If true, the reward function is sparse.
-          operation: a string: pick, push, put
+          operation: a string: pick, push, place
         """
 
-        self._isDiscrete = isDiscrete
+        self._isDiscrete = isDiscrete  # TODO: delete
         self._timeStep = 1. / 240.
         self._urdfRoot = urdfRoot
         self._actionRepeat = actionRepeat
@@ -78,7 +79,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._cam_pitch = -31
         self._dv = dv
         self._p = p
-        self._removeHeightHack = removeHeightHack
+        self._removeHeightHack = removeHeightHack # TODO: delete
         self._blockRandom = blockRandom
         self._cameraRandom = cameraRandom
         self._width = width
@@ -86,47 +87,47 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._numObjects = numObjects
         self._isTest = isTest
         self._isSparseReward = isSparseReward
+        self._env_step = 0
+        self._operation = operation
 
         if self._renders:
             self.cid = p.connect(p.SHARED_MEMORY)
-            if (self.cid < 0):
+            if self.cid < 0:
                 self.cid = p.connect(p.GUI)
             p.resetDebugVisualizerCamera(self._cam_dist, self._cam_yaw, self._cam_pitch, [0.52, -0.2, -0.33])
-        else:
+        elif self._isTest >= 0:
             self.cid = p.connect(p.DIRECT)
 
         self._seed()
 
-        if self._isDiscrete:
-            if self._removeHeightHack:
-                self.action_space = spaces.Discrete(9)
-            else:
-                self.action_space = spaces.Discrete(7)
-        else:
-            self.action_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)  # dx, dy, da
-            if self._removeHeightHack:
-                self.action_space = spaces.Box(low=-1,
-                                               high=1,
-                                               shape=(4,),
-                                               dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
+        self.action_space = spaces.Box(low=-1,
+                                       high=1,
+                                       shape=(4,),
+                                       dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
+        #if self._operation == "pick":
         self.observation_space = spaces.Box(low=-100,
                                             high=100,
-                                            shape=(7 + 6 + 6 * self._numObjects,),
+                                            shape=(7 + 8 + 6 * self._numObjects,),
                                             dtype=np.float32)
+        #elif self._operation == "place":
+        #    self.observation_space = spaces.Box(low=-100,
+        #                                        high=100,
+        #                                        shape=(7 + 8 + 6 * self._numObjects,),
+        #                                        dtype=np.float32)
 
         self.viewer = None
 
-        # how many times the environment is repeated
-        #self._num_env_rep = 0 # TODO: delete
-
         #self._isInProximity = False
         #self._bl_bl_dist_origin = None
-        self._operation = operation
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
         """
+
+        from examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, stable_z
+
+
         self._attempted_grasp = False  # TODO delete
         self._done = False
         self._env_step = 0
@@ -138,24 +139,37 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         p.setTimeStep(self._timeStep)
         p.setGravity(0, 0, -10)
 
-        self.load_world()
-
         # load a table
-        #p.loadURDF(os.path.join(self._urdfRoot, "plane.urdf"), [0, 0, -1]) #-.820000
+        p.loadURDF(os.path.join(self._urdfRoot, "plane.urdf"), [0, 0, -1]) #-.820000
 
-        #p.loadURDF(os.path.join(self._urdfRoot, "table/table.urdf"), 0.5000000, 0.00000, -.700000, 0.000000, 0.000000,
-        #           0.0, 1.0)
+        table = p.loadURDF(os.path.join(self._urdfRoot, "table/table.urdf"), 0.5000000, 0.00000, -.700000, 0.000000, 0.000000,
+                   0.0, 1.0)
 
         # load a kuka arm
         self._kuka = kuka.Kuka(urdfRootPath=self._urdfRoot, timeStep=self._timeStep)
         self._envStepCounter = 0
         p.stepSimulation()
 
-        # Generate the # of blocks
-        self._objectUids = self._randomly_place_objects(self._numObjects)
+        if self._isTest == -1:
+            block1 = p.loadURDF(os.path.join(self._urdfRoot, "cube_small.urdf"))
+            block2 = p.loadURDF(os.path.join(self._urdfRoot, "cube_small.urdf"))
+            set_pose(block1, Pose(Point(x=0.5, y=0.0, z=stable_z(block1, table))))
+            set_pose(block2, Pose(Point(x=0.6, y=0.2, z=stable_z(block1, table))))
+            self._objectUids = [block1, block2]
+        else:
+            # Generate the # of blocks
+            self._objectUids = self._randomly_place_objects(self._numObjects)
 
-        # randomly choose a block to be a goal
-        self._goal = self._choose_block()
+        sink = load_model(SINK_URDF)
+        set_pose(sink, Pose(Point(x=1.0, z=stable_z(sink, table))))
+
+        if self._operation == "pick":
+            # randomly choose a block to be a goal
+            self._goal = self._choose_block()
+        elif self._operation == "place":
+            self._goal = self._get_goal_coordinates()
+        else:
+            raise TypeError
 
         # set observations
         observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
@@ -165,34 +179,34 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._operation == "push":
             # move the effector in the position next to the block
             # y = k * x + b
-            k = (observation[20] - observation[14]) / (observation[19] - observation[13])
-            b = observation[14] - k * observation[13]
+            k = (observation[22] - observation[16]) / (observation[21] - observation[15])
+            b = observation[16] - k * observation[15]
 
-            self._kuka.endEffectorPos[0] = observation[13] - 0.1
-            self._kuka.endEffectorPos[1] = k * (observation[13] - 0.1) + b
-            self._kuka.endEffectorPos[2] = observation[15] + 0.251
+            self._kuka.endEffectorPos[0] = observation[15] - 0.1
+            self._kuka.endEffectorPos[1] = k * (observation[15] - 0.1) + b
+            self._kuka.endEffectorPos[2] = observation[17] + 0.251
             self._kuka.endEffectorAngle = 1.5
 
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
 
-        elif self._operation == "put":
+        elif self._operation == "place":
             # move th effector in the position above the block
-            self._kuka.endEffectorPos[0] = observation[13]
-            self._kuka.endEffectorPos[1] = observation[14] - 0.01
-            self._kuka.endEffectorPos[2] = observation[15] + 0.27
-            self._kuka.endEffectorAngle = observation[16]
+            self._kuka.endEffectorPos[0] = observation[15]
+            self._kuka.endEffectorPos[1] = observation[16] - 0.01
+            self._kuka.endEffectorPos[2] = observation[17] + 0.27
+            self._kuka.endEffectorAngle = observation[18]
 
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
-            for _ in range(5*self._actionRepeat):
+            for _ in range(6*self._actionRepeat):
                 p.stepSimulation()
 
-            self._kuka.endEffectorPos[2] = observation[15] + 0.251
+            self._kuka.endEffectorPos[2] = observation[17] + 0.251
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
 
-        if self._operation == "put":
+        if self._operation == "place":
             # Hardcoded grasping
 
             finger_angle = 0.3
@@ -211,14 +225,12 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             for _ in range(1):
                 grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
                 self._kuka.applyAction(grasp_action)
-                p.stepSimulation()
+                for _ in range(self._actionRepeat):
+                    p.stepSimulation()
                 if self._renders:
                     time.sleep(self._timeStep)
 
-
-        #self._num_env_rep += 1 TODO: delete
-
-        return np.array(observation)  # FIXME: ditto
+        return np.array(observation)
 
     def _randomly_place_objects(self, urdfList):
         """Randomly places the objects in the bin.
@@ -229,89 +241,90 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         Returns:
           The list of object unique ID's.
         """
-        '''
+
         # Randomize positions of each object urdf.
         objectUids = []
-        for _ in range(urdfList):
-            xpos = 0.5 + self._blockRandom * random.random()
-            ypos = self._blockRandom * (random.random() - .5)
-            angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
-            orn = p.getQuaternionFromEuler([0, 0, angle])
-            urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
-            uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
-                             [orn[0], orn[1], orn[2], orn[3]])
-            objectUids.append(uid)
-            # Let each object fall to the tray individual, to prevent object
-            # intersection.
-            for _ in range(500):
-                p.stepSimulation()
-        '''
-        # Randomize positions of each object urdf.
-        objectUids = []
-        i = 0
-        for _ in range(urdfList):
 
-            if self._isTest == 0:
+        if self._isTest == 0:
 
-                if i != 1:
-                    xpos = 0.4 + self._blockRandom * random.random()
-                    ypos = self._blockRandom * (random.random() - .5)
-                    angle = np.pi / 2
-                    orn = p.getQuaternionFromEuler([0, 0, angle])
+            # Randomize positions of each object urdf.
+            objectUids = []
+            for _ in range(urdfList):
+                xpos = 0.5 + self._blockRandom * random.random()
+                ypos = self._blockRandom * (random.random() - .5)
+                angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+                orn = p.getQuaternionFromEuler([0, 0, angle])
+                urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
+                uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
+                                 [orn[0], orn[1], orn[2], orn[3]])
+                objectUids.append(uid)
+                # Let each object fall to the tray individual, to prevent object
+                # intersection.
+                for _ in range(500):
+                    p.stepSimulation()
 
-                elif i == 1:
+        else:
+            for i in range(urdfList):
+                if self._isTest == 1:
 
-                    xpos = xpos + 0.1 + self._blockRandom * random.random()
-                    ypos = self._blockRandom * (random.random() - .5)
-                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
-                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                    if i != 1:
+                        xpos = 0.4 + self._blockRandom * random.random()
+                        ypos = self._blockRandom * (random.random() - .5)
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
 
-            elif self._isTest == 1:
+                    elif i == 1:
 
-                if i == 0:
-                    xpos = 0.55
-                    ypos = 0.1
-                    angle = np.pi / 2
-                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                        xpos = xpos + 0.1 + self._blockRandom * random.random()
+                        ypos = self._blockRandom * (random.random() - .5)
+                        angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
 
-                elif i == 1:
-                    xpos = xpos + 0.25
-                    ypos = -0.1
-                    angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
-                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                elif self._isTest == 2:
 
-                elif i == 2:
-                    xpos = 0.6
-                    ypos = -0.2
-                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
-                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                    if i == 0:
+                        xpos = 0.5  # 0.55
+                        ypos = 0.02  # 0.1
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
 
-            #angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
-            #orn = p.getQuaternionFromEuler([0, 0, angle])
-            urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
-            uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
-                             [orn[0], orn[1], orn[2], orn[3]])
-            objectUids.append(uid)
-            # Let each object fall to the tray individual, to prevent object
-            # intersection.
-            for _ in range(500):
-                p.stepSimulation()
+                    elif i == 1:
+                        xpos = xpos + 0.25
+                        ypos = -0.1
+                        angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
 
-            i += 1
+                    elif i == 2:
+                        xpos = 0.6
+                        ypos = -0.2
+                        angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
+                uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
+                                 [orn[0], orn[1], orn[2], orn[3]])
+                objectUids.append(uid)
+                # Let each object fall to the tray individual, to prevent object
+                # intersection.
+                for _ in range(500):
+                    p.stepSimulation()
+
         return objectUids
 
     def _get_observation(self, inMatrixForm=False, isGripperIndex=True):
         """Return an observation array:
-            [ gripper's in the world frame X, Y, Z, Al, Bt, Gm, Blocks' in the gripper's frame X, Y, Z, Euler X, Y, Z]
+            if inMatrixForm is True then as a nested list:
+            [ [gripper in the world frame X, Y, Z, fingers X, Y, Z, orientation Al, Bt, Gm],
+            goal block number,
+            [blocks' in the gripper's frame X, Y, Z, Euler X, Y, Z] ]
 
-            if inMatrixForm is True then
-            [ [gripper's in the world frame X, Y, Z, Al, Bt, Gm], [Blocks' in the gripper's frame X, Y, Z, Euler X, Y, Z]]
+            otherwise as a list
         """
         # get the gripper's world position and orientation
 
         # Just to test the difference
         if isGripperIndex:
-            # The coorditates of the gripper and fingers (X, Y, Z)
+            # The coordinates of the gripper and fingers (X, Y, Z)
             gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaGripperIndex)
             fingerState_l = p.getLinkState(self._kuka.kukaUid, 10)[0]
             fingerState_r = p.getLinkState(self._kuka.kukaUid, 13)[0]
@@ -339,15 +352,32 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         observation = []
         if inMatrixForm:
             to_add = list(gripperPos)
-            to_add.extend(list(fingerState_l + fingerState_l + gripperEul))
+            to_add.extend(list(fingerState_l + fingerState_r + gripperEul))
             observation.append(to_add)
-            observation.append(self._goal - 3)
-            #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
-            #observation.append(list(blockPos1))
+            if type(self._goal) == int:
+                #observation.append([self._goal - 3, 0, 0])
+                bl_pos, _ = p.getBasePositionAndOrientation(self._goal)
+                observation.append(list(bl_pos))
+
+            elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list:
+                observation.append(list(self._goal))
+
+            else:
+                raise TypeError
         else:
             observation.extend(list(gripperPos))
             observation.extend(list(fingerState_l + fingerState_l + gripperEul))
-            observation.append(self._goal - 3)
+            if type(self._goal) == int:
+                #observation.extend([self._goal - 3, 0, 0])
+                bl_pos, _ = p.getBasePositionAndOrientation(self._goal)
+                observation.extend(list(bl_pos))
+
+            elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list:
+                observation.extend(list(self._goal))
+
+            else:
+                print(type(self._goal), self._goal)
+                raise TypeError
             #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
             #observation.extend(list(blockPos1))
 
@@ -408,42 +438,16 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         from math import pi
 
         dv = self._dv  # velocity per physics step.
-        if self._isDiscrete:
-            # Static type assertion for integers.
-            assert isinstance(action, int)
-            if self._removeHeightHack:
-                raise NotImplementedError
-                dx = [0, -dv, dv, 0, 0, 0, 0, 0, 0][action]
-                dy = [0, 0, 0, -dv, dv, 0, 0, 0, 0][action]
-                dz = [0, 0, 0, 0, 0, -dv, dv, 0, 0][action]
-                da = [0, 0, 0, 0, 0, 0, 0, -0.25, 0.25][action]
-                action = np.array([dx, dy, dz, da])
-                action = np.append(action, action[4:])
-                action = np.append(action, 0.3)
-            else:
-                raise NotImplementedError
-                dx = [0, -dv, dv, 0, 0, 0, 0][action]
-                dy = [0, 0, 0, -dv, dv, 0, 0][action]
-                dz = -dv
-                da = [0, 0, 0, 0, 0, -0.25, 0.25][action]
-                action = np.array([dx, dy, dz, da])
-                action = np.append(action, action[4:])
-                action = np.append(action, 0.3)
+
+        action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
+        if self._operation == 'pick':
+            self.action = np.append(action, np.array([0, -pi, 0, 0.3]))
+        elif self._operation == 'place':
+            self.action = np.append(action, np.array([0, -pi, 0, 0.0]))
         else:
-            if self._removeHeightHack:
-                action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
-                self.action = np.append(action, np.array([0, -pi, 0, 0.0]))
-                #action = np.array([dv, dv, dv, 0.25, 2*pi, 2*pi, 2*pi]) * action  # [dx, dy, dz, da, Euler]
-                #action = np.append(action, 0.3)  # [finger angle]
-            else:
-                raise NotImplementedError
-                dx = dv * action[0]
-                dy = dv * action[1]
-                dz = -dv
-                da = 0.25 * action[2]
-                action = np.array([dx, dy, dz, da])
-                action = np.append(action, action[4:])
-                self.action = np.append(action, 0.3)
+            raise NotImplementedError
+        #action = np.array([dv, dv, dv, 0.25, 2*pi, 2*pi, 2*pi]) * action  # [dx, dy, dz, da, Euler]
+        #action = np.append(action, 0.3)  # [finger angle]
 
         return self._step_continuous(self.action) # [dx, dy, dz, da, Al, Bt, Gm, Fn_angle]
 
@@ -474,12 +478,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._renders:
             time.sleep(10 * self._timeStep)
 
-        self.distance1, self.distance2, self.bl_bl_distance = self._get_distance_to_goal()
-
-
         if self._operation == "pick":
+            # contains only one distance in that case
+            self.distance1 = self._get_distance_to_goal()
             # Hardcoded grasping
-            if self.distance1 < 0.005 and not self._attempted_grasp:
+            if self.distance1 < 0.002 and not self._attempted_grasp:
                 from math import pi
                 finger_angle = 0.3
 
@@ -494,14 +497,20 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         finger_angle = 0
 
                 # Move the hand up
-                for _ in range(1):
-                    grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
+                for _ in range(1):  # range(1) for place
+                    grasp_action = [0, 0, 0.4, 0, 0, -pi, 0, finger_angle]
                     self._kuka.applyAction(grasp_action)
-                    p.stepSimulation()
+                    for _ in range(2*self._actionRepeat):
+                        p.stepSimulation()
                     if self._renders:
                         time.sleep(self._timeStep)
 
                 self._attempted_grasp = True  # TODO: delete attempted_grasp
+
+        elif self._operation == "place":
+            # contains only three distances so far
+            #self.distance1, self.distance2, self.bl_bl_distance = self._get_distance_to_goal()
+            self.distance1 = self._get_distance_to_goal()
 
         observation = self._get_observation(isGripperIndex=True)
         reward = self._reward()
@@ -511,7 +520,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         debug = {
             'goal_id': self._goal,
             'distance1': self.distance1,
-            'distance2': self.distance2
+            #'distance2': self.distance2
+            'operation': self._operation
         }
         return observation, reward, done, debug
 
@@ -523,8 +533,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             return self._reward_pick()
         elif self._operation == "push":
             return self._reward_push()
-        elif self._operation == "put":
-            return self._reward_put()
+        elif self._operation == "place":
+            return self._reward_place()
 
     def _reward_pick(self):
         """Dense reward function for picking
@@ -551,13 +561,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # The distance to the goal block plus negative reward for an every step
         if self._attempted_grasp:
             # If the block is above the ground, provide extra reward
-            #print("Z tried:", z)
-            if z > 0.05:
-                #print("Z + 50:", z)
+            print("Z tried:", z)
+            if z > 0.12:
+                print("Z + 50:", z)
                 return 50.0 + z * 10.0
             return -1.0
         else:
-            return - self.distance - action_norm - action_fingers
+            return - self.distance1 - action_norm - action_fingers
             #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
 
 
@@ -604,9 +614,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             return - self.bl_bl_distance - action_norm - action_fingers
 
-    def _reward_put(self):
+    def _reward_place(self):
         """
-        Reward function for putting
+        Reward function for placing
         :return: float
         """
         from numpy.core.umath_tests import inner1d
@@ -624,46 +634,58 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         action_fingers = (0.0 - self.action[7]) ** 2 + (0.0 - self.action[4]) ** 2 +\
                          (-pi - self.action[5]) ** 2 + (0.0 - self.action[6]) ** 2
 
-        if self.bl_bl_distance[0] < 0.001 and self.bl_bl_distance[1] < 0.01:
+        #if self.bl_bl_distance[0] < 0.001 and self.bl_bl_distance[1] < 0.01:
+        if self.distance1 < 0.01:
             self._done = True
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
             return 50
         else:
-            return - self.bl_bl_distance[0] - self.distance1 - action_norm - action_fingers
-
+            return - self.distance1 - action_norm - action_fingers
 
     def _choose_block(self):
         """
         Choose a random block ID
         :return: the block's ID (int)
         """
-        '''
-        if not self._isTest:
-            # to train to pick one block at a time
-            if self._num_env_rep < 18000:
-                id_ = 3
-            elif self._num_env_rep < 36000:
-                id_ = 4
-            elif self._num_env_rep < 54000:
-                id_ = 5
-            else:
-                # choose randomly a goal block
-                id_ = random.choice(self._objectUids)
-        else:
-            id_ = 3
-        '''
+        print(self._objectUids)
         id_ = 3 #random.choice(self._objectUids)
         # change the colour of the goal block
         p.changeVisualShape(id_, -1, rgbaColor=[0, 0.1, 1, 1])
-        p.changeVisualShape(4, -1, rgbaColor=[1, 0.1, 0, 1])
+        #p.changeVisualShape(4, -1, rgbaColor=[1, 0.1, 0, 1])
 
         return id_
 
+    def _get_goal_coordinates(self):
+        id_ = 4
+        blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
+        print(blockPos)
+
+        return [blockPos[0], blockPos[1], blockPos[2] + 0.1]
+
     def _get_distance_to_goal(self):
         """
+        To get the distance from the effector to the goal
+        :return: float
+        """
+        if self._operation == "pick":
+            return self._get_distance_pick()
+
+        elif self._operation == "push":
+            raise NotImplementedError
+
+        elif self._operation == "place":
+            return self._get_distance_place()
+
+        else:
+            raise NotImplementedError
+
+    def _get_distance_to_goal_old(self):
+        """
         To get the distance from the effector to the goal block
+
+        Depreciated
         :return: float
         """
 
@@ -690,6 +712,32 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         bl_bl_distance_z = (z1 - z) ** 2
 
         return gr_bl1_distance, gr_bl2_distance, [bl_bl_distance_x_y, bl_bl_distance_z]
+
+    def _get_distance_pick(self):
+        # Unpack the block's coordinate
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
+
+        # Get the goal block's coordinates
+        x, y, z, _, _, _ = block_pos[self._goal - 2]
+
+        # Distance: gripper - block
+        gr_bl_distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
+
+        return gr_bl_distance
+
+    def _get_distance_place(self):
+        # Unpack the block's coordinate
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
+
+        # Get the goal coordinates
+        x, y, z = block_pos[0]
+        #x1, y1, z1, *rest = block_pos[1]
+
+        # Distance
+        gr_bl1_distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
+        #gr_bl2_distance = (x1 - grip_pos[0]) ** 2 + (y1 - grip_pos[1]) ** 2 + (z1 - grip_pos[2]) ** 2
+
+        return gr_bl1_distance
 
     def _termination(self):
         """Terminates the episode if we have tried to grasp or if we are above
@@ -728,58 +776,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         step = _step
 
-    def load_world(self):
-        """
-        Loads the environment initial state
-        :return:
-        """
-        import sys
-        sys.path.append("/Users/dgrebenyuk/Research/pddlstream")
-        from examples.pybullet.utils.pybullet_tools.utils import load_model
-
-        from examples.pybullet.utils.pybullet_tools.kuka_primitives import BodyPose, BodyConf, Command, get_grasp_gen, \
-            get_stable_gen, get_ik_fn, get_free_motion_gen, \
-            get_holding_motion_gen, get_movable_collision_test
-
-        from examples.pybullet.utils.pybullet_tools.utils import WorldSaver, connect, dump_world, get_pose, set_pose, \
-            Pose, \
-            Point, set_default_camera, stable_z, \
-            BLOCK_URDF, get_configuration, SINK_URDF, STOVE_URDF, load_model, is_placement, get_body_name, \
-            disconnect, DRAKE_IIWA_URDF, get_bodies, user_input, HideOutput, KUKA_IIWA_URDF
-
-        # load a table
-        #p.loadURDF(os.path.join(self._urdfRoot, "plane.urdf"), [0, 0, -1])
-
-        #p.loadURDF(os.path.join(self._urdfRoot, "table/table.urdf"), 0.5000000, 0.00000, -.700000, 0.000000, 0.000000,
-        #           0.0, 1.0)
-
-        # load a kuka arm
-        #self._kuka = kuka.Kuka(urdfRootPath=self._urdfRoot, timeStep=self._timeStep)
-
-        robot = load_model(os.path.join(self._urdfRoot,"kuka_iiwa/kuka_with_gripper2.sdf"))
-
-        floor = load_model('models/short_floor.urdf')
-        table = load_model(os.path.join(self._urdfRoot, "plane.urdf"))
-        #sink = load_model(SINK_URDF, pose=Pose(Point(x=-0.5)))
-        #stove = load_model(STOVE_URDF, pose=Pose(Point(x=+0.5)))
-        #block = load_model(BLOCK_URDF, fixed_base=False)
-
-        cup = load_model('models/cup.urdf',  #'models/dinnerware/cup/cup_small.urdf'
-                             fixed_base=False)
-
-        body_names = {
-            #sink: 'sink',
-            #stove: 'stove',
-            #block: 'celery',
-            table: 'table',
-            cup: 'cup',
-        }
-        movable_bodies = [cup]
-
-        #set_pose(block, Pose(Point(x=0.1, y=0.5, z=stable_z(block, floor))))
-
-        set_pose(cup, Pose(Point(y=0.5, z=stable_z(cup, floor))))
-        set_default_camera()
-
-
-        return robot, body_names, movable_bodies
+    def set_goal(self, goal, operation):
+        self._goal = goal
+        self._operation = operation
+        self._attempted_grasp = False
+        self._done = False
+        self._env_step = 0

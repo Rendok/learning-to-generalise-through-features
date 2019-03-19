@@ -3,74 +3,149 @@ A main file coordination interactions between RL and symbolic solver
 """
 import pybullet as p
 import gym_kuka_multi_blocks.envs.kuka_hrl_env as e
+from ray.rllib.agents import ppo
 
 import ray
 from ray.tune.registry import register_env
-import ray.tune as tune
-import argparse
+
+from gym_kuka_multi_blocks.envs.solver import solve, load_world, pddlstream_from_problem
 
 
-# needs to register a custom environment
-def env_creator(renders=False):
-    import gym_kuka_multi_blocks.envs.kuka_hrl_env as e
+# TODO: add all the trained envs
+def env_creator_pick(renders=False):
+    import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
+    env = e.KukaMultiBlocksEnv(renders=renders,
+                               numObjects=2,
+                               isDiscrete=False,
+                               isTest=0,
+                               maxSteps=20,
+                               actionRepeat=80,
+                               blockRandom=0.3,
+                               operation='pick')
+    return env
 
-    #print("plan: \n", plan)
 
-    return e.KukaHRLEnv(renders=renders)
+def env_creator_place(renders=False):
+    import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
+    env = e.KukaMultiBlocksEnv(renders=renders,
+                               numObjects=2,
+                               isDiscrete=False,
+                               isTest=-1,
+                               maxSteps=20,
+                               actionRepeat=80,
+                               blockRandom=0.3,
+                               operation='place')
+    return env
+
+
+def init_pick(renders=False):
+    from ray.rllib.models import ModelCatalog
+
+    register_env("pick", env_creator_pick)
+
+    config = ppo.DEFAULT_CONFIG.copy()
+    config["num_workers"] = 1
+
+    env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_pick(renders=renders))
+
+    agent = ppo.PPOAgent(config=config, env="pick")
+    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-13_23-23-0442xa1wvg/checkpoint_300/checkpoint-300")
+
+    return agent, env
+
+
+def init_place(renders=False):
+    from ray.rllib.models import ModelCatalog
+
+    register_env("place", env_creator_place)
+
+    config = ppo.DEFAULT_CONFIG.copy()
+    config["num_workers"] = 1
+
+    env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_place(renders=renders))
+
+    agent = ppo.PPOAgent(config=config, env="place")
+    agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-03-13_20-40-439sc4vld7/checkpoint_120/checkpoint-120")
+
+    return agent, env
+
+
+def execute(plan, viewer=False, display=True, simulate=False, teleport=False):
+
+    if plan is None:
+        raise TypeError
+
+    ray.init()
+
+    # create an environment
+    env = env_creator_pick(renders=True)
+
+    # load policies
+    agent1, _ = init_pick(renders=False)
+    agent2, _ = init_place(renders=False)
+
+    policies = [('pick', agent1), ('place', agent2)]
+
+    obs = env.reset()
+
+    for plan_action in plan:
+        execute_rl_action(env, plan_action, obs, policies)
+
+
+def execute_rl_action(env, plan_action, obs, policies):
+    """
+    Used to switch to a appropriate RL for the current action
+    :param plan_action:
+    :return:
+    """
+
+    name, params = plan_action
+
+    if name == 'move_free' or name == 'move_holding':
+        pass
+    elif name == 'pick':
+        body = params[1].body
+        pose = params[1].pose
+        print(name, body, pose)
+        env.set_goal(body, 'pick')
+        rl_loop(env, obs, body, pose, policies[0][1])
+    elif name == 'place':
+        body = params[1].body
+        pose = params[1].pose
+        print(name, body, pose)
+        env.set_goal(pose[0], 'place')
+        rl_loop(env, obs, body, pose, policies[1][1])
+    else:
+        pass
+
+
+def rl_loop(env, obs, body, pose, policy):
+    # TODO: construct a goal from 'body' and 'pose'
+    # TODO: update the goal
+    done = False
+    while not done:
+        action = policy.compute_action(obs)
+        obs, rew, done, info = env.step(action)
+        # obs, rew, done, info = env.step([0, 0, -1, 0.1])
+        print("__________REWARD____________", rew, info)
+
 
 if __name__ == '__main__':
-    env = e.KukaHRLEnv(renders=True)
 
-
-    #plan, cost, evaluations = env.solve(load_world=env.load_world,
-    #                                    pddlstream_from_problem=env.pddlstream_from_problem,
-    #                                    teleport=True)
-
-    for _ in range(5):
-        obs, *args = env.step([0, 0, 0, 0])
-    #obs = env.reset()
-
-    print("shape", obs.shape)
+    plan, cost, evaluations = solve(load_world=load_world,
+                                    pddlstream_from_problem=pddlstream_from_problem,
+                                    teleport=True
+                                    )
 
     #print("plan: \n", plan)
     #print("cost", cost)
     #print("evaluation", evaluations)
 
-    #env.execute_rl_action(plan[0]);
-    #env.reset(render=True)
 
     # register a custom environment
-    register_env("KukaHRLEnv-v0", env_creator)
+    # TODO: add all the trained envs
+    #register_env("KukaHRLEnv-v0", env_creator)
 
-    # assign model variables to commandline arguments
     #ray.init()
 
-    # run an experiment with a config
-    '''tune.run_experiments({
-        "my_experiment": {
-            "run": "PPO",
-            "env": "KukaHRLEnv-v0",
-            "stop": {"episode_reward_mean": 50},
-            "checkpoint_freq": 10,
-            "checkpoint_at_end": True,
-            "config": {
-                "num_gpus": 0,
-                "num_workers": 1,
-                "num_envs_per_worker": 1,
-                "horizon": 20,
-                "sample_batch_size": 5,
-                "train_batch_size": 128, #2500,
-            },
-        },
-    })'''
-
-    #observation, reward, _, info = env.step([0, 0, 0, 0])
-
-    #print("OBSERVATION", observation)
-    #print("REWARD", reward)
-    #print("INFO", info)
-
-
-    #env.execute(plan)
-
-    #input('Finish?')
+    execute(plan)

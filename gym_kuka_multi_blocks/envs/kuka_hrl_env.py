@@ -7,6 +7,7 @@ from . import kuka  # implementation of a kuka arm
 
 import sys
 sys.path.append("/Users/dgrebenyuk/Research/pddlstream")
+#sys.path.insert(0, '/Users/dgrebenyuk/Research/pddlstream')
 from examples.pybullet.utils.pybullet_tools.utils import connect, disconnect, enable_gravity, simulate_for_duration,\
     step_simulation, reset_simulation
 
@@ -26,6 +27,10 @@ from pddlstream.language.generator import from_gen_fn, from_fn, empty_gen
 
 USE_SYNTHESIZERS = False
 
+PLAN = None
+COST = None
+EVALUATIONS = None
+
 class KukaHRLEnv(KukaGymEnv):
     """Class for Kuka environment with multi blocks.
 
@@ -33,7 +38,6 @@ class KukaHRLEnv(KukaGymEnv):
     """
 
     def __init__(self,
-                 plan,
                  urdf_root=pybullet_data.getDataPath(),
                  action_repeat=80,
                  is_enable_self_collision=True,
@@ -80,7 +84,7 @@ class KukaHRLEnv(KukaGymEnv):
         self._width = width
         self._height = height
         self._num_objects = num_objects
-        self.plan = plan
+        self.plan = None
 
         #if self._renders:
         #    self.cid = p.connect(p.SHARED_MEMORY)
@@ -116,18 +120,31 @@ class KukaHRLEnv(KukaGymEnv):
 
         # set the physics engine
         # p.resetSimulation()
-        # p.setPhysicsEngineParameter(numSolverIterations=150)
+        p.setPhysicsEngineParameter(numSolverIterations=150)
         p.setTimeStep(self._timeStep)
 
+        # We want to find a plan only once
+        global PLAN
+        global COST
+        global EVALUATIONS
 
+        if PLAN is None:
+            PLAN, COST, EVALUATIONS = self.solve(load_world=self.load_world,
+                                                 pddlstream_from_problem=self.pddlstream_from_problem,
+                                                 teleport=True)
+            self.plan = PLAN
 
+            self.reset()
 
+            #self.cid = connect(use_gui=False)
+            #enable_gravity()
+            #p.resetDebugVisualizerCamera(self._cam_dist, self._cam_yaw, self._cam_pitch, [0.52, -0.2, -0.33])
+        else:
+            self.plan = PLAN
 
-        self.cid = connect(use_gui=False)
-        enable_gravity()
-        p.resetDebugVisualizerCamera(self._cam_dist, self._cam_yaw, self._cam_pitch, [0.52, -0.2, -0.33])
-
-        #self.reset(render=False)
+            # to train an RL
+            self.execute_rl_action(self.plan[0])
+            #print("NOT SOLVED", self.plan[:1], ",...")
 
     def reset(self, render=False):
         """
@@ -138,7 +155,8 @@ class KukaHRLEnv(KukaGymEnv):
         self._done = False
         self._env_step = 0
         #self.cid = connect(use_gui=render)
-        #reset_simulation()
+        reset_simulation()
+
 
         # to train an RL
         self.execute_rl_action(self.plan[0])
@@ -149,9 +167,9 @@ class KukaHRLEnv(KukaGymEnv):
         #for _ in range(500):
         #    step_simulation()
 
-        conf = self.get_observation()
+        observation = self.get_observation()
 
-        return np.array(conf)
+        return np.array(observation)
 
     def load_world(self):
         """
@@ -315,7 +333,7 @@ class KukaHRLEnv(KukaGymEnv):
         # print stats
         pstats.Stats(pr).sort_stats('tottime').print_stats(10)
 
-        disconnect()
+        #disconnect()
 
         return solution
 
@@ -378,6 +396,7 @@ class KukaHRLEnv(KukaGymEnv):
         self.action = np.append(action, np.array([0, -pi, 0, 0.0])) # [dx, dy, dz, da, Al, Bt, Gm, Fn_angle]
         #action = np.array([dv, dv, dv, 0.25, 2*pi, 2*pi, 2*pi]) * action  # [dx, dy, dz, da, Euler]
         #action = np.append(action, 0.3)  # [finger angle]
+
 
         self._kuka.applyAction(self.action)
 
@@ -489,6 +508,8 @@ class KukaHRLEnv(KukaGymEnv):
 
         if name == 'move_free' or name == 'move_holding':
             self._set_rl_goal(params[1].configuration)  # arm's joint configuration
+        else:
+            raise ImportError
 
 
         # TODO: save an initial world state for training

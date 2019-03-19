@@ -3,6 +3,7 @@ from ray.tune.registry import register_env
 import ray.tune as tune
 import argparse
 
+my_experiment = 'pick'
 
 # needs to register a custom environment
 def env_creator(renders=False):
@@ -10,7 +11,9 @@ def env_creator(renders=False):
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=2,
                                removeHeightHack=True,
-                               isDiscrete=False)
+                               isDiscrete=False,
+                               operation=my_experiment,
+                               )
     return env
 
 
@@ -94,7 +97,7 @@ if __name__ == '__main__':
 
         # run an experiment with a config
         tune.run_experiments({
-            "my_experiment": {
+            my_experiment: {
                 "run": args.run,
                 "env": "KukaMultiBlocks-v0",
                 "stop": {"episode_reward_mean": 50},
@@ -113,7 +116,7 @@ if __name__ == '__main__':
 
         # run an experiment with a config
         tune.run_experiments({
-            "my_experiment": {
+            my_experiment: {
                 "run": args.run,
                 "env": "KukaMultiBlocks-v0",
                 "stop": {"episode_reward_mean": 50},
@@ -130,7 +133,7 @@ if __name__ == '__main__':
     else:
         # run an experiment with a config
         tune.run_experiments({
-            "my_experiment": {
+            my_experiment: {
                 "run": args.run,
                 "env": "KukaMultiBlocks-v0",
                 "stop": {"episode_reward_mean": 50},
