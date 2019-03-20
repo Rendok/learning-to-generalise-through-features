@@ -17,10 +17,10 @@ def env_creator_pick(renders=False):
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=2,
                                isDiscrete=False,
-                               isTest=0,
+                               isTest=2,
                                maxSteps=20,
                                actionRepeat=80,
-                               blockRandom=0.3,
+                               blockRandom=0.8,
                                operation='pick')
     return env
 
@@ -33,7 +33,7 @@ def env_creator_place(renders=False):
                                isTest=-1,
                                maxSteps=20,
                                actionRepeat=80,
-                               blockRandom=0.3,
+                               blockRandom=0.8,
                                operation='place')
     return env
 
@@ -49,7 +49,7 @@ def init_pick(renders=False):
     env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_pick(renders=renders))
 
     agent = ppo.PPOAgent(config=config, env="pick")
-    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-13_23-23-0442xa1wvg/checkpoint_300/checkpoint-300")
+    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-19_21-44-38ssb0iccf/checkpoint_180/checkpoint-180")
 
     return agent, env
 

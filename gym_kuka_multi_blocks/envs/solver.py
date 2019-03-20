@@ -63,8 +63,8 @@ def load_world():
 
 
 
-    set_pose(block1, Pose(Point(x=0.1, z=stable_z(block1, table))))
-    set_pose(block2, Pose(Point(y=0.1, z=stable_z(block1, table))))
+    set_pose(block1, Pose(Point(x=0.5, y=0.02, z=stable_z(block1, table))))
+    set_pose(block2, Pose(Point(x=0.75, y=-0.1, z=stable_z(block1, table))))
     set_pose(robot, Pose(Point(x=-0.5, z=stable_z(robot, table))))
     set_pose(sink, Pose(Point(x=0.5, z=stable_z(sink, table))))
 

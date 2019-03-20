@@ -22,10 +22,10 @@ def env_creator_kuka_bl(renders=False):
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=2,
                                isDiscrete=False,
-                               isTest=2,
+                               isTest=0,
                                maxSteps=20, # 300,
                                actionRepeat=80,
-                               blockRandom=0.3,
+                               blockRandom=0.8,
                                operation="pick")
     return env
 #------------------------------------
@@ -44,7 +44,7 @@ def init_ppo():
     env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_kuka_bl(renders=True))
 
     agent = ppo.PPOAgent(config=config, env="my_env")
-    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-18_11-36-23ex0za2yl/checkpoint_60/checkpoint-60")
+    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-20_12-54-40b3l4y_xo/checkpoint_340/checkpoint-340")
 
     #agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-03-13_20-40-439sc4vld7/checkpoint_120/checkpoint-120")
 

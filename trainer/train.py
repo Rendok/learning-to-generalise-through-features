@@ -139,13 +139,44 @@ if __name__ == '__main__':
                 "stop": {"episode_reward_mean": 50},
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
-                "config": {
+                #"restore": "/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-20_11-40-09g_p8p2v_/checkpoint_200/checkpoint-200",
+                #"resume": True,
+                    "config": {
                     "num_gpus": args.num_gpus,  # ppo
                     "num_workers": args.num_workers,
                     "num_envs_per_worker": args.num_envs_per_worker,
                     "horizon": 20,
-                    "sample_batch_size": 50,
-                    "train_batch_size": 2500,
+                    "sample_batch_size": 50, #50,
+                    "train_batch_size": 2500, #2500,
                 },
             },
         })
+    '''elif False:
+        # run an experiment with a config
+        tune.run(
+            "PPO",
+            name="pick",
+            #scheduler=pbt,
+            **{
+                "env": "KukaMultiBlocks-v0",
+                "num_samples": 8,
+                "config": {
+                    "kl_coeff": 1.0,
+                    "num_workers": 8,
+                    "num_gpus": 0,
+                    "model": {
+                        "free_log_std": True
+                    },
+                    # These params are tuned from a fixed starting value.
+                    "lambda": 0.95,
+                    "clip_param": 0.2,
+                    "lr": 1e-4,
+                    # These params start off randomly drawn from a set.
+                    "num_sgd_iter": sample_from(
+                        lambda spec: random.choice([10, 20, 30])),
+                    "sgd_minibatch_size": sample_from(
+                        lambda spec: random.choice([128, 512, 2048])),
+                    "train_batch_size": sample_from(
+                        lambda spec: random.choice([10000, 20000, 40000]))
+                },
+            })'''

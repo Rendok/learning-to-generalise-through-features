@@ -1,6 +1,8 @@
 from gym_kuka_multi_blocks.envs.kukaGymEnv import KukaGymEnv
 import random
 import os
+#import sys
+#sys.path.append("/Users/dgrebenyuk/Research/pddlstream") # /home/ubuntu/pddlstream
 from gym import spaces
 import time
 import pybullet as p
@@ -12,6 +14,10 @@ import distutils.dir_util
 import glob
 from pkg_resources import parse_version
 import gym
+from math import pi
+#from examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, stable_z
+from pddlstream.examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, stable_z
+from numpy.core.umath_tests import inner1d
 
 
 class KukaMultiBlocksEnv(KukaGymEnv):
@@ -125,9 +131,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """Environment reset called at the beginning of an episode.
         """
 
-        from examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, stable_z
-
-
         self._attempted_grasp = False  # TODO delete
         self._done = False
         self._env_step = 0
@@ -153,8 +156,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._isTest == -1:
             block1 = p.loadURDF(os.path.join(self._urdfRoot, "cube_small.urdf"))
             block2 = p.loadURDF(os.path.join(self._urdfRoot, "cube_small.urdf"))
-            set_pose(block1, Pose(Point(x=0.5, y=0.0, z=stable_z(block1, table))))
-            set_pose(block2, Pose(Point(x=0.6, y=0.2, z=stable_z(block1, table))))
+            set_pose(block1, Pose(Point(x=0.5, y=0.02, z=stable_z(block1, table))))
+            set_pose(block2, Pose(Point(x=0.75, y=-0.1, z=stable_z(block1, table))))
             self._objectUids = [block1, block2]
         else:
             # Generate the # of blocks
@@ -162,6 +165,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         sink = load_model(SINK_URDF)
         set_pose(sink, Pose(Point(x=1.0, z=stable_z(sink, table))))
+
+        for _ in range(500):
+            p.stepSimulation()
 
         if self._operation == "pick":
             # randomly choose a block to be a goal
@@ -173,8 +179,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         # set observations
         observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
-
-        from math import pi
 
         if self._operation == "push":
             # move the effector in the position next to the block
@@ -223,9 +227,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
             # Move the hand up
             for _ in range(1):
-                grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
+                grasp_action = [0, 0, 0.4, 0, 0, -pi, 0, finger_angle]
                 self._kuka.applyAction(grasp_action)
-                for _ in range(self._actionRepeat):
+                for _ in range(2*self._actionRepeat):
                     p.stepSimulation()
                 if self._renders:
                     time.sleep(self._timeStep)
@@ -250,8 +254,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # Randomize positions of each object urdf.
             objectUids = []
             for _ in range(urdfList):
-                xpos = 0.5 + self._blockRandom * random.random()
-                ypos = self._blockRandom * (random.random() - .5)
+                xpos = 0.2 + self._blockRandom * random.random()
+                ypos = self._blockRandom * (random.random() - .5) / 2.0
                 angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
                 orn = p.getQuaternionFromEuler([0, 0, angle])
                 urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
@@ -283,8 +287,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 elif self._isTest == 2:
 
                     if i == 0:
-                        xpos = 0.5  # 0.55
-                        ypos = 0.02  # 0.1
+                        xpos = 1.1  #0.5 # 0.55
+                        ypos = -0.2  #0.02 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -306,8 +310,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 objectUids.append(uid)
                 # Let each object fall to the tray individual, to prevent object
                 # intersection.
-                for _ in range(500):
-                    p.stepSimulation()
+                #for _ in range(500):
+                #    p.stepSimulation()
 
         return objectUids
 
@@ -435,8 +439,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
           debug: Dictionary of extra information provided by environment.
         """
 
-        from math import pi
-
         dv = self._dv  # velocity per physics step.
 
         action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
@@ -483,7 +485,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             self.distance1 = self._get_distance_to_goal()
             # Hardcoded grasping
             if self.distance1 < 0.002 and not self._attempted_grasp:
-                from math import pi
                 finger_angle = 0.3
 
                 while finger_angle > 0:
@@ -540,7 +541,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """Dense reward function for picking
         :return: float
         """
-        from numpy.core.umath_tests import inner1d
+
 
         # Unpack the block's coordinate
         grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
@@ -576,9 +577,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         Reward function for pushing
         :return: float
         """
-        from numpy.core.umath_tests import inner1d
-        from math import pi
-
         # Unpack the block's coordinate
         grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
 
@@ -619,9 +617,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         Reward function for placing
         :return: float
         """
-        from numpy.core.umath_tests import inner1d
-        from math import pi
-
         # Unpack the block's coordinate
         #grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
 
@@ -650,9 +645,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: the block's ID (int)
         """
         print(self._objectUids)
-        id_ = 3 #random.choice(self._objectUids)
-        # change the colour of the goal block
-        p.changeVisualShape(id_, -1, rgbaColor=[0, 0.1, 1, 1])
+        id_ = random.choice(self._objectUids)
+
+        if self._isTest >= 0:
+            # change the colour of the goal block
+            p.changeVisualShape(id_, -1, rgbaColor=[0, 0.1, 1, 1])
         #p.changeVisualShape(4, -1, rgbaColor=[1, 0.1, 0, 1])
 
         return id_
