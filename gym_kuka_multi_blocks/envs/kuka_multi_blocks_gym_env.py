@@ -16,7 +16,7 @@ from pkg_resources import parse_version
 import gym
 from math import pi
 #from examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, stable_z
-from pddlstream.examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, stable_z
+from examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, stable_z
 from numpy.core.umath_tests import inner1d
 
 
