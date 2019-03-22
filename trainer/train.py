@@ -146,8 +146,8 @@ if __name__ == '__main__':
                     "num_workers": args.num_workers,
                     "num_envs_per_worker": args.num_envs_per_worker,
                     "horizon": 20,
-                    "sample_batch_size": 50, #50,
-                    "train_batch_size": 2500, #2500,
+                    "sample_batch_size": 100, #50,
+                    "train_batch_size": 5000, #2500,
                 },
             },
         })

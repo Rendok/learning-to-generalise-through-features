@@ -264,8 +264,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 objectUids.append(uid)
                 # Let each object fall to the tray individual, to prevent object
                 # intersection.
-                for _ in range(500):
-                    p.stepSimulation()
+                #for _ in range(500):
+                #    p.stepSimulation()
 
         else:
             for i in range(urdfList):
@@ -484,7 +484,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # contains only one distance in that case
             self.distance1 = self._get_distance_to_goal()
             # Hardcoded grasping
-            if self.distance1 < 0.002 and not self._attempted_grasp:
+            if self.distance1 < 0.01 and not self._attempted_grasp:
                 finger_angle = 0.3
 
                 while finger_angle > 0:
@@ -563,7 +563,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._attempted_grasp:
             # If the block is above the ground, provide extra reward
             print("Z tried:", z)
-            if z > 0.12:
+            if z > 0.1:
                 print("Z + 50:", z)
                 return 50.0 + z * 10.0
             return -1.0

@@ -44,7 +44,9 @@ def init_ppo():
     env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_kuka_bl(renders=True))
 
     agent = ppo.PPOAgent(config=config, env="my_env")
-    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-20_12-54-40b3l4y_xo/checkpoint_340/checkpoint-340")
+    #agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-20_12-54-40b3l4y_xo/checkpoint_340/checkpoint-340")
+    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-21_05-14-56r4ba8tjh/checkpoint-480")
+
 
     #agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-03-13_20-40-439sc4vld7/checkpoint_120/checkpoint-120")
 
@@ -61,7 +63,7 @@ def init_ddpg():
 
     ray.init()
     env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_kuka_bl(renders=True))
-    # env = env_creator_kuka_bl(renders=True)
+    #env = env_creator_kuka_bl(renders=True)
 
     agent = ddpg.apex.ApexDDPGAgent(config=config, env="my_env")
     agent.restore("/Users/dgrebenyuk/ray_results/my_experiment/APEX_DDPG_KukaMultiBlocks-v0_0_2018-11-11_09-19-105785pfg0/checkpoint_55/checkpoint-55")
