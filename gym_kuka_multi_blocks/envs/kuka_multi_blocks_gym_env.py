@@ -287,8 +287,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 elif self._isTest == 2:
 
                     if i == 0:
-                        xpos = 1.1  #0.5 # 0.55
-                        ypos = -0.2  #0.02 0.1
+                        xpos = 0.5 # 0.55
+                        ypos = 0.02 # 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -484,7 +484,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # contains only one distance in that case
             self.distance1 = self._get_distance_to_goal()
             # Hardcoded grasping
-            if self.distance1 < 0.01 and not self._attempted_grasp:
+            if self.distance1 < 0.003 and not self._attempted_grasp:
                 finger_angle = 0.3
 
                 while finger_angle > 0:
