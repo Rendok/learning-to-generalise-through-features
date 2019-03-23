@@ -145,7 +145,7 @@ if __name__ == '__main__':
                     "num_gpus": args.num_gpus,  # ppo
                     "num_workers": args.num_workers,
                     "num_envs_per_worker": args.num_envs_per_worker,
-                    "horizon": 20,
+                    "horizon": 40,
                     "sample_batch_size": 50, #50,
                     "train_batch_size": 5000, #2500,
                 },

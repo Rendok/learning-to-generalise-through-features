@@ -32,7 +32,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                  isEnableSelfCollision=True,
                  renders=False,
                  isDiscrete=False,
-                 maxSteps=20,  # <---- was 20?
+                 maxSteps=40,  # <---- was 20?
                  dv=0.06,
                  removeHeightHack=True,
                  blockRandom=0.3,
