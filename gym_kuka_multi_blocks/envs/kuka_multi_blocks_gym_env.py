@@ -562,9 +562,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # The distance to the goal block plus negative reward for an every step
         if self._attempted_grasp:
             # If the block is above the ground, provide extra reward
-            print("Z tried:", z)
+            #print("Z tried:", z)
             if z > 0.1:
-                print("Z + 50:", z)
+                #print("Z + 50:", z)
                 return 50.0 + z * 10.0
             return -1.0
         else:
@@ -644,7 +644,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         Choose a random block ID
         :return: the block's ID (int)
         """
-        print(self._objectUids)
+        #print(self._objectUids)
         id_ = random.choice(self._objectUids)
 
         if self._isTest >= 0:
@@ -657,7 +657,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
     def _get_goal_coordinates(self):
         id_ = 4
         blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
-        print(blockPos)
+        #print(blockPos)
 
         return [blockPos[0], blockPos[1], blockPos[2] + 0.1]
 
