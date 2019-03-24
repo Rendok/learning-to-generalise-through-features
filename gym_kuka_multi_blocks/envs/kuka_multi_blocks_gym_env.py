@@ -287,8 +287,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 elif self._isTest == 2:
 
                     if i == 0:
-                        xpos = 0.5 # 0.55
-                        ypos = 0.02 # 0.1
+                        xpos = 0.51 #0.5 # 0.55
+                        ypos = 0.02 # 0.02 # 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -335,7 +335,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
             #gripperPos = gripperState[0]
 
-            gripperPos = np.array(gripperState[0] + np.array([0.00028128,  0.02405984, -0.19820549]))
+            #print((0.2385243302547786 - 0.4359219376500988 + 0.2369296963620491 - 0.4359219376500988)/2.0)
+
+            gripperPos = np.array(gripperState[0] + np.array([0.0,  0.02399222398656322, -0.20819492434168495]))  # [0.00028128,  0.02405984, -0.19820549]
             gripperOrn = gripperState[1]  # Quaternion
             gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
 
@@ -423,7 +425,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 observation.append(list(blockPosXYZEul))
             else:
                 observation.extend(list(blockPosXYZEul))
-            #print(list(blockInGripperPosXYZEul))
+            #print('block', blockPosXYZEul[0:3])
         return np.array(observation)
 
     def _step(self, action):
@@ -484,7 +486,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # contains only one distance in that case
             self.distance1 = self._get_distance_to_goal()
             # Hardcoded grasping
-            if self.distance1 < 0.003 and not self._attempted_grasp:
+            if self.distance1 < 0.001 and not self._attempted_grasp:
                 finger_angle = 0.3
 
                 while finger_angle > 0:
