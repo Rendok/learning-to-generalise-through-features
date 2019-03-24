@@ -484,9 +484,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         if self._operation == "pick":
             # contains only one distance in that case
-            self.distance1 = self._get_distance_to_goal()
+            self.distance_x_y, self.distance_z = self._get_distance_to_goal()
             # Hardcoded grasping
-            if self.distance1 < 0.001 and not self._attempted_grasp:
+            if self.distance_x_y < 0.0005 and self.distance_z < 0.01 and not self._attempted_grasp:
                 finger_angle = 0.3
 
                 while finger_angle > 0:
@@ -520,12 +520,19 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         done = self._termination()
         #print("_________INTERNAL REWARD________", reward)
 
-        debug = {
-            'goal_id': self._goal,
-            'distance1': self.distance1,
-            #'distance2': self.distance2
-            'operation': self._operation
-        }
+        if self._operation == "pick":
+            debug = {
+                'goal_id': self._goal,
+                'distance_x_y': self.distance_x_y,
+                'distance_z': self.distance_z,
+                'operation': self._operation
+            }
+        elif self._operation =='place':
+            debug = {
+                'goal_id': self._goal,
+                'distance1': self.distance1,
+                'operation': self._operation
+            }
         return observation, reward, done, debug
 
     def _reward(self):
@@ -570,7 +577,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 return 50.0 + z * 10.0
             return -1.0
         else:
-            return - self.distance1 - action_norm - action_fingers
+            return - self.distance_x_y - self.distance_z - action_norm - action_fingers
             #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
 
 
@@ -720,9 +727,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         x, y, z, _, _, _ = block_pos[self._goal - 2]
 
         # Distance: gripper - block
-        gr_bl_distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
+        gr_bl_distance_x_y = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2
+        gr_bl_distance_z = (z - grip_pos[2]) ** 2
 
-        return gr_bl_distance
+        return gr_bl_distance_x_y, gr_bl_distance_z
 
     def _get_distance_place(self):
         # Unpack the block's coordinate
