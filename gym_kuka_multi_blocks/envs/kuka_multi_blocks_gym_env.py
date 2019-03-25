@@ -445,7 +445,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
         if self._operation == 'pick':
-            self.action = np.append(action, np.array([0, -pi, 0, 0.3]))
+            self.action = np.append(action, np.array([0, -pi, 0, 0.4]))
         elif self._operation == 'place':
             self.action = np.append(action, np.array([0, -pi, 0, 0.0]))
         else:
@@ -486,7 +486,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # contains only one distance in that case
             self.distance_x_y, self.distance_z = self._get_distance_to_goal()
             # Hardcoded grasping
-            if self.distance_x_y < 0.0005 and self.distance_z < 0.01 and not self._attempted_grasp:
+            if self.distance_x_y < 0.0007 and self.distance_z < 0.005 and not self._attempted_grasp:
                 finger_angle = 0.3
 
                 while finger_angle > 0:
@@ -495,7 +495,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     p.stepSimulation()
                     #if self._renders:
                     #    time.sleep(self._timeStep)
-                    finger_angle -= 0.3 / 100.
+                    finger_angle -= 0.4 / 100.
                     if finger_angle < 0:
                         finger_angle = 0
 
@@ -577,7 +577,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 return 50.0 + z * 10.0
             return -1.0
         else:
-            return - self.distance_x_y - self.distance_z - action_norm - action_fingers
+            return - self.distance_x_y - self.distance_z - 10 * action_norm - action_fingers
             #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
 
 
