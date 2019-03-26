@@ -662,7 +662,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: the block's ID (int)
         """
         #print(self._objectUids)
-        id_ = 3 # random.choice(self._objectUids)
+        id_ = random.choice(self._objectUids)
 
         if self._isTest >= 0:
             # change the colour of the goal block
