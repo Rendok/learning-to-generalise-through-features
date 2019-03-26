@@ -17,7 +17,7 @@ def env_creator_pick(renders=False):
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=2,
                                isDiscrete=False,
-                               isTest=2,
+                               isTest=-1,
                                maxSteps=20,
                                actionRepeat=80,
                                blockRandom=0.8,
@@ -46,10 +46,11 @@ def init_pick(renders=False):
     config = ppo.DEFAULT_CONFIG.copy()
     config["num_workers"] = 1
 
-    env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_pick(renders=renders))
+    env = env_creator_pick(renders=renders)
 
     agent = ppo.PPOAgent(config=config, env="pick")
-    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-19_21-44-38ssb0iccf/checkpoint_180/checkpoint-180")
+    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-25_04-03-30oglxq3k4/checkpoint_580/checkpoint-580")
+    #agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-22_08-58-29dhogmp4r/checkpoint-180")
 
     return agent, env
 
@@ -62,10 +63,10 @@ def init_place(renders=False):
     config = ppo.DEFAULT_CONFIG.copy()
     config["num_workers"] = 1
 
-    env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_place(renders=renders))
+    env = env_creator_place(renders=renders)
 
     agent = ppo.PPOAgent(config=config, env="place")
-    agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-03-13_20-40-439sc4vld7/checkpoint_120/checkpoint-120")
+    agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-03-23_08-35-409p66bqi7/checkpoint_160/checkpoint-160")
 
     return agent, env
 

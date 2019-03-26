@@ -495,7 +495,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     p.stepSimulation()
                     #if self._renders:
                     #    time.sleep(self._timeStep)
-                    finger_angle -= 0.4 / 100.
+                    finger_angle -= 0.3 / 100.
                     if finger_angle < 0:
                         finger_angle = 0
 

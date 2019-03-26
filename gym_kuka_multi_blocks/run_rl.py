@@ -23,7 +23,7 @@ def env_creator_kuka_bl(renders=False):
                                numObjects=2,
                                isDiscrete=False,
                                isTest=0,
-                               maxSteps=20, # 300,
+                               maxSteps=40, # 300,
                                actionRepeat=80,
                                blockRandom=0.8,
                                operation="pick")
@@ -41,11 +41,11 @@ def init_ppo():
 
     #ray.init()
 
-    env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_kuka_bl(renders=True))
+    env = env_creator_kuka_bl(renders=True)
 
     agent = ppo.PPOAgent(config=config, env="my_env")
-    #agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-20_12-54-40b3l4y_xo/checkpoint_340/checkpoint-340")
-    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-21_05-14-56r4ba8tjh/checkpoint-480")
+    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-25_05-19-368urmriwn/checkpoint_240/checkpoint-240")
+    #agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-22_08-58-29dhogmp4r/checkpoint-180")
 
 
     #agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-03-13_20-40-439sc4vld7/checkpoint_120/checkpoint-120")
@@ -87,7 +87,7 @@ def test_kuka(run, iter = 1):
         while not done:
             action = agent.compute_action(obs)
             obs, rew, done, info = env.step(action)
-            #obs, rew, done, info = env.step([0, 0, -1, 0])
+            #obs, rew, done, info = env.step([0, 0, -0.3, 0])
             print("__________REWARD____________", rew, info)
             reward += rew
         total_reward += reward
