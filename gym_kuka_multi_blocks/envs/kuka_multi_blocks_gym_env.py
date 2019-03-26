@@ -572,7 +572,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         action_norm = inner1d(self.action[0:4], self.action[0:4])
         # a hack to be fixed in future
         #action_fingers = abs(0.4 - self.action[7])
-        print("DISTANCE", self.distance_x_y, abs(self.distance_z - 0.0345), "NORMS ACTION", action_norm)
+        #print("DISTANCE", self.distance_x_y, abs(self.distance_z - 0.0345), "NORMS ACTION", action_norm)
 
         # One over distance reward
         #reward = max(reward, 0.01 / (0.25 + d))
@@ -664,7 +664,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: the block's ID (int)
         """
         #print(self._objectUids)
-        id_ = 3 #random.choice(self._objectUids)
+        id_ = random.choice(self._objectUids)
 
         if self._isTest >= 0:
             # change the colour of the goal block
