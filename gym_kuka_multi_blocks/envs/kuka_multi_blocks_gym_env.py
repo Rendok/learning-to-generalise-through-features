@@ -563,14 +563,16 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Unpack the block's coordinate
         grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
 
+        #print("grip pos", grip_pos)
+
         # Get the goal block's coordinates
         x, y, z, _, _, _ = block_pos[self._goal - 2]
 
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
         # a hack to be fixed in future
-        action_fingers = abs(0.3 - self.action[7])
-        #print("DISTANCE", self.distance, "NORMS ACTION", action_norm, "FINGERS NORM", action_fingers, "FINGERS", self.action[7])
+        #action_fingers = abs(0.4 - self.action[7])
+        print("DISTANCE", self.distance_x_y, abs(self.distance_z - 0.0345), "NORMS ACTION", action_norm)
 
         # One over distance reward
         #reward = max(reward, 0.01 / (0.25 + d))
@@ -585,7 +587,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 return 50.0 + z * 10.0
             return -1.0
         else:
-            return - self.distance_x_y - abs(self.distance_z - 0.0345) - action_norm - action_fingers
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm
             #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
 
 
@@ -662,7 +664,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: the block's ID (int)
         """
         #print(self._objectUids)
-        id_ = random.choice(self._objectUids)
+        id_ = 3 #random.choice(self._objectUids)
 
         if self._isTest >= 0:
             # change the colour of the goal block
