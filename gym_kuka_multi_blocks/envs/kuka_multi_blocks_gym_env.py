@@ -477,7 +477,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._operation == "pick":
             # contains only one distance in that case
             self.distance_x_y, self.distance_z, gr_z = self._get_distance_to_goal()
-            print("gr z", gr_z)
             # Hardcoded grasping
             if self.distance_x_y < 0.008 and 0.033 <= self.distance_z < 0.035 and gr_z > 0.01 and not self._attempted_grasp:
                 finger_angle = 0.3
