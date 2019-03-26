@@ -114,7 +114,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #if self._operation == "pick":
         self.observation_space = spaces.Box(low=-100,
                                             high=100,
-                                            shape=(7 + 8 + 6 * self._numObjects,),
+                                            #shape=(7 + 8 + 6 * self._numObjects,),
+                                            shape=(14,),
                                             dtype=np.float32)
         #elif self._operation == "place":
         #    self.observation_space = spaces.Box(low=-100,
@@ -178,7 +179,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             raise TypeError
 
         # set observations
-        observation = self._get_observation(isGripperIndex=True)  # FIXME: self._observation was changed to ...
+        observation = self._get_observation()  # FIXME: self._observation was changed to ...
 
         if self._operation == "push":
             # move the effector in the position next to the block
@@ -307,7 +308,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         return objectUids
 
-    def _get_observation(self, inMatrixForm=False, isGripperIndex=True):
+    def _get_observation(self, inMatrixForm=False):
         """Return an observation array:
             if inMatrixForm is True then as a nested list:
             [ [gripper in the world frame X, Y, Z, fingers X, Y, Z, orientation Al, Bt, Gm],
@@ -319,65 +320,62 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # get the gripper's world position and orientation
 
         # Just to test the difference
-        if isGripperIndex:
-            # The coordinates of the gripper and fingers (X, Y, Z)
-            gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaGripperIndex)
-            fingerState_l = p.getLinkState(self._kuka.kukaUid, 10)[0]
-            fingerState_r = p.getLinkState(self._kuka.kukaUid, 13)[0]
+        # The coordinates of the gripper and fingers (X, Y, Z)
+        gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaGripperIndex)
+        #fingerState_l = p.getLinkState(self._kuka.kukaUid, 10)[0]
+        #fingerState_r = p.getLinkState(self._kuka.kukaUid, 13)[0]
 
-            #gripperPos = gripperState[0]
+        #gripperPos = gripperState[0]
 
-            #print((0.2385243302547786 - 0.4359219376500988 + 0.2369296963620491 - 0.4359219376500988)/2.0)
+        #print((0.2385243302547786 - 0.4359219376500988 + 0.2369296963620491 - 0.4359219376500988)/2.0)
 
-            gripperPos = np.array(gripperState[0] + np.array([0.0,  0.02399222398656322, -0.20819492434168495]))  # [0.00028128,  0.02405984, -0.19820549]
-            gripperOrn = gripperState[1]  # Quaternion
-            gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
+        gripperPos = np.array(gripperState[0] + np.array([0.0,  0.02399222398656322, -0.20819492434168495]))  # [0.00028128,  0.02405984, -0.19820549]
+        gripperOrn = gripperState[1]  # Quaternion
+        #gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
 
-            #gripperState = p.getLinkState(self._kuka.kukaUid, 10)
-            #gripperPos_l = gripperState[0]  # (X, Y, Z)
+        #gripperState = p.getLinkState(self._kuka.kukaUid, 10)
+        #gripperPos_l = gripperState[0]  # (X, Y, Z)
 
-            #gripperState = p.getLinkState(self._kuka.kukaUid, 13)
-            #gripperPos_r = gripperState[0]  # (X, Y, Z)
+        #gripperState = p.getLinkState(self._kuka.kukaUid, 13)
+        #gripperPos_r = gripperState[0]  # (X, Y, Z)
 
-            #gripperPos = (np.array(gripperPos_l) + np.array(gripperPos_r)) / 2  # (X, Y, Z)
-
-        else: # TODO: delete
-            gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaEndEffectorIndex)
-            raise NotImplementedError
+        #gripperPos = (np.array(gripperPos_l) + np.array(gripperPos_r)) / 2  # (X, Y, Z)
 
         #print("midpoint: {}, base: {}".format(gripperPos, gripperPos_base))
 
         observation = []
         if inMatrixForm:
-            to_add = list(gripperPos)
-            to_add.extend(list(fingerState_l + fingerState_r + gripperEul))
-            observation.append(to_add)
+            observation.append(list(gripperPos) + list(gripperOrn))
+            #to_add.extend(list(fingerState_l + fingerState_r + gripperEul))
             if type(self._goal) == int:
                 #observation.append([self._goal - 3, 0, 0])
-                bl_pos, _ = p.getBasePositionAndOrientation(self._goal)
-                observation.append(list(bl_pos))
+                bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
+                observation.append(list(bl_pos) + list(orn))
 
-            elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list:
-                observation.append(list(self._goal))
+            elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list or type(self._goal) == tuple:
+                observation.append(list(self._goal[0]) + list(self._goal[1]))
 
             else:
+                print(type(self._goal), self._goal)
                 raise TypeError
         else:
             observation.extend(list(gripperPos))
-            observation.extend(list(fingerState_l + fingerState_l + gripperEul))
+            observation.extend(list(gripperOrn))
             if type(self._goal) == int:
                 #observation.extend([self._goal - 3, 0, 0])
-                bl_pos, _ = p.getBasePositionAndOrientation(self._goal)
-                observation.extend(list(bl_pos))
+                bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
+                observation.extend(list(bl_pos) + list(orn))
 
-            elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list:
-                observation.extend(list(self._goal))
+            elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list or type(self._goal) == tuple:
+                observation.extend(list(self._goal[0]) + list(self._goal[1]))
 
             else:
                 print(type(self._goal), self._goal)
                 raise TypeError
             #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
             #observation.extend(list(blockPos1))
+
+        return np.array(observation)
 
         #invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
         #print("gripper pos {}, effector pos {}".format(gripperPos, grps[0]))
@@ -387,12 +385,12 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # dir1 = [gripperMat[1], gripperMat[4], gripperMat[7]]
         # dir2 = [gripperMat[2], gripperMat[5], gripperMat[8]]
 
-        for id_ in self._objectUids:
+        '''for id_ in self._objectUids:
             # get the block's position (X, Y, Z) and orientation (Quaternion)
             blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
             #print("blockPos: {}, gr - bl {}".format(blockPos, [gripperPos[i] - blockPos[i] for i in range(3)]))
 
-            '''blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos,
+            ''''''blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos,
                                                                         blockOrn)
             blockEulerInGripper = p.getEulerFromQuaternion(blockOrnInGripper)
             #print("projectedBlockPos2D:", [blockPosInGripper[0], blockPosInGripper[1], blockPosInGripper[2]])
@@ -404,9 +402,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # we return the relative x,y,z positions and euler angles of a block in a gripper space
             blockInGripperPosXYZEul = [blockPosInGripper[i] for i in range(3)]
             blockInGripperPosXYZEul.extend([blockEulerInGripper[i] for i in range(3)])
-            '''
+        '''
 
-            blockPosXYZEul = [blockPos[i] for i in range(3)]
+        '''blockPosXYZEul = [blockPos[i] for i in range(3)]
             blockPosXYZEul.extend([blockOrn[i] for i in range(3)])
 
             # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir0[0],gripperPos[1]+dir0[1],gripperPos[2]+dir0[2]],[1,0,0],lifeTime=1)
@@ -418,7 +416,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             else:
                 observation.extend(list(blockPosXYZEul))
             #print('block', blockPosXYZEul[0:3])
-        return np.array(observation)
+            '''
 
     def _step(self, action):
         """Environment step.
@@ -515,7 +513,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #self.distance1, self.distance2, self.bl_bl_distance = self._get_distance_to_goal()
             self.distance1 = self._get_distance_to_goal()
 
-        observation = self._get_observation(isGripperIndex=True)
+        observation = self._get_observation()
         reward = self._reward()
         done = self._termination()
         #print("_________INTERNAL REWARD________", reward)
@@ -553,12 +551,12 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
 
         # Unpack the block's coordinate
-        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
 
         #print("grip pos", grip_pos)
 
         # Get the goal block's coordinates
-        x, y, z, _, _, _ = block_pos[self._goal - 2]
+        x, y, z, *rest= block_pos[0]
 
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
@@ -578,10 +576,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._attempted_grasp:
             # If the block is above the ground, provide extra reward
             #print("Z tried:", z)
-            #if z > 0.1:
+            if z > 0.1:
                 #print("Z + 50:", z)
-            return 50.0 #+ z * 10.0
-            #return -1.0
+                return 50.0 #+ z * 10.0
+            return -1.0
         else:
             return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm
             #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
@@ -593,7 +591,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: float
         """
         # Unpack the block's coordinate
-        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
 
         # Get the goal block's coordinates
         x, y, z, _, _, _ = block_pos[self._goal - 2]
@@ -633,7 +631,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: float
         """
         # Unpack the block's coordinate
-        #grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
+        #grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
 
         # Get the goal block's coordinates
         #x, y, z, _, _, _ = block_pos[self._goal - 2]
@@ -702,7 +700,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """
 
         # Unpack the block's coordinate
-        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
 
         # Get the goal block's coordinates
         x, y, z, _, _, _ = block_pos[self._goal - 2]
@@ -727,10 +725,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
     def _get_distance_pick(self):
         # Unpack the block's coordinate
-        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
 
         # Get the goal block's coordinates
-        x, y, z, _, _, _ = block_pos[self._goal - 2]
+        x, y, z, *rest = block_pos[0]
 
         # Distance: gripper - block
         gr_bl_distance_x_y = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2
@@ -740,10 +738,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
     def _get_distance_place(self):
         # Unpack the block's coordinate
-        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, isGripperIndex=True)
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
 
         # Get the goal coordinates
-        x, y, z = block_pos[0]
+        x, y, z, *rest = block_pos[0]
         #x1, y1, z1, *rest = block_pos[1]
 
         # Distance
