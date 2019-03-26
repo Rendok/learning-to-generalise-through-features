@@ -486,8 +486,16 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # contains only one distance in that case
             self.distance_x_y, self.distance_z = self._get_distance_to_goal()
             # Hardcoded grasping
-            if self.distance_x_y < 0.001 and self.distance_z < 0.005 and not self._attempted_grasp:
+            if self.distance_x_y < 0.008 and 0.034 <= self.distance_z < 0.035 and not self._attempted_grasp:
                 finger_angle = 0.3
+
+                # Move the hand down
+                grasp_action = [0, 0, -0.17, 0, 0, -pi, 0, finger_angle]
+                self._kuka.applyAction(grasp_action)
+                for _ in range(2 * self._actionRepeat):
+                    p.stepSimulation()
+                if self._renders:
+                    time.sleep(self._timeStep)
 
                 while finger_angle > 0:
                     grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
@@ -500,8 +508,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         finger_angle = 0
 
                 # Move the hand up
-                for _ in range(1):  # range(1) for place
-                    grasp_action = [0, 0, 0.4, 0, 0, -pi, 0, finger_angle]
+                for _ in range(2):  # range(1) for place
+                    grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
                     self._kuka.applyAction(grasp_action)
                     for _ in range(2*self._actionRepeat):
                         p.stepSimulation()
@@ -654,7 +662,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: the block's ID (int)
         """
         #print(self._objectUids)
-        id_ = random.choice(self._objectUids)
+        id_ = 3 # random.choice(self._objectUids)
 
         if self._isTest >= 0:
             # change the colour of the goal block
