@@ -476,9 +476,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         if self._operation == "pick":
             # contains only one distance in that case
-            self.distance_x_y, self.distance_z = self._get_distance_to_goal()
+            self.distance_x_y, self.distance_z, gr_z = self._get_distance_to_goal()
+            print("gr z", gr_z)
             # Hardcoded grasping
-            if self.distance_x_y < 0.008 and 0.033 <= self.distance_z < 0.035 and not self._attempted_grasp:
+            if self.distance_x_y < 0.008 and 0.033 <= self.distance_z < 0.035 and gr_z > 0.01 and not self._attempted_grasp:
                 finger_angle = 0.3
 
                 # Move the hand down
@@ -571,6 +572,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         #print("Z table:", z)
         # The distance to the goal block plus negative reward for an every step
+
+        if grip_pos[2] < 0.0:
+            return -1
+
         if self._attempted_grasp:
             # If the block is above the ground, provide extra reward
             #print("Z tried:", z)
@@ -732,7 +737,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         gr_bl_distance_x_y = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2
         gr_bl_distance_z = (z - grip_pos[2]) ** 2
 
-        return gr_bl_distance_x_y, gr_bl_distance_z
+        return gr_bl_distance_x_y, gr_bl_distance_z, grip_pos[2]
 
     def _get_distance_place(self):
         # Unpack the block's coordinate

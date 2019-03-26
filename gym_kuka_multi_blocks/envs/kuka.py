@@ -125,6 +125,8 @@ class Kuka:
       #print(actualEndEffectorPos[2])
       #if (dz<0 or actualEndEffectorPos[2]<0.5):
       self.endEffectorPos[2] = self.endEffectorPos[2]+dz
+      if (self.endEffectorPos[2] < 0.0):
+        self.endEffectorPos[2] = 0.0
 
       self.endEffectorAngle = self.endEffectorAngle + da
       pos = self.endEffectorPos
