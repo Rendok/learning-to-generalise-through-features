@@ -585,7 +585,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 return 50.0 + z * 10.0
             return -1.0
         else:
-            return - 10 * self.distance_x_y - 10 * self.distance_z - action_norm - action_fingers
+            return - self.distance_x_y - abs(self.distance_z - 0.0345) - action_norm - action_fingers
             #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
 
 
