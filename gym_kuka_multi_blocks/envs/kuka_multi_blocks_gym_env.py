@@ -35,7 +35,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                  maxSteps=40,  # <---- was 20?
                  dv=0.06,
                  removeHeightHack=True,
-                 blockRandom=0.3,
+                 blockRandom=0.5,
                  cameraRandom=0,
                  width=48,
                  height=48,
@@ -164,7 +164,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             self._objectUids = self._randomly_place_objects(self._numObjects)
 
         sink = load_model(SINK_URDF)
-        set_pose(sink, Pose(Point(x=1.0, z=stable_z(sink, table))))
+        set_pose(sink, Pose(Point(x=0.7, z=stable_z(sink, table))))
 
         for _ in range(500):
             p.stepSimulation()
@@ -254,18 +254,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # Randomize positions of each object urdf.
             objectUids = []
             for _ in range(urdfList):
-                xpos = 0.2 + self._blockRandom * random.random()
-                ypos = self._blockRandom * (random.random() - .5) / 2.0
+                xpos = 0.3 + self._blockRandom * random.random()
+                ypos = self._blockRandom * (random.random() - .5) / 2.5
                 angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
                 orn = p.getQuaternionFromEuler([0, 0, angle])
                 urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
                 uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
                                  [orn[0], orn[1], orn[2], orn[3]])
                 objectUids.append(uid)
-                # Let each object fall to the tray individual, to prevent object
-                # intersection.
-                #for _ in range(500):
-                #    p.stepSimulation()
 
         else:
             for i in range(urdfList):
@@ -308,10 +304,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
                                  [orn[0], orn[1], orn[2], orn[3]])
                 objectUids.append(uid)
-                # Let each object fall to the tray individual, to prevent object
-                # intersection.
-                #for _ in range(500):
-                #    p.stepSimulation()
 
         return objectUids
 
