@@ -328,14 +328,17 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Just to test the difference
         # The coordinates of the gripper and fingers (X, Y, Z)
         gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaGripperIndex)
-        #fingerState_l = p.getLinkState(self._kuka.kukaUid, 10)[0]
-        #fingerState_r = p.getLinkState(self._kuka.kukaUid, 13)[0]
 
-        #gripperPos = gripperState[0]
+        # ad hoc shift due to slant spinsters
+        fingerState_l = p.getLinkState(self._kuka.kukaUid, 10)[0]
+        fingerState_r = p.getLinkState(self._kuka.kukaUid, 13)[0]
+        gripperPos = gripperState[0]
+        gripperPos = np.array(gripperState[0]) + (np.array(fingerState_l) + np.array(fingerState_r) - 2*np.array(gripperPos)) / 2.0
+        gripperPos[2] -= 0.02
 
         #print((0.2385243302547786 - 0.4359219376500988 + 0.2369296963620491 - 0.4359219376500988)/2.0)
 
-        gripperPos = np.array(gripperState[0] + np.array([0.0,  0.02399222398656322, -0.20819492434168495]))  # [0.00028128,  0.02405984, -0.19820549]
+        #gripperPos = np.array(gripperState[0]) + np.array([0.0,  0.02399222398656322, -0.20819492434168495])  # [0.00028128,  0.02405984, -0.19820549]
         gripperOrn = gripperState[1]  # Quaternion
         #gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
 
@@ -650,7 +653,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                          (-pi - self.action[5]) ** 2 + (0.0 - self.action[6]) ** 2
 
         #if self.bl_bl_distance[0] < 0.001 and self.bl_bl_distance[1] < 0.01:
-        if self.distance1 < 0.001:
+        if self.distance1 < 0.005:
             self._done = True
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(self._actionRepeat):
