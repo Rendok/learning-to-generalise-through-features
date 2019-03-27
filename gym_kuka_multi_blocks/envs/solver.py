@@ -66,7 +66,7 @@ def load_world():
     set_pose(block1, Pose(Point(x=0.5, y=0.02, z=stable_z(block1, table))))
     set_pose(block2, Pose(Point(x=0.75, y=-0.1, z=stable_z(block1, table))))
     set_pose(robot, Pose(Point(x=-0.5, z=stable_z(robot, table))))
-    set_pose(sink, Pose(Point(x=0.5, z=stable_z(sink, table))))
+    set_pose(sink, Pose(Point(x=0.7, z=stable_z(sink, table))))
 
     # the pose of the last loaded object cannot be set, hence floor
     floor = load_model(os.path.join(_urdfRoot, "plane.urdf"))

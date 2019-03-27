@@ -16,7 +16,7 @@ from pkg_resources import parse_version
 import gym
 from math import pi
 #from examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, stable_z
-from examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, stable_z
+from examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, Euler, stable_z
 from numpy.core.umath_tests import inner1d
 
 
@@ -154,15 +154,17 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._envStepCounter = 0
         p.stepSimulation()
 
+        # performing configuration mirroring pddl's one
         if self._isTest == -1:
             block1 = p.loadURDF(os.path.join(self._urdfRoot, "cube_small.urdf"))
+            set_pose(block1, Pose(Point(x=0.5, y=0.02, z=stable_z(block1, table)), Euler(0, 0, pi/2.0)))
             block2 = p.loadURDF(os.path.join(self._urdfRoot, "cube_small.urdf"))
-            set_pose(block1, Pose(Point(x=0.5, y=0.02, z=stable_z(block1, table))))
-            set_pose(block2, Pose(Point(x=0.75, y=-0.1, z=stable_z(block1, table))))
+            set_pose(block2, Pose(Point(x=0.75, y=-0.1, z=stable_z(block2, table)), Euler(0, 0, pi/2.0)))
             self._objectUids = [block1, block2]
+        # training configurations
         else:
             # Generate the # of blocks
-            self._objectUids = self._randomly_place_objects(self._numObjects)
+            self._objectUids = self._randomly_place_objects(self._numObjects, table)
 
         sink = load_model(SINK_URDF)
         set_pose(sink, Pose(Point(x=0.7, z=stable_z(sink, table))))
@@ -196,19 +198,21 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 p.stepSimulation()
 
         elif self._operation == "place":
+            # get the block's position (X, Y, Z) and orientation (Quaternion)
+            blockPos, blockOrn = p.getBasePositionAndOrientation(3)
             # move th effector in the position above the block
-            self._kuka.endEffectorPos[0] = observation[15]
-            self._kuka.endEffectorPos[1] = observation[16] - 0.01
-            self._kuka.endEffectorPos[2] = observation[17] + 0.27
-            self._kuka.endEffectorAngle = observation[18]
+            self._kuka.endEffectorPos[0] = blockPos[0]  # observation[15]
+            self._kuka.endEffectorPos[1] = blockPos[1] - 0.01  # observation[16] - 0.01
+            self._kuka.endEffectorPos[2] = blockPos[2] + 0.30  # observation[17] + 0.27
+            #self._kuka.endEffectorAngle = blockOrn[0] # observation[18]
 
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
-            for _ in range(6*self._actionRepeat):
+            for _ in range(8*self._actionRepeat):
                 p.stepSimulation()
 
-            self._kuka.endEffectorPos[2] = observation[17] + 0.251
+            self._kuka.endEffectorPos[2] = blockPos[2] + 0.251  # observation[17] + 0.251
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
-            for _ in range(self._actionRepeat):
+            for _ in range(3*self._actionRepeat):
                 p.stepSimulation()
 
         if self._operation == "place":
@@ -227,8 +231,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     finger_angle = 0
 
             # Move the hand up
-            for _ in range(1):
-                grasp_action = [0, 0, 0.4, 0, 0, -pi, 0, finger_angle]
+            for _ in range(2):
+                grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
                 self._kuka.applyAction(grasp_action)
                 for _ in range(2*self._actionRepeat):
                     p.stepSimulation()
@@ -237,7 +241,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         return np.array(observation)
 
-    def _randomly_place_objects(self, urdfList):
+    def _randomly_place_objects(self, urdfList, table):
         """Randomly places the objects in the bin.
 
         Args:
@@ -258,12 +262,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 xpos = 0.3 + self._blockRandom * random.random()
                 ypos = self._blockRandom * (random.random() - .5) / 2.5
                 angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
-                orn = p.getQuaternionFromEuler([0, 0, angle])
+                #orn = p.getQuaternionFromEuler([0, 0, angle])
                 urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
-                uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
-                                 [orn[0], orn[1], orn[2], orn[3]])
-                objectUids.append(uid)
 
+                uid = p.loadURDF(urdf_path)
+                #uid = p.loadURDF(urdf_path, [xpos, ypos, .15], [orn[0], orn[1], orn[2], orn[3]])
+                set_pose(uid, Pose(Point(x=xpos, y=ypos, z=stable_z(uid, table)), Euler(0, 0, angle)))
+
+                objectUids.append(uid)
         else:
             for i in range(urdfList):
                 if self._isTest == 1:
@@ -524,6 +530,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 'distance_x_y': self.distance_x_y,
                 'distance_z': self.distance_z,
                 'operation': self._operation
+                #'observation': observation
             }
         elif self._operation =='place':
             debug = {
@@ -643,7 +650,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                          (-pi - self.action[5]) ** 2 + (0.0 - self.action[6]) ** 2
 
         #if self.bl_bl_distance[0] < 0.001 and self.bl_bl_distance[1] < 0.01:
-        if self.distance1 < 0.01:
+        if self.distance1 < 0.001:
             self._done = True
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(self._actionRepeat):
@@ -672,7 +679,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
         #print(blockPos)
 
-        return [blockPos[0], blockPos[1], blockPos[2] + 0.1]
+        return [[blockPos[0], blockPos[1], blockPos[2] + 0.1], list(blockOrn)]
 
     def _get_distance_to_goal(self):
         """
