@@ -643,8 +643,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #action_fingers = (0.0 - self.action[7]) ** 2 + (0.0 - self.action[4]) ** 2 +\
         #                 (-pi - self.action[5]) ** 2 + (0.0 - self.action[6]) ** 2
 
-        if self.distance_x_y < 0.001 and self.distance_z < 0.01:
-        #if self.distance1 < 0.005:
+        if self.distance_x_y < 0.001 and 0.1 <= self.distance_z < 0.15:
             self._done = True
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(self._actionRepeat):
@@ -673,7 +672,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
         #print(blockPos)
 
-        return [[blockPos[0], blockPos[1], blockPos[2] + 0.1], list(blockOrn)]
+        return [[blockPos[0], blockPos[1], blockPos[2]], list(blockOrn)]
 
     def _get_distance_to_goal(self):
         """
