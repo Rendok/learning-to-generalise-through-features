@@ -650,7 +650,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 p.stepSimulation()
             return 50
         else:
-            return - self.distance_x_y - 2*abs(self.distance_z - 0.0075) - 10*action_norm  # - action_fingers
+            return - self.distance_x_y - 10*abs(self.distance_z - 0.0075) - 10*action_norm  # - action_fingers
 
     def _choose_block(self):
         """
