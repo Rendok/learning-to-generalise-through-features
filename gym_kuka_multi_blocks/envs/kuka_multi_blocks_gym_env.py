@@ -743,8 +743,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Get the goal block's coordinates
         x, y, z, *rest = block_pos[0]
 
-        print('gr', grip_pos, 'bl', block_pos[0])
-
         # Distance: gripper - block
         gr_bl_distance_x_y = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2
         gr_bl_distance_z = (z - grip_pos[2]) ** 2
