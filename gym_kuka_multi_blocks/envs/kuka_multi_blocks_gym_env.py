@@ -643,14 +643,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #action_fingers = (0.0 - self.action[7]) ** 2 + (0.0 - self.action[4]) ** 2 +\
         #                 (-pi - self.action[5]) ** 2 + (0.0 - self.action[6]) ** 2
 
-        if self.distance_x_y < 0.001 and 0.01 <= self.distance_z < 0.015:
+        if self.distance_x_y < 0.001 and 0.005 <= self.distance_z < 0.01:
             self._done = True
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
             return 50
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0125) - action_norm  # - action_fingers
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0025) - action_norm  # - action_fingers
 
     def _choose_block(self):
         """
