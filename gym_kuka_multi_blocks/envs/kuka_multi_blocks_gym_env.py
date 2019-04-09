@@ -67,7 +67,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
           numObjects: The number of objects in the bin.
           isTest: If 0, blocks are placed in random. If 1, blocks are placed in a test configuration.
           isSparseReward: If true, the reward function is sparse.
-          operation: a string: pick, push, place
+          operation: a string: pick, push, place, move_pick, move
         """
 
         self._isDiscrete = isDiscrete  # TODO: delete
@@ -166,11 +166,16 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         for _ in range(500):
             p.stepSimulation()
 
-        if self._operation == "pick":
+        if self._operation == "move_pick":
             # randomly choose a block to be a goal
             self._goal = self._choose_block()
+
+        elif self._operation == "move":
+            self._goal = self._get_goal_coordinates()
+
         elif self._operation == "place":
             self._goal = self._get_goal_coordinates()
+
         else:
             raise TypeError
 
@@ -437,14 +442,17 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         dv = self._dv  # velocity per physics step.
 
         action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
-        if self._operation == 'pick':
+        if self._operation == 'move_pick':
             self.action = np.append(action, np.array([0, -pi, 0, 0.4]))
+
         elif self._operation == 'place':
             self.action = np.append(action, np.array([0, -pi, 0, 0.0]))
+
+        elif self._operation == 'move':
+            self.action = np.append(action, np.array([0, -pi, 0, 0.0]))
+
         else:
             raise NotImplementedError
-        #action = np.array([dv, dv, dv, 0.25, 2*pi, 2*pi, 2*pi]) * action  # [dx, dy, dz, da, Euler]
-        #action = np.append(action, 0.3)  # [finger angle]
 
         return self._step_continuous(self.action) # [dx, dy, dz, da, Al, Bt, Gm, Fn_angle]
 
@@ -475,7 +483,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._renders:
             time.sleep(10 * self._timeStep)
 
-        if self._operation == "pick":
+        if self._operation == "move_pick":
             self.distance_x_y, self.distance_z, gr_z = self._get_distance_to_goal()
             # Hardcoded grasping
             if self.distance_x_y < 0.008 and 0.033 <= self.distance_z < 0.035 and gr_z > 0.01 and not self._attempted_grasp:
@@ -511,11 +519,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         elif self._operation == "place":
             self.distance_x_y, self.distance_z = self._get_distance_to_goal()
 
+        elif self._operation == "move":
+            self.distance = self._get_distance_to_goal()
+
         observation = self._get_observation()
         reward = self._reward()
         done = self._termination()
 
-        if self._operation == "pick":
+        if self._operation == "move_pick":
             debug = {
                 'goal_id': self._goal,
                 'distance_x_y': self.distance_x_y,
@@ -529,24 +540,38 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 'distance_z': abs(self.distance_z - 0.0075),
                 'operation': self._operation
             }
+        elif self._operation == 'move':
+            debug = {
+                'goal_id': self._goal[0],
+                'distance': self.distance,
+                'operation': self._operation
+            }
+        else:
+            print(self._operation)
+            raise NotImplementedError
+
         return observation, reward, done, debug
 
     def _reward(self):
         """Calculates the reward for the episode.
         :return: float
         """
-        if self._operation == "pick":
+        if self._operation == "move_pick":
             return self._reward_pick()
+        elif self._operation == "move":
+            return self._reward_move()
         elif self._operation == "push":
             return self._reward_push()
         elif self._operation == "place":
             return self._reward_place()
+        else:
+            print('operation:', self._operation)
+            raise NotImplementedError
 
     def _reward_pick(self):
         """Dense reward function for picking
         :return: float
         """
-
 
         # Unpack the block's coordinate
         grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
@@ -561,9 +586,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # a hack to be fixed in future
         #action_fingers = abs(0.4 - self.action[7])
         #print("DISTANCE", self.distance_x_y, abs(self.distance_z - 0.0345), "NORMS ACTION", action_norm)
-
-        # One over distance reward
-        #reward = max(reward, 0.01 / (0.25 + d))
 
         #print("Z table:", z)
         # The distance to the goal block plus negative reward for an every step
@@ -580,8 +602,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             return -1.0
         else:
             return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm
-            #print("Delta d: {}, d: {}, ".format(self.pr_step_distance - d, d))
-
 
     def _reward_push(self):
         """
@@ -649,6 +669,20 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm  # - action_fingers
 
+    def _reward_move(self):
+        """Dense reward function for picking
+        :return: float
+        """
+
+        # Negative reward for every extra action
+        action_norm = inner1d(self.action[0:4], self.action[0:4])
+
+        if self.distance < 0.001:
+            self._done = True
+            return 50.0
+        else:
+            return -10*self.distance - action_norm
+
     def _choose_block(self):
         """
         Choose a random block ID
@@ -665,9 +699,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         return id_
 
     def _get_goal_coordinates(self):
+        from random import random
         id_ = 4
         blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
-        #print(blockPos)
+
+        if self._operation == 'move':
+            blockPos_z = blockPos[2] + (0.05 + random()/2)
+            return [[blockPos[0], blockPos[1], blockPos_z], list(blockOrn)]
 
         return [[blockPos[0], blockPos[1], blockPos[2]], list(blockOrn)]
 
@@ -676,8 +714,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         To get the distance from the effector to the goal
         :return: list of floats
         """
-        if self._operation == "pick":
+        if self._operation == "move_pick":
             return self._get_distance_pick()
+
+        if self._operation == "move":
+            return self._get_distance_move()
 
         elif self._operation == "push":
             raise NotImplementedError
@@ -687,38 +728,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         else:
             raise NotImplementedError
-
-    def _get_distance_to_goal_old(self):
-        """
-        To get the distance from the effector to the goal block
-
-        Depreciated
-        :return: float
-        """
-
-        # Unpack the block's coordinate
-        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
-
-        # Get the goal block's coordinates
-        x, y, z, _, _, _ = block_pos[self._goal - 2]
-
-        # Get the second block's coordinates
-        x1, y1, z1, _, _, _ = block_pos[self._goal - 1]
-
-        # Distance
-        gr_bl1_distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
-
-        # Distance
-        gr_bl2_distance = (x1 - grip_pos[0]) ** 2 + (y1 - grip_pos[1]) ** 2 + (z1 - grip_pos[2]) ** 2
-        #gr_bl2_distance_x_y = (x1 - grip_pos[0]) ** 2 + (y1 - grip_pos[1]) ** 2
-        #gr_bl2_distance_z = (z1 - grip_pos[2]) ** 2
-
-        # Distance
-        #bl_bl_distance = (x1 - x) ** 2 + (y1 - y) ** 2 + (z1 - z) ** 2
-        bl_bl_distance_x_y = (x1 - x) ** 2 + (y1 - y) ** 2
-        bl_bl_distance_z = (z1 - z) ** 2
-
-        return gr_bl1_distance, gr_bl2_distance, [bl_bl_distance_x_y, bl_bl_distance_z]
 
     def _get_distance_pick(self):
         # Unpack the block's coordinate
@@ -732,6 +741,18 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         gr_bl_distance_z = (z - grip_pos[2]) ** 2
 
         return gr_bl_distance_x_y, gr_bl_distance_z, grip_pos[2]
+
+    def _get_distance_move(self):
+        # Unpack the block's coordinate
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
+
+        # Get the goal coordinates
+        x, y, z, *rest = block_pos[0]
+
+        # Distance: gripper - block
+        gr_gl_distance = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2 + (z - grip_pos[2]) ** 2
+
+        return gr_gl_distance
 
     def _get_distance_place(self):
         # Unpack the block's coordinate
@@ -750,7 +771,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """Terminates the episode if we have tried to grasp or if we are above
         maxSteps steps.
         """
-        if self._operation == "pick":
+        if self._operation == "move_pick":
             return self._attempted_grasp or self._env_step >= self._maxSteps
         else:
             return self._done or self._env_step >= self._maxSteps
