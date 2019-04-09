@@ -493,14 +493,12 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
                     self._kuka.applyAction(grasp_action)
                     p.stepSimulation()
-                    #if self._renders:
-                    #    time.sleep(self._timeStep)
                     finger_angle -= 0.4 / 100.
                     if finger_angle < 0:
                         finger_angle = 0
 
                 # Move the hand up
-                for _ in range(2):  # range(1) for place
+                for _ in range(2):
                     grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
                     self._kuka.applyAction(grasp_action)
                     for _ in range(2*self._actionRepeat):
@@ -508,7 +506,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if self._renders:
                         time.sleep(self._timeStep)
 
-                self._attempted_grasp = True  # TODO: delete attempted_grasp
+                self._attempted_grasp = True
 
         elif self._operation == "place":
             self.distance_x_y, self.distance_z = self._get_distance_to_goal()
@@ -523,7 +521,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 'distance_x_y': self.distance_x_y,
                 'distance_z': self.distance_z,
                 'operation': self._operation
-                #'observation': observation
             }
         elif self._operation == 'place':
             debug = {
@@ -650,7 +647,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 p.stepSimulation()
             return 50
         else:
-            return - self.distance_x_y - 10*abs(self.distance_z - 0.0075) - 10*action_norm  # - action_fingers
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm  # - action_fingers
 
     def _choose_block(self):
         """

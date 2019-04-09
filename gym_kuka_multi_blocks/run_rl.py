@@ -10,6 +10,7 @@ from ray.rllib.agents import ddpg
 from ray.rllib.agents import dqn
 from ray.rllib.agents import ppo
 
+operation = 'place'
 
 def env_creator_kuka_gym(renders=True):
     import gym
@@ -22,11 +23,10 @@ def env_creator_kuka_bl(renders=False):
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=2,
                                isDiscrete=False,
-                               isTest=0,
-                               maxSteps=40, # 300,
+                               isTest=2,
+                               maxSteps=40,
                                actionRepeat=80,
-                               blockRandom=0.8,
-                               operation="pick")
+                               operation=operation)
     return env
 #------------------------------------
 
@@ -44,11 +44,13 @@ def init_ppo():
     env = env_creator_kuka_bl(renders=True)
 
     agent = ppo.PPOAgent(config=config, env="my_env")
-    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-25_05-19-368urmriwn/checkpoint_240/checkpoint-240")
-    #agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-22_08-58-29dhogmp4r/checkpoint-180")
 
-
-    #agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-03-13_20-40-439sc4vld7/checkpoint_120/checkpoint-120")
+    if operation == 'pick':
+        agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-27_11-13-30nbdyzah7/checkpoint_300/checkpoint-300")
+    elif operation == 'place':
+        agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-04-03_09-59-16z2_syfpz/checkpoint_120/checkpoint-120")
+    else:
+        raise NotImplementedError
 
     return agent, env
 
@@ -87,7 +89,7 @@ def test_kuka(run, iter = 1):
         while not done:
             action = agent.compute_action(obs)
             obs, rew, done, info = env.step(action)
-            #obs, rew, done, info = env.step([0, 0, -0.3, 0])
+            #obs, rew, done, info = env.step([0, 0, -0.1, 0.5])
             print("__________REWARD____________", rew, info)
             reward += rew
         total_reward += reward

@@ -20,7 +20,6 @@ def env_creator_pick(renders=False):
                                isTest=-1,
                                maxSteps=20,
                                actionRepeat=80,
-                               blockRandom=0.8,
                                operation='pick')
     return env
 
@@ -33,13 +32,11 @@ def env_creator_place(renders=False):
                                isTest=-1,
                                maxSteps=20,
                                actionRepeat=80,
-                               blockRandom=0.8,
                                operation='place')
     return env
 
 
 def init_pick(renders=False):
-    from ray.rllib.models import ModelCatalog
 
     register_env("pick", env_creator_pick)
 
@@ -49,14 +46,12 @@ def init_pick(renders=False):
     env = env_creator_pick(renders=renders)
 
     agent = ppo.PPOAgent(config=config, env="pick")
-    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-25_04-03-30oglxq3k4/checkpoint_580/checkpoint-580")
-    #agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-22_08-58-29dhogmp4r/checkpoint-180")
+    agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-27_11-13-30nbdyzah7/checkpoint_300/checkpoint-300")
 
     return agent, env
 
 
 def init_place(renders=False):
-    from ray.rllib.models import ModelCatalog
 
     register_env("place", env_creator_place)
 
@@ -66,7 +61,8 @@ def init_place(renders=False):
     env = env_creator_place(renders=renders)
 
     agent = ppo.PPOAgent(config=config, env="place")
-    agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-03-23_08-35-409p66bqi7/checkpoint_160/checkpoint-160")
+    agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-04-03_04-32-48qsc01eeg/checkpoint_100/checkpoint-100")
+    #agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-04-03_09-59-16z2_syfpz/checkpoint_120/checkpoint-120")
 
     return agent, env
 
@@ -107,22 +103,22 @@ def execute_rl_action(env, plan_action, obs, policies):
     elif name == 'pick':
         body = params[1].body
         pose = params[1].pose
-        print(name, body, pose)
+        print('_____SOLVER_____', name, body, pose)
         env.set_goal(body, 'pick')
-        rl_loop(env, obs, body, pose, policies[0][1])
+        rl_loop(env, obs, policies[0][1])
     elif name == 'place':
         body = params[1].body
         pose = params[1].pose
-        print(name, body, pose)
-        env.set_goal(pose[0], 'place')
-        rl_loop(env, obs, body, pose, policies[1][1])
+        pose[0][2] -= 0.7
+        #print(params[2].grasp_pose, type(params[2]))
+        print('_____SOLVER_____', name, body, pose)
+        env.set_goal(pose, 'place')
+        rl_loop(env, obs, policies[1][1])
     else:
         pass
 
 
-def rl_loop(env, obs, body, pose, policy):
-    # TODO: construct a goal from 'body' and 'pose'
-    # TODO: update the goal
+def rl_loop(env, obs, policy):
     done = False
     while not done:
         action = policy.compute_action(obs)
@@ -141,12 +137,5 @@ if __name__ == '__main__':
     #print("plan: \n", plan)
     #print("cost", cost)
     #print("evaluation", evaluations)
-
-
-    # register a custom environment
-    # TODO: add all the trained envs
-    #register_env("KukaHRLEnv-v0", env_creator)
-
-    #ray.init()
 
     execute(plan)
