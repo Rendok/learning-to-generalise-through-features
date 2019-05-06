@@ -322,6 +322,22 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
+                # the blocks are close
+                elif self._isTest == 3:
+
+                    if i != 1:
+                        xpos = 0.4 + random.random() / 10.0
+                        ypos = (random.random() - .5) / 10.0
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i == 1:
+
+                        xpos = xpos + (random.random() - 0.5) / 10.0
+                        ypos = (random.random() - .5) / 10.0
+                        angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
                 urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
                 uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
                                  [orn[0], orn[1], orn[2], orn[3]])
