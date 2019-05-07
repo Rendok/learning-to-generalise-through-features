@@ -114,7 +114,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self.observation_space = spaces.Box(low=-100,
                                             high=100,
                                             #shape=(7 + 8 + 6 * self._numObjects,),
-                                            shape=(14,),
+                                            shape=(14 + 7 * (self._numObjects - 1),),
                                             dtype=np.float32)
 
         self.viewer = None
@@ -402,7 +402,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             observation.extend(list(gripperPos))
             observation.extend(list(gripperOrn))
             if type(self._goal) == int:
-                #observation.extend([self._goal - 3, 0, 0])
                 bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
                 observation.extend(list(bl_pos) + list(orn))
 
@@ -415,7 +414,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
             #observation.extend(list(blockPos1))
 
-        return np.array(observation)
+
 
         #invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
         #print("gripper pos {}, effector pos {}".format(gripperPos, grps[0]))
@@ -425,14 +424,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # dir1 = [gripperMat[1], gripperMat[4], gripperMat[7]]
         # dir2 = [gripperMat[2], gripperMat[5], gripperMat[8]]
 
-        '''for id_ in self._objectUids:
+        for id_ in self._objectUids:
+            if id_ == self._goal:
+                continue
             # get the block's position (X, Y, Z) and orientation (Quaternion)
             blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
-            #print("blockPos: {}, gr - bl {}".format(blockPos, [gripperPos[i] - blockPos[i] for i in range(3)]))
 
-            ''''''blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos,
-                                                                        blockOrn)
-            blockEulerInGripper = p.getEulerFromQuaternion(blockOrnInGripper)
+            #blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos, blockOrn)
+            #blockEulerInGripper = p.getEulerFromQuaternion(blockOrnInGripper)
             #print("projectedBlockPos2D:", [blockPosInGripper[0], blockPosInGripper[1], blockPosInGripper[2]])
             # print("blockEulerInGripper:", blockEulerInGripper)
 
@@ -440,12 +439,12 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #blockInGripperPosXYEulZ = [blockPosInGripper[0], blockPosInGripper[1], blockEulerInGripper[2]]
 
             # we return the relative x,y,z positions and euler angles of a block in a gripper space
-            blockInGripperPosXYZEul = [blockPosInGripper[i] for i in range(3)]
-            blockInGripperPosXYZEul.extend([blockEulerInGripper[i] for i in range(3)])
-        '''
+            #blockInGripperPosXYZEul = [blockPosInGripper[i] for i in range(3)]
+            #blockInGripperPosXYZEul.extend([blockEulerInGripper[i] for i in range(3)])
 
-        '''blockPosXYZEul = [blockPos[i] for i in range(3)]
-            blockPosXYZEul.extend([blockOrn[i] for i in range(3)])
+
+            blockPosXYZEul = [blockPos[i] for i in range(3)]
+            blockPosXYZEul.extend([blockOrn[i] for i in range(4)])
 
             # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir0[0],gripperPos[1]+dir0[1],gripperPos[2]+dir0[2]],[1,0,0],lifeTime=1)
             # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir1[0],gripperPos[1]+dir1[1],gripperPos[2]+dir1[2]],[0,1,0],lifeTime=1)
@@ -456,7 +455,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             else:
                 observation.extend(list(blockPosXYZEul))
             #print('block', blockPosXYZEul[0:3])
-            '''
+
+        return np.array(observation)
+
 
     def _step(self, action):
         """Environment step.
