@@ -12,7 +12,7 @@ from gym_kuka_multi_blocks.envs.solver import solve, load_world, pddlstream_from
 
 
 # TODO: add all the trained envs
-def env_creator_pick(renders=False):
+def env_creator_move_pick(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=2,
@@ -20,7 +20,7 @@ def env_creator_pick(renders=False):
                                isTest=-1,
                                maxSteps=20,
                                actionRepeat=80,
-                               operation='pick')
+                               operation='move_pick')
     return env
 
 
@@ -36,14 +36,14 @@ def env_creator_place(renders=False):
     return env
 
 
-def init_pick(renders=False):
+def init_move_pick(renders=False):
 
-    register_env("pick", env_creator_pick)
+    register_env("pick", env_creator_move_pick)
 
     config = ppo.DEFAULT_CONFIG.copy()
     config["num_workers"] = 1
 
-    env = env_creator_pick(renders=renders)
+    env = env_creator_move_pick(renders=renders)
 
     agent = ppo.PPOAgent(config=config, env="pick")
     agent.restore("/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-27_11-13-30nbdyzah7/checkpoint_300/checkpoint-300")
@@ -78,7 +78,7 @@ def execute(plan, viewer=False, display=True, simulate=False, teleport=False):
     env = env_creator_pick(renders=True)
 
     # load policies
-    agent1, _ = init_pick(renders=False)
+    agent1, _ = init_move_pick(renders=False)
     agent2, _ = init_place(renders=False)
 
     policies = [('pick', agent1), ('place', agent2)]
