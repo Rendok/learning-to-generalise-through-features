@@ -42,7 +42,7 @@ def env_creator_kuka_bl(renders=False):
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=2,
                                isDiscrete=False,
-                               isTest=3,
+                               isTest=2,
                                maxSteps=40,
                                actionRepeat=80,
                                operation=operation)
@@ -60,10 +60,13 @@ def init_ppo():
     agent = ppo.PPOAgent(config=config, env="my_env")
 
     if operation == 'move_pick':
+        pass
         # test == 0
         #agent.restore("/Users/dgrebenyuk/ray_results/move_pick/PPO_KukaMultiBlocks-v0_0_2019-03-27_11-13-30nbdyzah7/checkpoint_300/checkpoint-300")
-        # test == 3 close blocks
-        agent.restore("/Users/dgrebenyuk/ray_results/move_pick/PPO_KukaMultiBlocks-v0_0_2019-05-07_01-53-28pb9qko3w/checkpoint_160/checkpoint-160")
+        # test == 3 close blocks without obs and reward
+        #agent.restore("/Users/dgrebenyuk/ray_results/move_pick/PPO_KukaMultiBlocks-v0_0_2019-05-07_01-53-28pb9qko3w/checkpoint_160/checkpoint-160")
+        # test == 3 blocks in obs without reward
+        agent.restore("/Users/dgrebenyuk/ray_results/move_pick/PPO_KukaMultiBlocks-v0_0_2019-05-08_05-03-03rysgn407/checkpoint_300/checkpoint-300")
     elif operation == 'place':
         agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-04-03_09-59-16z2_syfpz/checkpoint_120/checkpoint-120")
     elif operation == 'move':
@@ -92,8 +95,8 @@ def test_kuka(run, iterations=1):
         done = False
         while not done:
             action = agent.compute_action(obs)
-            obs, rew, done, info = env.step(action)
-            #obs, rew, done, info = env.step([0, 0, -0.1, 0])
+            #obs, rew, done, info = env.step(action)
+            obs, rew, done, info = env.step([0, 0, -1, 1])
             print("__________REWARD____________", rew, info)
             reward += rew
         total_reward += reward

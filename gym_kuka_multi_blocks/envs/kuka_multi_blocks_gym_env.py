@@ -686,6 +686,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             block_norm = 0.0
         else:
             a = np.array(block_pos[1:][:]) - self.prev_st_bl
+            self.prev_st_bl = np.array(block_pos[1:][:])
             block_norm = inner1d(a, a)[0]
 
         # Negative reward for every extra action
@@ -693,6 +694,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         #print("Z table:", z)
         # The distance to the goal block plus negative reward for an every step
+
+        #print(100*block_norm)
 
         if grip_pos[2] < 0.0:
             return -1
@@ -705,7 +708,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 return 50.0
             return -1.0
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 200*block_norm
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 100*block_norm
 
     def _reward_pick(self):
 
