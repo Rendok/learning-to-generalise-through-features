@@ -686,7 +686,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             block_norm = 0.0
         else:
             a = np.array(block_pos[1:][:]) - self.prev_st_bl
-            block_norm = inner1d(a, a)
+            block_norm = inner1d(a, a)[0]
 
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
