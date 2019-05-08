@@ -118,6 +118,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                                             dtype=np.float32)
 
         self.viewer = None
+        self.prev_st_bl = None
 
         #self._isInProximity = False
         #self._bl_bl_dist_origin = None
@@ -130,6 +131,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._done = False
         self._env_step = 0
         self.terminated = 0
+        self.prev_st_bl = None
 
         # set the physics engine
         p.resetSimulation()
@@ -335,6 +337,36 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
                         xpos = xpos + (random.random() - 0.5) / 10.0
                         ypos = (random.random() - .5) / 10.0
+                        angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif self._isTest == 4:
+
+                    if i == 0:
+                        xpos = 0.4
+                        ypos = 0
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i == 1:
+
+                        xpos = xpos + 0.05
+                        ypos = 0
+                        angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif self._isTest == 5:
+
+                    if i == 0:
+                        xpos = 0.4
+                        ypos = 0
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i == 1:
+
+                        xpos = xpos - 0.05
+                        ypos = 0
                         angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -645,16 +677,19 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Unpack the block's coordinate
         grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
 
-        #print("grip pos", grip_pos)
-
         # Get the goal block's coordinates
-        x, y, z, *rest= block_pos[0]
+        x, y, z, *rest = block_pos[0]
+
+        # to prevent the surrounding blocks from moving
+        if self.prev_st_bl is None:
+            self.prev_st_bl = np.array(block_pos[1:][:])
+            block_norm = 0.0
+        else:
+            a = np.array(block_pos[1:][:]) - self.prev_st_bl
+            block_norm = inner1d(a, a)
 
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
-        # a hack to be fixed in future
-        #action_fingers = abs(0.4 - self.action[7])
-        #print("DISTANCE", self.distance_x_y, abs(self.distance_z - 0.0345), "NORMS ACTION", action_norm)
 
         #print("Z table:", z)
         # The distance to the goal block plus negative reward for an every step
@@ -667,10 +702,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #print("Z tried:", z)
             if z > 0.1:
                 #print("Z + 50:", z)
-                return 50.0 #+ z * 10.0
+                return 50.0
             return -1.0
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 200*block_norm
 
     def _reward_pick(self):
 
