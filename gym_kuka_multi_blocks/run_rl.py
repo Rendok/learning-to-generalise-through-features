@@ -1,4 +1,4 @@
-import pybullet
+import pybullet as p
 import pybullet_envs
 import pybullet_data
 import numpy as np
@@ -42,20 +42,20 @@ def env_creator_kuka_bl(renders=False):
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=2,
                                isDiscrete=False,
-                               isTest=2,
+                               isTest=3,
                                maxSteps=40,
                                actionRepeat=80,
                                operation=operation)
     return env
 
-def init_ppo():
+def init_ppo(render):
 
     register_env("my_env", env_creator_kuka_bl)
 
     config = ppo.DEFAULT_CONFIG.copy()
     config["num_workers"] = 3
 
-    env = env_creator_kuka_bl(renders=True)
+    env = env_creator_kuka_bl(renders=render)
 
     agent = ppo.PPOAgent(config=config, env="my_env")
 
@@ -66,7 +66,9 @@ def init_ppo():
         # test == 3 close blocks without obs and reward
         #agent.restore("/Users/dgrebenyuk/ray_results/move_pick/PPO_KukaMultiBlocks-v0_0_2019-05-07_01-53-28pb9qko3w/checkpoint_160/checkpoint-160")
         # test == 3 blocks in obs without reward
-        agent.restore("/Users/dgrebenyuk/ray_results/move_pick/PPO_KukaMultiBlocks-v0_0_2019-05-08_05-03-03rysgn407/checkpoint_300/checkpoint-300")
+        #agent.restore("/Users/dgrebenyuk/ray_results/move_pick/PPO_KukaMultiBlocks-v0_0_2019-05-08_05-03-03rysgn407/checkpoint_300/checkpoint-300")
+        # test == 3 blocks in obs with reward
+        agent.restore("/Users/dgrebenyuk/ray_results/move_pick/PPO_KukaMultiBlocks-v0_0_2019-05-08_07-03-38kr507iig/checkpoint_480/checkpoint-480")
     elif operation == 'place':
         agent.restore("/Users/dgrebenyuk/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-04-03_09-59-16z2_syfpz/checkpoint_120/checkpoint-120")
     elif operation == 'move':
@@ -79,30 +81,64 @@ def init_ppo():
     return agent, env
 
 
-def test_kuka(run, iterations=1):
+def test_kuka(run="PPO", iterations=1, render=True):
 
     if run == "PPO":
-        agent, env = init_ppo()
+        agent, env = init_ppo(render)
     elif run == "DDPG":
         agent, env = init_ddpg()
     else:
         env = env_creator_kuka_bl(renders=True)
 
-    total_reward = 0.0
+    success = []
+    steps = []
+    rwds = []
+    data = []
     for _ in range(iterations):
         reward = 0.0
         obs = env.reset()
         done = False
+        i = 0
         while not done:
             action = agent.compute_action(obs)
-            #obs, rew, done, info = env.step(action)
-            obs, rew, done, info = env.step([0, 0, -1, 1])
-            print("__________REWARD____________", rew, info)
+            obs, rew, done, info = env.step(action)
+            #obs, rew, done, info = env.step([0, 0, -1, 1])
+            #print("__________REWARD____________", rew, info)
             reward += rew
-        total_reward += reward
-    return total_reward / iterations
+            i += 1
+
+        steps.append(i)
+        rwds.append(reward)
+
+        if reward >= 45:
+            success.append(1)
+            #data.append({'steps': i, 'reward': reward, 'success': 1})
+        else:
+            success.append(0)
+            #data.append({'steps': i, 'reward': reward, 'success': 0})
+
+    import pandas as pd
+    data = pd.DataFrame(dict(steps=steps, reward=rwds, success=success))
+    print_scatter(data)
+
+    print("Success rate:", sum(success) / iterations, 'Average time', sum(steps) / len(steps))
+
+    #return success, rwds, steps, data
+
+
+def print_scatter(data):
+
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.lmplot('steps', 'reward', data=data, hue='success', fit_reg=False, palette=['r', 'g'], legend=False)
+    plt.title('Reward vs Policy Length')
+    plt.legend(title='Grasp Success', loc='upper right', labels=['False', 'True'])
+    plt.xlabel('Policy Length (time steps)')
+    plt.ylabel('Reward')
+    plt.show()
 
 
 ray.init()
-#print("Kuka's mean reward", test_kuka("PPO"))
-test_kuka("PPO")
+
+test_kuka(iterations=100, render=False)
