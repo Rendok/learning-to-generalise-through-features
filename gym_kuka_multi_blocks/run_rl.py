@@ -81,7 +81,7 @@ def init_ppo(render):
     return agent, env
 
 
-def test_kuka(run="PPO", iterations=1, render=True):
+def test_kuka(run="PPO", iterations=1, render=True, graph=False, stats=False):
 
     if run == "PPO":
         agent, env = init_ppo(render)
@@ -93,8 +93,7 @@ def test_kuka(run="PPO", iterations=1, render=True):
     success = []
     steps = []
     rwds = []
-    data = []
-    for _ in range(iterations):
+    for j in range(iterations):
         reward = 0.0
         obs = env.reset()
         done = False
@@ -110,20 +109,28 @@ def test_kuka(run="PPO", iterations=1, render=True):
         steps.append(i)
         rwds.append(reward)
 
-        if reward >= 45:
+        if reward >= 35:
             success.append(1)
-            #data.append({'steps': i, 'reward': reward, 'success': 1})
         else:
             success.append(0)
-            #data.append({'steps': i, 'reward': reward, 'success': 0})
 
-    import pandas as pd
-    data = pd.DataFrame(dict(steps=steps, reward=rwds, success=success))
-    print_scatter(data)
+        if j % 100 == 0 and j > 0:
+            print('iteration: ', j)
 
-    print("Success rate:", sum(success) / iterations, 'Average time', sum(steps) / len(steps))
+    if graph:
+        import pandas as pd
+        data = pd.DataFrame(dict(steps=steps, reward=rwds, success=success))
+        print_scatter(data)
 
-    #return success, rwds, steps, data
+    if stats:
+        import numpy as np
+        import scipy.stats as st
+        a = st.t.interval(0.95, len(success) - 1, loc=np.mean(success), scale=st.sem(success))
+        b = st.t.interval(0.95, len(steps) - 1, loc=np.mean(steps), scale=st.sem(steps))
+        print('Success rate:', sum(success) / iterations, 'Average time: ', sum(steps) / len(steps))
+        print("Success rate conf int: ", a, 'Average time conf int: ', b)
+
+    return sum(success) / iterations, sum(steps) / len(steps)
 
 
 def print_scatter(data):
@@ -133,12 +140,28 @@ def print_scatter(data):
 
     sns.lmplot('steps', 'reward', data=data, hue='success', fit_reg=False, palette=['r', 'g'], legend=False)
     plt.title('Reward vs Policy Length')
-    plt.legend(title='Grasp Success', loc='upper right', labels=['False', 'True'])
+    plt.legend(title='Grasp Success', loc='lower left', labels=['False', 'True'])
     plt.xlabel('Policy Length (time steps)')
     plt.ylabel('Reward')
+    x1, x2, y1, y2 = plt.axis()
+    plt.axis((x1, x2, -70, 70))
     plt.show()
 
 
 ray.init()
 
-test_kuka(iterations=100, render=False)
+test_kuka(iterations=2000, render=False, graph=True, stats=True)
+
+# case 3
+# 2000 iterations
+# 0.6305 11.5405
+# Success rate: (0.6093283602030073, 0.6516716397969926) Average time (10.972596439963114, 12.108403560036885)
+#Success rate: 0.645 Average time:  11.366
+#Success rate conf int:  (0.6240106609210494, 0.6659893390789506) Average time conf int:  (10.808356851366723, 11.923643148633277)
+
+# case 2
+# 2000 iterations
+#Success rate: 0.8145 Average time:  6.2235
+#Success rate conf int:  (0.7974500844980298, 0.8315499155019702) Average time conf int:  (6.010670678903822, 6.436329321096177)
+#Success rate: 0.8415 Average time:  6.122
+#Success rate conf int:  (0.8254805934561529, 0.8575194065438472) Average time conf int:  (5.914806985417463, 6.329193014582537)
