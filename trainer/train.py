@@ -141,7 +141,7 @@ if __name__ == '__main__':
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
                 #"restore": "/Users/dgrebenyuk/ray_results/pick/PPO_KukaMultiBlocks-v0_0_2019-03-20_11-40-09g_p8p2v_/checkpoint_200/checkpoint-200",
-                #"resume": True,
+                "resume": True,
                     "config": {
                     "num_gpus": args.num_gpus,  # ppo
                     "num_workers": args.num_workers,
