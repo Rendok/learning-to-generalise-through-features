@@ -152,32 +152,3 @@ if __name__ == '__main__':
                 },
             },
         })
-    '''elif False:
-        # run an experiment with a config
-        tune.run(
-            "PPO",
-            name="pick",
-            #scheduler=pbt,
-            **{
-                "env": "KukaMultiBlocks-v0",
-                "num_samples": 8,
-                "config": {
-                    "kl_coeff": 1.0,
-                    "num_workers": 8,
-                    "num_gpus": 0,
-                    "model": {
-                        "free_log_std": True
-                    },
-                    # These params are tuned from a fixed starting value.
-                    "lambda": 0.95,
-                    "clip_param": 0.2,
-                    "lr": 1e-4,
-                    # These params start off randomly drawn from a set.
-                    "num_sgd_iter": sample_from(
-                        lambda spec: random.choice([10, 20, 30])),
-                    "sgd_minibatch_size": sample_from(
-                        lambda spec: random.choice([128, 512, 2048])),
-                    "train_batch_size": sample_from(
-                        lambda spec: random.choice([10000, 20000, 40000]))
-                },
-            })'''
