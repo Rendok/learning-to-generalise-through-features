@@ -256,6 +256,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 if self._renders:
                     time.sleep(self._timeStep)
 
+        self.initial_state = self._get_observation(inMatrixForm=True)
+
         return np.array(observation)
 
     def _randomly_place_objects(self, urdfList, table):
@@ -365,8 +367,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
                     elif i == 1:
 
-                        xpos = xpos - 0.05
-                        ypos = 0
+                        xpos = xpos
+                        ypos = 0.05
                         angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -623,7 +625,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 'goal_id': self._goal,
                 'distance_x_y': self.distance_x_y,
                 'distance_z': self.distance_z,
-                'operation': self._operation
+                'operation': self._operation,
+                'disturbance': self.get_disturbance()
             }
         elif self._operation == "pick":
             debug = {
@@ -708,7 +711,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 return 50.0
             return -1.0
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 100*block_norm
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 50*block_norm
 
     def _reward_pick(self):
 
@@ -823,7 +826,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: the block's ID (int)
         """
         #print(self._objectUids)
-        id_ = random.choice(self._objectUids)
+        id_ = 3 # random.choice(self._objectUids)
 
         if self._isTest >= 0:
             # change the colour of the goal block
@@ -947,3 +950,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._attempted_grasp = False
         self._done = False
         self._env_step = 0
+
+    def get_disturbance(self):
+        """
+        Get the distance representing how far were the surrounding blocks moved
+        :return:
+        """
+        last_step = self._get_observation(inMatrixForm=True)
+        a = np.array(last_step[2:]) - np.array(self.initial_state[2:])
+        b = a[0][:3]
+        return np.sqrt(inner1d(b, b))
