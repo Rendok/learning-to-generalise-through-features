@@ -140,7 +140,7 @@ if __name__ == '__main__':
                 "stop": {"episode_reward_mean": 50},
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
-                "restore": "/home/ubuntu/ray_results/move_pick/PPO_KukaMultiBlocks-v0_0_2019-05-21_06-43-15_jtk6qv4/checkpoint_280/checkpoint-280",
+                "restore": "/home/ubuntu/ray_results/move_pick/copy/PPO_KukaMultiBlocks-v0_0_2019-05-21_07-13-500k_fzofj/checkpoint_520/checkpoint-520",
                 #"resume": True,
                     "config": {
                     "num_gpus": args.num_gpus,  # ppo
