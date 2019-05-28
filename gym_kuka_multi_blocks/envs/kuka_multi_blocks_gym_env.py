@@ -372,8 +372,33 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
+                # blocks in a contact
+                elif self._isTest == 6:
+                    from random import choice
+
+                    if i == 0:
+                        xpos = 0.4 + random.random() / 10.0
+                        ypos = (random.random() - .5) / 10.0
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+                        xpos0 = xpos
+                        ypos0 = ypos
+
+                    elif i == 1:
+
+                        coords = [(0, xpos0 + 0.05, ypos0),
+                                  (1, xpos0 - 0.05, ypos0),
+                                  (2, xpos0, ypos0 + 0.05),
+                                  (3, xpos0, ypos0 - 0.05)]
+                        cd = choice(coords)
+
+                        xpos = cd[1]
+                        ypos = cd[2]
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
                 urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
-                uid = p.loadURDF(urdf_path, [xpos, ypos, .15],
+                uid = p.loadURDF(urdf_path, [xpos, ypos, .1],
                                  [orn[0], orn[1], orn[2], orn[3]])
                 objectUids.append(uid)
 
