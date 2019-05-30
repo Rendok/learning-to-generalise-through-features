@@ -709,13 +709,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         x, y, z, *rest = block_pos[0]
 
         # to prevent the surrounding blocks from moving
-        if self.prev_st_bl is None:
-            self.prev_st_bl = np.array(block_pos[1:][:])
-            block_norm = 0.0
-        else:
-            a = np.array(block_pos[1:][:]) - self.prev_st_bl
-            self.prev_st_bl = np.array(block_pos[1:][:])
-            block_norm = inner1d(a, a)[0]
+        #if self.prev_st_bl is None:
+        #    self.prev_st_bl = np.array(block_pos[1:][:])
+        #    block_norm = 0.0
+        #else:
+        #    a = np.array(block_pos[1:][:]) - self.prev_st_bl
+        #    self.prev_st_bl = np.array(block_pos[1:][:])
+        #    block_norm = inner1d(a, a)[0]
 
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
@@ -723,7 +723,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #print("Z table:", z)
         # The distance to the goal block plus negative reward for an every step
 
-        #print(100*block_norm)
+        block_norm = self.get_disturbance()
+        #print(100 * block_norm)
 
         if grip_pos[2] < 0.0:
             return -1
