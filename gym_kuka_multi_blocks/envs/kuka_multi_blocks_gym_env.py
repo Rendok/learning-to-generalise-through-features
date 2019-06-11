@@ -280,6 +280,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             for _ in range(urdfList):
                 xpos = 0.3 + self._blockRandom * random.random()
                 ypos = self._blockRandom * (random.random() - .5) / 2.5
+                zpos = 0.1
                 angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
                 #orn = p.getQuaternionFromEuler([0, 0, angle])
                 urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
@@ -296,6 +297,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if i != 1:
                         xpos = 0.4 + self._blockRandom * random.random()
                         ypos = self._blockRandom * (random.random() - .5)
+                        zpos = 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -311,6 +313,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if i == 0:
                         xpos = 0.51 #0.5 # 0.55
                         ypos = 0.02 # 0.02 # 0.1
+                        zpos = 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -332,6 +335,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if i != 1:
                         xpos = 0.4 + random.random() / 10.0
                         ypos = (random.random() - .5) / 10.0
+                        zpos = 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -339,6 +343,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
                         xpos = xpos + (random.random() - 0.5) / 10.0
                         ypos = (random.random() - .5) / 10.0
+                        zpos = 0.1
                         angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -347,6 +352,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if i == 0:
                         xpos = 0.4
                         ypos = 0
+                        zpos = 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -362,6 +368,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if i == 0:
                         xpos = 0.4
                         ypos = 0
+                        zpos = 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -379,6 +386,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
                         ypos = (random.random() - .5) / 10.0
+                        zpos = 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
                         xpos0 = xpos
@@ -404,6 +412,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
                         ypos = (random.random() - .5) / 10.0
+                        zpos = 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
                         xpos0 = xpos
@@ -435,6 +444,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
                         ypos = (random.random() - .5) / 10.0
+                        zpos = 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
                         xpos0 = xpos
@@ -468,6 +478,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
                         ypos = (random.random() - .5) / 10.0
+                        zpos = 0.1
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
                         xpos0 = xpos
@@ -496,8 +507,45 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
-                urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
-                uid = p.loadURDF(urdf_path, [xpos, ypos, .1],
+                # |. tower
+                elif self._isTest == 10:
+                    from random import choice
+
+                    if i == 0:
+                        xpos = 0.4 + random.random() / 10.0
+                        ypos = (random.random() - .5) / 10.0
+                        zpos = 0.05
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+                        xpos0 = xpos
+                        ypos0 = ypos
+                        zpos0 = zpos
+
+                    elif i == 1:
+
+                        coords = [(0, xpos0 + 0.05, ypos0),
+                                  (1, xpos0 - 0.05, ypos0),
+                                  (2, xpos0, ypos0 + 0.05),
+                                  (3, xpos0, ypos0 - 0.05)]
+
+                        cd = choice(coords)
+
+                        xpos = cd[1]
+                        ypos = cd[2]
+                        zpos = zpos0
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i == 2:
+
+                        xpos = cd[1]
+                        ypos = cd[2]
+                        zpos = zpos0 + 0.05
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")
+                uid = p.loadURDF(urdf_path, [xpos, ypos, zpos],
                                  [orn[0], orn[1], orn[2], orn[3]])
                 objectUids.append(uid)
 
@@ -833,10 +881,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #print("Z tried:", z)
             if z > 0.1:
                 #print("Z + 50:", z)
-                return 50.0 #- 100*block_norm
+                return 50.0 - 100*block_norm
             return -1.0
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm #- 100*block_norm
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 100*block_norm
 
     def _reward_pick(self):
 
