@@ -544,6 +544,44 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
+                # .
+                # ... case
+                # .
+                elif self._isTest == 11:
+                    from random import choice
+
+                    if i == 0:
+                        xpos = 0.4 + random.random() / 10.0
+                        ypos = (random.random() - .5) / 10.0
+                        zpos = 0.05
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+                        xpos0 = xpos
+                        ypos0 = ypos
+                        zpos0 = zpos
+
+                    elif i == 1:
+
+                        coords = [[0, (xpos0 + 0.05, ypos0), (xpos0 - 0.05, ypos0), (xpos0, ypos0 - 0.1), (xpos0, ypos0 + 0.1)],
+                                  [1, (xpos0, ypos0 + 0.05), (xpos0, ypos0 - 0.05), (xpos0 - 0.1, ypos0), (xpos0 + 0.1, ypos0)]
+                                  ]
+
+                        cd = choice(coords)
+
+                        xpos = cd[1][0]
+                        ypos = cd[1][1]
+                        zpos = zpos0
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i > 1:
+
+                        xpos = cd[i][0]
+                        ypos = cd[i][1]
+                        zpos = zpos0
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
                 urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")
                 uid = p.loadURDF(urdf_path, [xpos, ypos, zpos],
                                  [orn[0], orn[1], orn[2], orn[3]])
@@ -881,10 +919,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #print("Z tried:", z)
             if z > 0.1:
                 #print("Z + 50:", z)
-                return 50.0 #- 100*block_norm
+                return 50.0 - 100*block_norm
             return -1.0
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm #- 100*block_norm
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 100*block_norm
 
     def _reward_pick(self):
 
