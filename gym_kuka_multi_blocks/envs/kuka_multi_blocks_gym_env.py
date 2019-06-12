@@ -1248,7 +1248,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             last_step = self._get_observation(inMatrixForm=True)
             a = np.array(last_step[3:]) - np.array(self.initial_state[3:])
             b = list(itertools.chain(*a))
-            print(b)
         else:
             raise TypeError
 
