@@ -1068,12 +1068,12 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         action_norm = inner1d(self.action[0:4], self.action[0:4])
 
         block_norm = self.get_disturbance()
-        # print(100 * block_norm)
+        #print(100 * block_norm)
 
         if self._one_more:
             self._done = True
             if block_pos[1][2] - block_pos[0][2] > 0:
-                return 50.0
+                return 50.0 - 100 * block_norm
             else:
                 return -1.0
 
@@ -1082,8 +1082,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
+            self._kuka.applyAction([0, 0, 0.1, 0, 0, -pi, 0, 0.4])
+            for _ in range(self._actionRepeat):
+                p.stepSimulation()
 
-        return -10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm
+        return -10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm - 100 * block_norm
 
     def _reward_move(self):
         """Dense reward function for picking
@@ -1235,7 +1238,18 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         Get the distance representing how far were the surrounding blocks moved
         :return:
         """
-        last_step = self._get_observation(inMatrixForm=True)
-        a = np.array(last_step[2:]) - np.array(self.initial_state[2:])
-        b = a[0][:3]
+
+        if self._operation == 'move_place':
+            last_step = self._get_observation(inMatrixForm=True)
+            a = np.array(last_step[2:]) - np.array(self.initial_state[2:])
+            b = a[0][:3]
+        elif self._operation == 'place':
+            import itertools
+            last_step = self._get_observation(inMatrixForm=True)
+            a = np.array(last_step[3:]) - np.array(self.initial_state[3:])
+            b = list(itertools.chain(*a))
+            print(b)
+        else:
+            raise TypeError
+
         return np.sqrt(inner1d(b, b))
