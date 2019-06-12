@@ -132,6 +132,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._env_step = 0
         self.terminated = 0
         self.prev_st_bl = None
+        self._one_more = False
 
         # set the physics engine
         p.resetSimulation()
@@ -689,9 +690,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         observation = []
         if inMatrixForm:
             observation.append(list(gripperPos) + list(gripperOrn))
-            #to_add.extend(list(fingerState_l + fingerState_r + gripperEul))
             if type(self._goal) == int:
-                #observation.append([self._goal - 3, 0, 0])
                 bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
                 observation.append(list(bl_pos) + list(orn))
 
@@ -1060,22 +1059,30 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: float
         """
         # Unpack the block's coordinate
-        #grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
 
         # Get the goal block's coordinates
-        #x, y, z, _, _, _ = block_pos[self._goal - 2]
+        #x, y, z, _, _, _ = block_pos[1]
 
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
 
-        if self.distance_x_y < 0.001 and 0.005 <= self.distance_z < 0.01:
+        print(block_pos[1][2] - block_pos[0][2])
+
+        if self._one_more:
             self._done = True
+            if block_pos[1][2] - block_pos[0][2] > 0:
+                return 50.0
+            else:
+                return -1.0
+
+        if self.distance_x_y < 0.001 and 0.005 <= self.distance_z < 0.01:
+            self._one_more = True
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
-            return 50
-        else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm
+
+        return -10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm
 
     def _reward_move(self):
         """Dense reward function for picking
