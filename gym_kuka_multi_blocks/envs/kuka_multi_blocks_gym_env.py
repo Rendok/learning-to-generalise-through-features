@@ -609,6 +609,38 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
+                # for placing. Two blocks in a tower, one faraway.
+                elif self._isTest == 12:
+                    from random import choice
+
+                    if self._numObjects != 3:
+                        raise ValueError
+
+                    if i == 0:
+
+                        xpos = 0.5
+                        ypos = 0.15
+                        zpos = 0.05
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i == 1:
+                        xpos = 0.4 + random.random() / 10.0
+                        ypos = (random.random() - .5) / 10.0
+                        zpos = 0.05
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+                        xpos0 = xpos
+                        ypos0 = ypos
+                        zpos0 = zpos
+
+                    elif i == 2:
+                        xpos = xpos0
+                        ypos = ypos0
+                        zpos = zpos0 + 0.05
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
                 urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")
                 uid = p.loadURDF(urdf_path, [xpos, ypos, zpos],
                                  [orn[0], orn[1], orn[2], orn[3]])
@@ -698,6 +730,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         for id_ in self._objectUids:
             if id_ == self._goal:
                 continue
+            elif id_ == 5 and self._operation == 'place':
+                continue
+
             # get the block's position (X, Y, Z) and orientation (Quaternion)
             blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
 
@@ -877,7 +912,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 'goal_id': self._goal,
                 'distance_x_y': self.distance_x_y,
                 'distance_z': abs(self.distance_z - 0.0075),
-                'operation': self._operation
+                'operation': self._operation,
+                'disturbance': 0
             }
         elif self._operation == 'move':
             debug = {
@@ -1031,9 +1067,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
-        # a hack to be fixed in future
-        #action_fingers = (0.0 - self.action[7]) ** 2 + (0.0 - self.action[4]) ** 2 +\
-        #                 (-pi - self.action[5]) ** 2 + (0.0 - self.action[6]) ** 2
 
         if self.distance_x_y < 0.001 and 0.005 <= self.distance_z < 0.01:
             self._done = True
@@ -1042,7 +1075,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 p.stepSimulation()
             return 50
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm  # - action_fingers
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm
 
     def _reward_move(self):
         """Dense reward function for picking
@@ -1075,7 +1108,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
     def _get_goal_coordinates(self):
         from random import random
-        id_ = 4
+        id_ = 5
         blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
 
         if self._operation == 'move':
