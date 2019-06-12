@@ -9,7 +9,7 @@ my_experiment = 'move_pick'
 def env_creator(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
-                               numObjects=3,
+                               numObjects=5,
                                isTest=11,
                                removeHeightHack=True,
                                isDiscrete=False,

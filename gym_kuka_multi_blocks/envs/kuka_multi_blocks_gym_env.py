@@ -332,6 +332,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 # the blocks are close
                 elif self._isTest == 3:
 
+                    if self._numObjects != 2:
+                        raise ValueError
+
                     if i != 1:
                         xpos = 0.4 + random.random() / 10.0
                         ypos = (random.random() - .5) / 10.0
@@ -349,6 +352,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
                 elif self._isTest == 4:
 
+                    if self._numObjects != 2:
+                        raise ValueError
+
                     if i == 0:
                         xpos = 0.4
                         ypos = 0
@@ -364,6 +370,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
                 elif self._isTest == 5:
+
+                    if self._numObjects != 2:
+                        raise ValueError
 
                     if i == 0:
                         xpos = 0.4
@@ -382,6 +391,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 # blocks in contact
                 elif self._isTest == 6:
                     from random import choice
+
+                    if self._numObjects != 2:
+                        raise ValueError
 
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
@@ -408,6 +420,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 # three blocks in contact
                 elif self._isTest == 7:
                     from random import choice
+
+                    if self._numObjects != 3:
+                        raise ValueError
 
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
@@ -440,6 +455,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 # three blocks, T-shape
                 elif self._isTest == 8:
                     from random import choice
+
+                    if self._numObjects != 3:
+                        raise ValueError
 
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
@@ -474,6 +492,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 # test 7 + 8
                 elif self._isTest == 9:
                     from random import choice
+
+                    if self._numObjects != 3:
+                        raise ValueError
 
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
@@ -510,6 +531,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 # |. tower
                 elif self._isTest == 10:
                     from random import choice
+
+                    if self._numObjects != 3:
+                        raise ValueError
 
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
@@ -549,6 +573,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 # .
                 elif self._isTest == 11:
                     from random import choice
+
+                    if self._numObjects != 5:
+                        raise ValueError
 
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
@@ -919,10 +946,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #print("Z tried:", z)
             if z > 0.1:
                 #print("Z + 50:", z)
-                return 50.0 #- 100*block_norm
+                return 50.0 - 100*block_norm
             return -1.0
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm #- 100*block_norm
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 100*block_norm
 
     def _reward_pick(self):
 
