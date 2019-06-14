@@ -912,7 +912,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 'distance_x_y': self.distance_x_y,
                 'distance_z': abs(self.distance_z - 0.0075),
                 'operation': self._operation,
-                'disturbance': 0
+                'disturbance': self.get_disturbance()
             }
         elif self._operation == 'move':
             debug = {
@@ -981,10 +981,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #print("Z tried:", z)
             if z > 0.1:
                 #print("Z + 50:", z)
-                return 50.0 #- 100*block_norm
+                return 50.0 - 100*block_norm
             return -1.0
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm #- 100*block_norm
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 100*block_norm
 
     def _reward_pick(self):
 
@@ -1239,16 +1239,16 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return:
         """
 
-        if self._operation == 'move_place':
-            last_step = self._get_observation(inMatrixForm=True)
-            a = np.array(last_step[2:]) - np.array(self.initial_state[2:])
-            b = a[0][:3]
-        elif self._operation == 'place':
-            import itertools
-            last_step = self._get_observation(inMatrixForm=True)
-            a = np.array(last_step[3:]) - np.array(self.initial_state[3:])
-            b = list(itertools.chain(*a))
-        else:
-            raise TypeError
+        #if self._operation == 'move_place':
+        #    last_step = self._get_observation(inMatrixForm=True)
+        #    a = np.array(last_step[2:]) - np.array(self.initial_state[2:])
+        #    b = a[0][:3]
+        #elif self._operation == 'place':
+        import itertools
+        last_step = self._get_observation(inMatrixForm=True)
+        a = np.array(last_step[3:]) - np.array(self.initial_state[3:])
+        b = list(itertools.chain(*a))
+        #else:
+        #    raise TypeError
 
         return np.sqrt(inner1d(b, b))

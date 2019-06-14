@@ -11,7 +11,7 @@ def env_creator(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=3,
-                               isTest=12,
+                               isTest=7,
                                removeHeightHack=True,
                                isDiscrete=False,
                                operation=my_experiment,
