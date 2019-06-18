@@ -533,7 +533,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 elif self._isTest == 10:
                     from random import choice
 
-                    if self._numObjects != 3:
+                    if self._numObjects != 3 and self._numObjects != 5:
                         raise ValueError
 
                     if i == 0:
@@ -566,6 +566,22 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         xpos = cd[1]
                         ypos = cd[2]
                         zpos = zpos0 + 0.05
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i == 3:
+
+                        xpos = cd[1]
+                        ypos = cd[2]
+                        zpos = zpos0 + 0.1
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i == 4:
+
+                        xpos = cd[1]
+                        ypos = cd[2]
+                        zpos = zpos0 + 0.15
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
