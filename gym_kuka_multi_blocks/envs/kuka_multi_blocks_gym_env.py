@@ -630,7 +630,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 elif self._isTest == 12:
                     from random import choice
 
-                    if self._numObjects != 3:
+                    if not 3 <= self._numObjects <= 5:
                         raise ValueError
 
                     if i == 0:
@@ -655,6 +655,20 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         xpos = xpos0
                         ypos = ypos0
                         zpos = zpos0 + 0.05
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i == 3:
+                        xpos = xpos0
+                        ypos = ypos0
+                        zpos = zpos0 + 0.1
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i == 4:
+                        xpos = xpos0
+                        ypos = ypos0
+                        zpos = zpos0 + 0.15
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -1089,7 +1103,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._one_more:
             self._done = True
             if block_pos[1][2] - block_pos[0][2] > 0:
-                return 50.0 - 100 * block_norm
+                return 50.0 - 100/5 * block_norm
             else:
                 return -1.0
 
@@ -1102,7 +1116,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
 
-        return -10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm - 100 * block_norm
+        return -10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm - 100/5 * block_norm
 
     def _reward_move(self):
         """Dense reward function for picking
