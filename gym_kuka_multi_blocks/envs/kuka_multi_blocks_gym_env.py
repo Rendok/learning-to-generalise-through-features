@@ -637,14 +637,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
                         xpos = 0.5
                         ypos = 0.15
-                        zpos = 0.05
+                        zpos = 0.01
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
                     elif i == 1:
                         xpos = 0.4 + random.random() / 10.0
                         ypos = (random.random() - .5) / 10.0
-                        zpos = 0.05
+                        zpos = 0.01
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
                         xpos0 = xpos
