@@ -223,11 +223,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # move th effector in the position above the block
             self._kuka.endEffectorPos[0] = blockPos[0]  # observation[15]
             self._kuka.endEffectorPos[1] = blockPos[1] - 0.01  # observation[16] - 0.01
-            self._kuka.endEffectorPos[2] = blockPos[2] + 0.30  # observation[17] + 0.27
+            self._kuka.endEffectorPos[2] = blockPos[2] + 0.45  # observation[17] + 0.27
             #self._kuka.endEffectorAngle = blockOrn[0] # observation[18]
 
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
-            for _ in range(8*self._actionRepeat):
+            for _ in range(4*self._actionRepeat):
                 p.stepSimulation()
 
             self._kuka.endEffectorPos[2] = blockPos[2] + 0.251  # observation[17] + 0.251
