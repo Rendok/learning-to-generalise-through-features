@@ -113,8 +113,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         self.observation_space = spaces.Box(low=-100,
                                             high=100,
-                                            #shape=(7 + 8 + 6 * self._numObjects,),
-                                            shape=(14 + 7 * (self._numObjects - 1),),
+                                            shape=(14 + 7 * 4,),
+                                            #shape=(14 + 7 * (self._numObjects - 1),),
                                             dtype=np.float32)
 
         self.viewer = None
@@ -759,7 +759,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         for id_ in self._objectUids:
             if id_ == self._goal:
                 continue
-            elif id_ == 5 and self._operation == 'place':
+            elif id_ == self._numObjects + 2 and self._operation == 'place':
                 continue
 
             # get the block's position (X, Y, Z) and orientation (Quaternion)
@@ -786,13 +786,26 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir2[0],gripperPos[1]+dir2[1],gripperPos[2]+dir2[2]],[0,0,1],lifeTime=1)
 
             if inMatrixForm:
-                observation.append(list(blockPosXYZEul))
+                if not id_ == 100:
+                    observation.append(list(blockPosXYZEul))
+                else:
+                    observation.append([0, 0, 0, 0, 0, 0, 0])
             else:
-                observation.extend(list(blockPosXYZEul))
-            #print('block', blockPosXYZEul[0:3])
+                if not id_ == 100:
+                    observation.extend(list(blockPosXYZEul))
+                else:
+                    observation.extend([0, 0, 0, 0, 0, 0, 0])
+
+        for _ in range(5 - self._numObjects):
+            if self._numObjects > 5:
+                raise ValueError
+
+            if inMatrixForm:
+                observation.append([0, 0, 0, 0, 0, 0, 0])
+            else:
+                observation.extend([0, 0, 0, 0, 0, 0, 0])
 
         return np.array(observation)
-
 
     def _step(self, action):
         """Environment step.
@@ -1149,7 +1162,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
     def _get_goal_coordinates(self):
         from random import random
-        id_ = 7
+        id_ = self._numObjects + 2
         blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
 
         if self._operation == 'move':
