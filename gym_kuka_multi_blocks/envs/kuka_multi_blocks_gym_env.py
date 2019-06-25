@@ -1149,7 +1149,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
     def _get_goal_coordinates(self):
         from random import random
-        id_ = 5
+        id_ = 7
         blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
 
         if self._operation == 'move':
