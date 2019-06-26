@@ -1281,17 +1281,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         Get the distance representing how far were the surrounding blocks moved
         :return:
         """
-
-        #if self._operation == 'move_place':
-        #    last_step = self._get_observation(inMatrixForm=True)
-        #    a = np.array(last_step[2:]) - np.array(self.initial_state[2:])
-        #    b = a[0][:3]
-        #elif self._operation == 'place':
         import itertools
         last_step = self._get_observation(inMatrixForm=True)
-        a = np.array(last_step[3:]) - np.array(self.initial_state[3:])
+        a = np.array(last_step[2:]) - np.array(self.initial_state[2:])
         b = list(itertools.chain(*a))
-        #else:
-        #    raise TypeError
 
         return np.sqrt(inner1d(b, b))
