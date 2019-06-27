@@ -553,7 +553,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     if i == 0:
                         xpos = 0.4 + random.random() / 10.0
                         ypos = (random.random() - .5) / 10.0
-                        zpos = 0.05
+                        zpos = 0.01
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
                         xpos0 = xpos
@@ -1034,10 +1034,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #print("Z tried:", z)
             if z > 0.1:
                 #print("Z + 50:", z)
-                return 50.0 - 100/36 * block_norm
+                return 50.0 #- 100/36 * block_norm
             return -1.0
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 100/36 * block_norm
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm #- 100/36 * block_norm
 
     def _reward_pick(self):
 

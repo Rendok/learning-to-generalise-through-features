@@ -12,9 +12,9 @@ def env_creator(renders=False):
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=4,
                                isTest=10,
-                               removeHeightHack=True,
-                               isDiscrete=False,
                                operation=my_experiment,
+                               constantVector=False,
+                               blocksInObservation=False
                                )
     return env
 
