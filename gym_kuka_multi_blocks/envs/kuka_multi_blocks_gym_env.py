@@ -207,7 +207,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             raise TypeError
 
         # set observations
-        observation = self._get_observation(blocksInObservation=self._blocksInObservation)
+        observation = self._get_observation(blocksInObservation=self._blocksInObservation, is_sensing=self._sensing)
 
         if self._operation == "push":
             # move the effector in the position next to the block
@@ -278,7 +278,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 if self._renders:
                     time.sleep(self._timeStep)
 
-        self.initial_state = self._get_observation(inMatrixForm=True)
+        self.initial_state = self._get_observation(inMatrixForm=True, is_sensing=False)
 
         return np.array(observation)
 
@@ -700,7 +700,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         return objectUids
 
-    def _get_observation(self, inMatrixForm=False, blocksInObservation = True):
+    def _get_observation(self, inMatrixForm=False, blocksInObservation=True, is_sensing=False):
         """Return an observation array:
             if inMatrixForm is True then as a nested list:
             [ [gripper in the world frame X, Y, Z, fingers X, Y, Z, orientation Al, Bt, Gm],
@@ -744,14 +744,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             observation.append(list(gripperPos) + list(gripperOrn))
             if type(self._goal) == int:
                 bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
-                if self._sensing:
+                if is_sensing:
                     bl_pos, orn = p.multiplyTransforms(invGripperPos, invGripperOrn, list(bl_pos), list(orn))
                     # print("transformed goal", list(bl_pos), list(orn))
 
                 observation.append(list(bl_pos) + list(orn))
 
             elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list or type(self._goal) == tuple:
-                if self._sensing:
+                if is_sensing:
                     bl_pos, orn = p.multiplyTransforms(invGripperPos, invGripperOrn, self._goal[0], self._goal[1])
                     # print("transformed goal", list(bl_pos), list(orn))
                     observation.append(list(bl_pos) + list(orn))
@@ -766,14 +766,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             observation.extend(list(gripperOrn))
             if type(self._goal) == int:
                 bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
-                if self._sensing:
+                if is_sensing:
                     bl_pos, orn = p.multiplyTransforms(invGripperPos, invGripperOrn, list(bl_pos), list(orn))
                     # print("transformed goal", list(bl_pos), list(orn))
 
                 observation.extend(list(bl_pos) + list(orn))
 
             elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list or type(self._goal) == tuple:
-                if self._sensing:
+                if is_sensing:
                     bl_pos, orn = p.multiplyTransforms(invGripperPos, invGripperOrn, self._goal[0], self._goal[1])
                     # print("transformed goal", list(bl_pos), list(orn))
                     observation.extend(list(bl_pos) + list(orn))
@@ -798,7 +798,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 # get the block's position (X, Y, Z) and orientation (Quaternion)
                 blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
 
-                if self._sensing:
+                if is_sensing:
                     blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos, blockOrn)
                     try:
                         objects.append(list(blockPosInGripper))
@@ -840,7 +840,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     else:
                         observation.extend([0, 0, 0, 0, 0, 0, 0])
 
-        if self._sensing:
+        if is_sensing:
             # print(objects)
             sens_vec = sensing.sense(objects, max_radius=2, num_sectors=self._num_sectors)
             if inMatrixForm:
@@ -848,7 +848,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             else:
                 observation.extend(sens_vec)
 
-        print(observation)
+        # print(observation)
         return np.array(observation)
 
     def _step(self, action):
@@ -974,7 +974,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         elif self._operation == "move":
             self.distance = self._get_distance_to_goal()
 
-        observation = self._get_observation(blocksInObservation=self._blocksInObservation)
+        observation = self._get_observation(blocksInObservation=self._blocksInObservation, is_sensing=self._sensing)
         reward = self._reward()
         done = self._termination()
 
@@ -984,7 +984,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 'distance_x_y': self.distance_x_y,
                 'distance_z': self.distance_z,
                 'operation': self._operation,
-                'disturbance': 0 # self.get_disturbance()
+                'disturbance': self.get_disturbance()
             }
         elif self._operation == "pick":
             debug = {
@@ -1037,7 +1037,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """
 
         # Unpack the block's coordinate
-        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, is_sensing=False)
 
         # Get the goal block's coordinates
         x, y, z, *rest = block_pos[0]
@@ -1146,7 +1146,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return: float
         """
         # Unpack the block's coordinate
-        grip_pos, *block_pos = self._get_observation(inMatrixForm=True)
+        grip_pos, *block_pos = self._get_observation(inMatrixForm=True, is_sensing=False)
 
         # Get the goal block's coordinates
         #x, y, z, _, _, _ = block_pos[1]
@@ -1326,7 +1326,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         :return:
         """
         import itertools
-        last_step = self._get_observation(inMatrixForm=True)
+        last_step = self._get_observation(inMatrixForm=True, is_sensing=False)
         a = np.array(last_step[2:]) - np.array(self.initial_state[2:])
         b = list(itertools.chain(*a))
 

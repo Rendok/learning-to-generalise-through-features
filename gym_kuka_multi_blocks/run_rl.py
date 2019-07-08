@@ -45,7 +45,9 @@ def env_creator_kuka_bl(renders=False):
                                isTest=10,
                                operation=operation,
                                constantVector=False,
-                               blocksInObservation=False)
+                               blocksInObservation=True,
+                               sensing=True,
+                               num_sectors=(16, 8))
     return env
 
 def init_ppo(render):
@@ -121,6 +123,15 @@ def init_ppo(render):
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_5bl_L1_16/PPO_KukaMultiBlocks-v0_0_2019-06-20_04-49-061qzuzb75/checkpoint_920/checkpoint-920")
         # test 10 5 blocks L = 1/25
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_5bl_L1_25/PPO_KukaMultiBlocks-v0_0_2019-06-24_03-57-446tcxiu69/checkpoint_1060/checkpoint-1060")
+        # exp 1
+        # test 10 4 blocks L = 0
+        # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_e1_4bl_L0/PPO_KukaMultiBlocks-v0_0_2019-06-27_07-30-077i_1glku/checkpoint_280/checkpoint-280")
+        # text 10 4 blocks L = 1/36
+        # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_e1_4bl_L1_36/PPO_KukaMultiBlocks-v0_0_2019-07-01_05-47-59g8g02v02/checkpoint_340/checkpoint-340")
+        # test 10 4 blocks L = 1/25
+        # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_e1_4bl_L1_25/PPO_KukaMultiBlocks-v0_0_2019-07-01_07-22-00qhydh6va/checkpoint_440/checkpoint-440")
+        # test 10 4 blocks L = 1/16
+        # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_e1_4bl_L1_16/PPO_KukaMultiBlocks-v0_0_2019-07-01_05-07-19twff5yx9/checkpoint_260/checkpoint-260")
     elif operation == 'place':
         # test == 12 L = 0
         # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_L0/PPO_KukaMultiBlocks-v0_0_2019-06-12_08-40-31lhabnnke/checkpoint_220/checkpoint-220")
@@ -129,7 +140,11 @@ def init_ppo(render):
         # test == 12 5 bl L = 0
         # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-06-25_10-10-56gxsemph4/checkpoint_360/checkpoint-360")
         # test == 12 5 blocks L = 1/16
-        agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_5bl_L0_16/PPO_KukaMultiBlocks-v0_0_2019-06-25_07-20-03ga1409qk/checkpoint_360/checkpoint-360")
+        # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_5bl_L0_16/PPO_KukaMultiBlocks-v0_0_2019-06-25_07-20-03ga1409qk/checkpoint_360/checkpoint-360")
+        # test == 12 e1 5 blocks L = 0
+        agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_e1_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-03_02-26-41y8thz8zy/checkpoint_360/checkpoint-360")
+        # test == 12 e1 5 blocks L = 1/16
+        # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_e1_5bl_L1_16/PPO_KukaMultiBlocks-v0_0_2019-07-03_03-10-18fv9sdiyu/checkpoint_420/checkpoint-420")
     elif operation == 'move':
         agent.restore("/Users/dgrebenyuk/ray_results/move/PPO_KukaMultiBlocks-v0_0_2019-04-09_02-24-40kihke9e8/checkpoint_40/checkpoint-40")
     elif operation == 'pick':
@@ -161,8 +176,8 @@ def test_kuka(run="PPO", iterations=1, render=True, scatter=False, stats=False, 
         i = 0
         while not done:
             action = agent.compute_action(obs)
-            obs, rew, done, info = env.step(action)
-            #obs, rew, done, info = env.step([0, 0, -1, 1])
+            # obs, rew, done, info = env.step(action)
+            obs, rew, done, info = env.step([0, 0, -1, 0])
             print("__________REWARD____________", rew, info)
             reward += rew
             i += 1
@@ -232,7 +247,6 @@ def print_hist(data):
 
 ray.init()
 
-# don't FORGET to set isTest=6 before running
 test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
 # test_kuka(iterations=2000, render=False, scatter=True, stats=True, hist=True)
 
@@ -544,3 +558,49 @@ test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
 # Average time:  38.674 +- 0.26568744568984215 conf int:  (38.40831255431016, 38.93968744568984)
 # Average disturbance:  0.273453095891218 +- 0.025310547811415923 conf int (0.2481425480798021, 0.298763643702637)
 # Success disturbance:  0.0034559590277774338 +- 0.007295330752041767 conf int (-0.003839371724264333, 0.0107512897798192)
+
+# exp 1
+# test 10 4 blocks L = 0
+# Success rate: 0.928 +- 0.011338222258444608 conf int:  (0.9166617777415554, 0.9393382222584447)
+# Average time:  5.042 +- 0.07718301824120033 conf int:  (4.9648169817587995, 5.1191830182412)
+# Average disturbance:  1.3521075784250536 +- 0.02652980312939235 conf int (1.3255777752956612, 1.3786373815544437)
+# Success disturbance:  1.342991060940879 +- 0.027308106356504602 conf int (1.3156829545843745, 1.3702991672973788)
+
+# test 10 4 blocks L = 1/36
+# Success rate: 0.944 +- 0.010085205229926286 conf int:  (0.9339147947700737, 0.9540852052299262)
+# Average time:  3.9535 +- 0.018781517458558383 conf int:  (3.9347184825414416, 3.9722815174585584)
+# Average disturbance:  1.238680730422086 +- 0.0312397885563811 conf int (1.2074409418657048, 1.2699205189784675)
+# Success disturbance:  1.2234607387632932 +- 0.032171745641969896 conf int (1.1912889931213233, 1.2556324844052649)
+
+# test 10 4 blocks L = 1/25
+# Success rate: 0.4025 +- 0.021510803194712436 conf int:  (0.3809891968052876, 0.42401080319471246)
+# Average time:  3.197 +- 0.2911343273977516 conf int:  (2.9058656726022485, 3.4881343273977516)
+# Average disturbance:  0.9161613402383337 +- 0.031461859337622244 conf int (0.8846994809007115, 0.9476231995759558)
+# Success disturbance:  0.8641833948542579 +- 0.05537937881567723 conf int (0.8088040160385807, 0.9195627736699349)
+
+# test 10 4 blocks L = 1/16
+# Success rate: 0.4515 +- 0.021828400978333773 conf int:  (0.42967159902166624, 0.4733284009783338)
+# Average time:  2.019 +- 0.03726187698324068 conf int:  (1.9817381230167594, 2.056261876983241)
+# Average disturbance:  0.7417407807496608 +- 0.02975082172594823 conf int (0.7119899590237125, 0.771491602475607)
+# Success disturbance:  0.5883750519489995 +- 0.04981469061199284 conf int (0.5385603613370067, 0.6381897425609926)
+
+# test 12 e1 5 blocks L = 0
+# Success rate: 0.905 +- 0.012861476304927177 conf int:  (0.8921385236950728, 0.9178614763049272)
+# Average time:  7.69 +- 0.32430603933453206 conf int:  (7.365693960665468, 8.014306039334532)
+# Average disturbance:  0.4366104552720279 +- 0.014949198723284374 conf int (0.42166125654874353, 0.45155965399531295)
+# Success disturbance:  0.356515993452393 +- 0.0035584994057430985 conf int (0.3529574940466499, 0.36007449285813586)
+
+# test 12 e1 5 blocks L = 1/16
+# Success rate: 0.866 +- 0.014942252633691977 conf int:  (0.851057747366308, 0.880942252633692)
+# Average time:  7.895 +- 0.4770783557067215 conf int:  (7.417921644293278, 8.372078355706721)
+# Average disturbance:  0.3266111923080376 +- 0.014381743901554167 conf int (0.3122294484064834, 0.3409929362095922)
+# Success disturbance:  0.22830587822621515 +- 0.0015610371352397234 conf int (0.22674484109097542, 0.22986691536145493)
+
+# test 12 e1 5 bl on 4 bl L = 0
+# Success rate: 0.035 +- 0.008061250345408624 conf int:  (0.02693874965459138, 0.04306125034540863)
+# Average time:  39.075 +- 0.22935434035209568 conf int:  (38.84564565964791, 39.3043543403521)
+# Average disturbance:  0.38734192475925494 +- 0.002338280553615568 conf int (0.3850036442056394, 0.38968020531286995)
+# Success disturbance:  0.36745061607238 +- 0.009554168580313827 conf int (0.35789644749206617, 0.37700478465269416)
+
+# test 12 e1 5 bl on 4 bl L = 1/16
+# Fail
