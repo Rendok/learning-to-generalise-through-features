@@ -18,6 +18,7 @@ from math import pi
 #from examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, stable_z
 from examples.pybullet.utils.pybullet_tools.utils import load_model, SINK_URDF, set_pose, Pose, Point, Euler, stable_z
 from numpy.core.umath_tests import inner1d
+from gym_kuka_multi_blocks.envs import sensing
 
 
 class KukaMultiBlocksEnv(KukaGymEnv):
@@ -43,8 +44,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                  isTest=0,
                  isSparseReward=False,
                  operation="place",
-                 constantVector = False,
-                 blocksInObservation = True,
+                 constantVector=False,
+                 blocksInObservation=True,
+                 sensing=False,
+                 num_sectors=(4, 2)
                  ):
         """Initializes the KukaDiverseObjectEnv.
 
@@ -99,6 +102,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._operation = operation
         self._constantVector = constantVector
         self._blocksInObservation = blocksInObservation
+        self._sensing = sensing
+        self._num_sectors = num_sectors
 
         if self._renders:
             self.cid = p.connect(p.SHARED_MEMORY)
@@ -114,28 +119,30 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                                        high=1,
                                        shape=(4,),
                                        dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
-
-        if not self._blocksInObservation:
-            self.observation_space = spaces.Box(low=-100,
+        if not self._sensing:
+            if not self._blocksInObservation:
+                self.observation_space = spaces.Box(low=-100,
+                                                    high=100,
+                                                    shape=(14,),
+                                                    dtype=np.float32)
+            elif self._constantVector:
+                self.observation_space = spaces.Box(low=-100,
                                                 high=100,
-                                                shape=(14,),
+                                                shape=(14 + 7 * 4,),
                                                 dtype=np.float32)
-        elif self._constantVector:
-            self.observation_space = spaces.Box(low=-100,
-                                            high=100,
-                                            shape=(14 + 7 * 4,),
-                                            dtype=np.float32)
+            else:
+                self.observation_space = spaces.Box(low=-100,
+                                                    high=100,
+                                                    shape=(14 + 7 * (self._numObjects - 1),),
+                                                    dtype=np.float32)
         else:
             self.observation_space = spaces.Box(low=-100,
                                                 high=100,
-                                                shape=(14 + 7 * (self._numObjects - 1),),
+                                                shape=(14 + self._num_sectors[0]*self._num_sectors[1],),
                                                 dtype=np.float32)
 
         self.viewer = None
         self.prev_st_bl = None
-
-        #self._isInProximity = False
-        #self._bl_bl_dist_origin = None
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
@@ -715,9 +722,6 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         gripperPos = np.array(gripperState[0]) + (np.array(fingerState_l) + np.array(fingerState_r) - 2*np.array(gripperPos)) / 2.0
         gripperPos[2] -= 0.02
 
-        #print((0.2385243302547786 - 0.4359219376500988 + 0.2369296963620491 - 0.4359219376500988)/2.0)
-
-        #gripperPos = np.array(gripperState[0]) + np.array([0.0,  0.02399222398656322, -0.20819492434168495])  # [0.00028128,  0.02405984, -0.19820549]
         gripperOrn = gripperState[1]  # Quaternion
         #gripperEul = p.getEulerFromQuaternion(gripperOrn)  # Euler: (Al, Bt, Gm)
 
@@ -731,15 +735,28 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         #print("midpoint: {}, base: {}".format(gripperPos, gripperPos_base))
 
+        # off-set vector for the griper's frame
+        invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
+        # print("gripper pos {}, effector pos {}".format(gripperPos, grps[0]))
+
         observation = []
         if inMatrixForm:
             observation.append(list(gripperPos) + list(gripperOrn))
             if type(self._goal) == int:
                 bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
+                if self._sensing:
+                    bl_pos, orn = p.multiplyTransforms(invGripperPos, invGripperOrn, list(bl_pos), list(orn))
+                    # print("transformed goal", list(bl_pos), list(orn))
+
                 observation.append(list(bl_pos) + list(orn))
 
             elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list or type(self._goal) == tuple:
-                observation.append(list(self._goal[0]) + list(self._goal[1]))
+                if self._sensing:
+                    bl_pos, orn = p.multiplyTransforms(invGripperPos, invGripperOrn, self._goal[0], self._goal[1])
+                    # print("transformed goal", list(bl_pos), list(orn))
+                    observation.append(list(bl_pos) + list(orn))
+                else:
+                    observation.append(list(self._goal[0]) + list(self._goal[1]))
 
             else:
                 print(type(self._goal), self._goal)
@@ -749,27 +766,28 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             observation.extend(list(gripperOrn))
             if type(self._goal) == int:
                 bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
+                if self._sensing:
+                    bl_pos, orn = p.multiplyTransforms(invGripperPos, invGripperOrn, list(bl_pos), list(orn))
+                    # print("transformed goal", list(bl_pos), list(orn))
+
                 observation.extend(list(bl_pos) + list(orn))
 
             elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list or type(self._goal) == tuple:
-                observation.extend(list(self._goal[0]) + list(self._goal[1]))
+                if self._sensing:
+                    bl_pos, orn = p.multiplyTransforms(invGripperPos, invGripperOrn, self._goal[0], self._goal[1])
+                    # print("transformed goal", list(bl_pos), list(orn))
+                    observation.extend(list(bl_pos) + list(orn))
+                else:
+                    observation.extend(list(self._goal[0]) + list(self._goal[1]))
 
             else:
                 print(type(self._goal), self._goal)
                 raise TypeError
-            #blockPos1, _ = p.getBasePositionAndOrientation(self._goal)
-            #observation.extend(list(blockPos1))
-
-
-
-        #invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
-        #print("gripper pos {}, effector pos {}".format(gripperPos, grps[0]))
 
         # gripperMat = p.getMatrixFromQuaternion(gripperOrn)
         # dir0 = [gripperMat[0], gripperMat[3], gripperMat[6]]
         # dir1 = [gripperMat[1], gripperMat[4], gripperMat[7]]
         # dir2 = [gripperMat[2], gripperMat[5], gripperMat[8]]
-
         if blocksInObservation:
             for id_ in self._objectUids:
                 if id_ == self._goal:
@@ -780,30 +798,37 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 # get the block's position (X, Y, Z) and orientation (Quaternion)
                 blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
 
-                #blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos, blockOrn)
-                #blockEulerInGripper = p.getEulerFromQuaternion(blockOrnInGripper)
-                #print("projectedBlockPos2D:", [blockPosInGripper[0], blockPosInGripper[1], blockPosInGripper[2]])
-                # print("blockEulerInGripper:", blockEulerInGripper)
-
-                # we return the relative x,y position and euler angle of block in gripper space
-                #blockInGripperPosXYEulZ = [blockPosInGripper[0], blockPosInGripper[1], blockEulerInGripper[2]]
-
-                # we return the relative x,y,z positions and euler angles of a block in a gripper space
-                #blockInGripperPosXYZEul = [blockPosInGripper[i] for i in range(3)]
-                #blockInGripperPosXYZEul.extend([blockEulerInGripper[i] for i in range(3)])
-
-
-                blockPosXYZEul = [blockPos[i] for i in range(3)]
-                blockPosXYZEul.extend([blockOrn[i] for i in range(4)])
-
-                # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir0[0],gripperPos[1]+dir0[1],gripperPos[2]+dir0[2]],[1,0,0],lifeTime=1)
-                # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir1[0],gripperPos[1]+dir1[1],gripperPos[2]+dir1[2]],[0,1,0],lifeTime=1)
-                # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir2[0],gripperPos[1]+dir2[1],gripperPos[2]+dir2[2]],[0,0,1],lifeTime=1)
-
-                if inMatrixForm:
-                    observation.append(list(blockPosXYZEul))
+                if self._sensing:
+                    blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos, blockOrn)
+                    try:
+                        objects.append(list(blockPosInGripper))
+                    except:
+                        objects = []
+                        objects.append(list(blockPosInGripper))
                 else:
-                    observation.extend(list(blockPosXYZEul))
+                    #blockEulerInGripper = p.getEulerFromQuaternion(blockOrnInGripper)
+                    #print("projectedBlockPos2D:", [blockPosInGripper[0], blockPosInGripper[1], blockPosInGripper[2]])
+                    # print("blockEulerInGripper:", blockEulerInGripper)
+
+                    # we return the relative x,y position and euler angle of block in gripper space
+                    #blockInGripperPosXYEulZ = [blockPosInGripper[0], blockPosInGripper[1], blockEulerInGripper[2]]
+
+                    # we return the relative x,y,z positions and euler angles of a block in a gripper space
+                    #blockInGripperPosXYZEul = [blockPosInGripper[i] for i in range(3)]
+                    #blockInGripperPosXYZEul.extend([blockEulerInGripper[i] for i in range(3)])
+
+
+                    blockPosXYZQ = [blockPos[i] for i in range(3)]
+                    blockPosXYZQ.extend([blockOrn[i] for i in range(4)])
+
+                    # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir0[0],gripperPos[1]+dir0[1],gripperPos[2]+dir0[2]],[1,0,0],lifeTime=1)
+                    # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir1[0],gripperPos[1]+dir1[1],gripperPos[2]+dir1[2]],[0,1,0],lifeTime=1)
+                    # p.addUserDebugLine(gripperPos,[gripperPos[0]+dir2[0],gripperPos[1]+dir2[1],gripperPos[2]+dir2[2]],[0,0,1],lifeTime=1)
+
+                    if inMatrixForm:
+                        observation.append(list(blockPosXYZQ))
+                    else:
+                        observation.extend(list(blockPosXYZQ))
 
             if self._constantVector:
                 for _ in range(5 - self._numObjects):
@@ -815,6 +840,15 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     else:
                         observation.extend([0, 0, 0, 0, 0, 0, 0])
 
+        if self._sensing:
+            # print(objects)
+            sens_vec = sensing.sense(objects, max_radius=2, num_sectors=self._num_sectors)
+            if inMatrixForm:
+                observation.append(sens_vec)
+            else:
+                observation.extend(sens_vec)
+
+        print(observation)
         return np.array(observation)
 
     def _step(self, action):
@@ -950,7 +984,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 'distance_x_y': self.distance_x_y,
                 'distance_z': self.distance_z,
                 'operation': self._operation,
-                'disturbance': self.get_disturbance()
+                'disturbance': 0 # self.get_disturbance()
             }
         elif self._operation == "pick":
             debug = {
@@ -1023,7 +1057,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #print("Z table:", z)
         # The distance to the goal block plus negative reward for an every step
 
-        block_norm = self.get_disturbance()
+        # block_norm = self.get_disturbance()
         #print(100 * block_norm)
 
         if grip_pos[2] < 0.0:
@@ -1034,10 +1068,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #print("Z tried:", z)
             if z > 0.1:
                 #print("Z + 50:", z)
-                return 50.0 - 100/25 * block_norm
+                return 50.0 #- 100/25 * block_norm
             return -1.0
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 100/25 * block_norm
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm #- 100/25 * block_norm
 
     def _reward_pick(self):
 
@@ -1126,7 +1160,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._one_more:
             self._done = True
             if block_pos[1][2] - block_pos[0][2] > 0:
-                return 50.0 - 100/16 * block_norm
+                return 50.0 #- 100/16 * block_norm
             else:
                 return -1.0
 
@@ -1139,7 +1173,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
 
-        return -10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm - 100/16 * block_norm
+        return -10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm #- 100/16 * block_norm
 
     def _reward_move(self):
         """Dense reward function for picking

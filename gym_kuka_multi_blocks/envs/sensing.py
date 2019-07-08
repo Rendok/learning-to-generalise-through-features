@@ -61,5 +61,5 @@ def sense(objects, max_radius, num_sectors=(4, 2)):
     return distance
 
 
-a = [[0, 1, 1], [0, 1, 0], [1, 0, 0]]
-print(sense(a, 2, (8, 4)))
+# a = [[0, 1, 1], [0, 1, 0], [1, 0, 0]]
+# print(sense(a, 2, (8, 4)))
