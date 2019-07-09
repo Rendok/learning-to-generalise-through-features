@@ -1057,7 +1057,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         #print("Z table:", z)
         # The distance to the goal block plus negative reward for an every step
 
-        # block_norm = self.get_disturbance()
+        block_norm = self.get_disturbance()
         #print(100 * block_norm)
 
         if grip_pos[2] < 0.0:
@@ -1068,10 +1068,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #print("Z tried:", z)
             if z > 0.1:
                 #print("Z + 50:", z)
-                return 50.0 #- 100/25 * block_norm
+                return 50.0 - 100/16 * block_norm
             return -1.0
         else:
-            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm #- 100/25 * block_norm
+            return - 10*self.distance_x_y - 10*abs(self.distance_z - 0.0345) - action_norm - 100/16 * block_norm
 
     def _reward_pick(self):
 
