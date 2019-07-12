@@ -37,15 +37,6 @@ def is_in_sector(cd, angles, radius, num_sectors):
 
 
 def sense(objects, max_radius, num_sectors=(4, 2)):
-    #sectors = [(0, pi / 2, 0, pi / 2),
-    #           (pi / 2, pi, 0, pi / 2),
-    #           (-pi / 2, 0, 0, pi / 2),
-    #           (-pi, -pi / 2, 0, pi / 2),
-    #           (0, pi / 2, pi / 2, pi),
-    #           (pi / 2, pi, pi / 2, pi),
-    #           (-pi / 2, 0, pi / 2, pi),
-    #           (-pi, -pi / 2, pi / 2, pi)
-    #           ]
 
     sectors = list(itertools.product(np.linspace(-np.pi, np.pi - 2*np.pi / num_sectors[0], num_sectors[0]),
                                      np.linspace(0, np.pi - np.pi / num_sectors[1], num_sectors[1])))
