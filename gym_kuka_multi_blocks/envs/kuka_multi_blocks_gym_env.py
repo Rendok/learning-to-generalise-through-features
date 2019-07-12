@@ -1154,7 +1154,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
 
-        #block_norm = self.get_disturbance()
+        block_norm = self.get_disturbance()
         #print(100 * block_norm)
 
         if self._one_more:
