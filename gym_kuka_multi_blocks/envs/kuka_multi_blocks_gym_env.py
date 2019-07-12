@@ -1329,7 +1329,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         """
         import itertools
         last_step = self._get_observation(inMatrixForm=True, is_sensing=False)
-        a = np.array(last_step[2:]) - np.array(self.initial_state[2:])
+        if self._operation == 'place':
+            a = np.array(last_step[3:]) - np.array(self.initial_state[3:])
+        else:
+            a = np.array(last_step[2:]) - np.array(self.initial_state[2:])
         b = list(itertools.chain(*a))
 
         return np.sqrt(inner1d(b, b))
