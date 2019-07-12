@@ -792,20 +792,20 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             for id_ in self._objectUids:
                 if id_ == self._goal:
                     continue
-                elif (id_ == 3 or id_ == self._numObjects + 2) and self._operation == 'place':
+                elif id_ == self._numObjects + 2 and self._operation == 'place':
                     continue
 
                 # get the block's position (X, Y, Z) and orientation (Quaternion)
                 blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
 
-                if is_sensing:
+                if is_sensing and id_ != 3:
                     blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos, blockOrn)
                     try:
                         objects.append(list(blockPosInGripper))
                     except:
                         objects = []
                         objects.append(list(blockPosInGripper))
-                else:
+                elif not is_sensing:
                     #blockEulerInGripper = p.getEulerFromQuaternion(blockOrnInGripper)
                     #print("projectedBlockPos2D:", [blockPosInGripper[0], blockPosInGripper[1], blockPosInGripper[2]])
                     # print("blockEulerInGripper:", blockEulerInGripper)
