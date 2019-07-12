@@ -665,7 +665,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                     elif i == 1:
                         xpos = 0.4 + random.random() / 10.0
                         ypos = (random.random() - .5) / 10.0
-                        zpos = 0.01
+                        zpos = -0.05
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
                         xpos0 = xpos
@@ -792,7 +792,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             for id_ in self._objectUids:
                 if id_ == self._goal:
                     continue
-                elif id_ == 3 and self._operation == 'place':
+                elif (id_ == 3 or id_ == self._numObjects + 2) and self._operation == 'place':
                     continue
 
                 # get the block's position (X, Y, Z) and orientation (Quaternion)
@@ -1212,6 +1212,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         if self._operation == 'move':
             blockPos_z = blockPos[2] + (0.3 + random()/6)
             return [[blockPos[0], blockPos[1], blockPos_z], list(blockOrn)]
+        # elif self._operation == 'place':
+            # blockPos_z = blockPos[2] +
 
         return [[blockPos[0], blockPos[1], blockPos[2]], list(blockOrn)]
 
