@@ -792,7 +792,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             for id_ in self._objectUids:
                 if id_ == self._goal:
                     continue
-                elif id_ == self._numObjects + 2 and self._operation == 'place':
+                elif id_ == 3 and self._operation == 'place':
                     continue
 
                 # get the block's position (X, Y, Z) and orientation (Quaternion)
@@ -1154,13 +1154,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # Negative reward for every extra action
         action_norm = inner1d(self.action[0:4], self.action[0:4])
 
-        block_norm = self.get_disturbance()
+        #block_norm = self.get_disturbance()
         #print(100 * block_norm)
 
         if self._one_more:
             self._done = True
             if block_pos[1][2] - block_pos[0][2] > 0:
-                return 50.0 - 100/16 * block_norm
+                return 50.0 #- 100/16 * block_norm
             else:
                 return -1.0
 
@@ -1173,7 +1173,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             for _ in range(self._actionRepeat):
                 p.stepSimulation()
 
-        return -10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm - 100/16 * block_norm
+        return -10*self.distance_x_y - 10*abs(self.distance_z - 0.0075) - action_norm #- 100/16 * block_norm
 
     def _reward_move(self):
         """Dense reward function for picking
