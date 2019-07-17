@@ -44,7 +44,8 @@ def on_episode_start(info):
 def on_episode_step(info):
     episode = info["episode"]
     info = episode.last_info_for()
-    episode.user_data["num_blocks"].append(info['num_blocks'])
+    print('info!!!', info)
+    episode.user_data["num_blocks"].append(info)
 
 
 def on_episode_end(info):
