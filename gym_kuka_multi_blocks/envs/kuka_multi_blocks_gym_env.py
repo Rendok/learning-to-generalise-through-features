@@ -754,9 +754,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         #print("midpoint: {}, base: {}".format(gripperPos, gripperPos_base))
 
-        # off-set vector for the griper's frame
-        invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
-        # print("gripper pos {}, effector pos {}".format(gripperPos, grps[0]))
+        if is_sensing:
+            # off-set vector for the griper's frame
+            invGripperPos, invGripperOrn = p.invertTransform(gripperPos, gripperOrn)
+            # print("gripper pos {}, effector pos {}".format(gripperPos, grps[0]))
 
         observation = []
         if inMatrixForm:
@@ -812,13 +813,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             for id_ in self._objectUids:
                 if id_ == self._goal:
                     continue
-                elif id_ == 3 and self._operation == 'place':  #self._numObjects + 2
-                    continue
+                #elif id_ == 3 and self._operation == 'place':  #self._numObjects + 2
+                #    continue
 
                 # get the block's position (X, Y, Z) and orientation (Quaternion)
                 blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
 
-                if is_sensing:
+                if is_sensing and not id_ == 3:
                     blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos, blockOrn)
                     #try:
                     objects.append(list(blockPosInGripper))
