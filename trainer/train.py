@@ -108,7 +108,7 @@ if __name__ == '__main__':
     register_env("KukaMultiBlocks-v0", env_creator)
 
     # assign model variables to commandline arguments
-    ray.init(redis_address=args.redis_address)
+    ray.init(redis_address="172.31.13.147:6379") # args.redis_address)
 
     if args.run == "DDPG" or args.run == "DQN":
 
