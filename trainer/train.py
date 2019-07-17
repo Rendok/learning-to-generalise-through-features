@@ -24,7 +24,7 @@ def env_creator(renders=False):
 
 def on_train_result(info):
     result = info["result"]
-    if result["episode_reward_mean"] > 48:
+    if result["episode_reward_mean"] > 45:
         phase = 1
     else:
         phase = 0
