@@ -108,7 +108,7 @@ if __name__ == '__main__':
     register_env("KukaMultiBlocks-v0", env_creator)
 
     # assign model variables to commandline arguments
-    ray.init(redis_address="172.31.13.147:6379") # args.redis_address)
+    ray.init(redis_address=args.redis_address)
 
     if args.run == "DDPG" or args.run == "DQN":
 
@@ -178,6 +178,7 @@ if __name__ == '__main__':
             stop={"episode_reward_mean": 50},
             checkpoint_freq=args.checkpoint_freq,
             checkpoint_at_end=args.checkpoint_at_end,
+            verbose=1,
             restore="/home/ubuntu/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-07-17_03-38-44d0nyfysk/checkpoint_1100/checkpoint-1100",
             config={
                 "env": "KukaMultiBlocks-v0",
