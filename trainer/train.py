@@ -12,7 +12,7 @@ my_experiment = 'place'
 def env_creator(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
-                               numObjects=5,
+                               numObjects=6,
                                isTest=12,
                                operation=my_experiment,
                                constantVector=False,
@@ -210,12 +210,12 @@ if __name__ == '__main__':
                 "horizon": 40,
                 "sample_batch_size": 25,  # 50,
                 "train_batch_size": 1250,  # 2500,
-                "callbacks": {
-                    "on_episode_start": tune.function(on_episode_start),
-                    "on_episode_step": tune.function(on_episode_step),
-                    "on_episode_end": tune.function(on_episode_end),
-                    "on_train_result": tune.function(on_train_result),
-                },
+                # "callbacks": {
+                    # "on_episode_start": tune.function(on_episode_start),
+                    # "on_episode_step": tune.function(on_episode_step),
+                    # "on_episode_end": tune.function(on_episode_end),
+                    # "on_train_result": tune.function(on_train_result),
+                # },
             },
         )
 
