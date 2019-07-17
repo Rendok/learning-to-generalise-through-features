@@ -242,10 +242,16 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # get the block's position (X, Y, Z) and orientation (Quaternion)
             blockPos, blockOrn = p.getBasePositionAndOrientation(3)
             # move th effector in the position above the block
-            self._kuka.endEffectorPos[0] = blockPos[0]  # observation[15]
-            self._kuka.endEffectorPos[1] = blockPos[1] - 0.01  # observation[16] - 0.01
-            self._kuka.endEffectorPos[2] = blockPos[2] + 0.45  # observation[17] + 0.27
-            #self._kuka.endEffectorAngle = blockOrn[0] # observation[18]
+
+            #self._kuka.endEffectorPos[2] = blockPos[2] + 0.55
+            #self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
+            #for _ in range(2 * self._actionRepeat):
+            #    p.stepSimulation()
+
+            self._kuka.endEffectorPos[0] = blockPos[0]
+            self._kuka.endEffectorPos[1] = blockPos[1] - 0.01
+            self._kuka.endEffectorPos[2] = blockPos[2] + 0.45
+            self._kuka.endEffectorAngle = blockOrn[0]
 
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
             for _ in range(4*self._actionRepeat):
@@ -651,7 +657,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 elif self._isTest == 12:
                     from random import choice
 
-                    if not 3 <= self._numObjects <= 5:
+                    if not 2 <= self._numObjects <= 6:
                         raise ValueError
 
                     if i == 0:
@@ -690,6 +696,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         xpos = xpos0
                         ypos = ypos0
                         zpos = zpos0 + 0.15
+                        angle = np.pi / 2
+                        orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                    elif i == 5:
+                        xpos = xpos0
+                        ypos = ypos0
+                        zpos = zpos0 + 0.20
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -788,6 +801,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         # dir0 = [gripperMat[0], gripperMat[3], gripperMat[6]]
         # dir1 = [gripperMat[1], gripperMat[4], gripperMat[7]]
         # dir2 = [gripperMat[2], gripperMat[5], gripperMat[8]]
+        objects = []
         if blocksInObservation:
             for id_ in self._objectUids:
                 if id_ == self._goal:
@@ -800,11 +814,11 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
                 if is_sensing and id_ != 3:
                     blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos, blockOrn)
-                    try:
-                        objects.append(list(blockPosInGripper))
-                    except:
-                        objects = []
-                        objects.append(list(blockPosInGripper))
+                    #try:
+                    objects.append(list(blockPosInGripper))
+                    #except:
+                    #    objects = []
+                    #    objects.append(list(blockPosInGripper))
                 elif not is_sensing:
                     #blockEulerInGripper = p.getEulerFromQuaternion(blockOrnInGripper)
                     #print("projectedBlockPos2D:", [blockPosInGripper[0], blockPosInGripper[1], blockPosInGripper[2]])
@@ -1159,7 +1173,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         if self._one_more:
             self._done = True
-            if block_pos[1][2] - block_pos[0][2] > 0:
+            if block_pos[1][2] > block_pos[0][2]:
                 return 50.0 #- 100/16 * block_norm
             else:
                 return -1.0
