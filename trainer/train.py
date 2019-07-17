@@ -6,6 +6,7 @@ import argparse
 # my_experiment = 'move_pick'
 my_experiment = 'place'
 
+
 # needs to register a custom environment
 def env_creator(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
@@ -19,6 +20,18 @@ def env_creator(renders=False):
                                num_sectors=(16, 8)
                                )
     return env
+
+
+def on_train_result(info):
+    result = info["result"]
+    if result["episode_reward_mean"] > 48:
+        phase = 1
+    else:
+        phase = 0
+    trainer = info["trainer"]
+    trainer.workers.foreach_worker(
+        lambda ev: ev.foreach_env(
+            lambda env: env.set_phase(phase)))
 
 
 if __name__ == '__main__':
@@ -143,15 +156,17 @@ if __name__ == '__main__':
                 "stop": {"episode_reward_mean": 50},
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
-                "restore": "/home/ubuntu/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-07-12_06-10-32fsj_45l_/checkpoint_400/checkpoint-400",
-                #"resume": True,
-                    "config": {
+                # "restore": "/home/ubuntu/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-07-12_06-10-32fsj_45l_/checkpoint_400/checkpoint-400",
+                "config": {
                     "num_gpus": args.num_gpus,  # ppo
                     "num_workers": args.num_workers,
                     "num_envs_per_worker": args.num_envs_per_worker,
                     "horizon": 40,
                     "sample_batch_size": 25,  # 50,
                     "train_batch_size": 1250,  # 2500,
+                    },
+                "callbacks": {
+                    "on_train_result": tune.function(on_train_result),
+                    },
                 },
-            },
-        })
+            })

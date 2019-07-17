@@ -172,6 +172,12 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._envStepCounter = 0
         p.stepSimulation()
 
+        if self._operation == 'place':
+            self._kuka.endEffectorPos[2] += 0.1
+            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
+            for _ in range(self._actionRepeat):
+                p.stepSimulation()
+
         # performing configuration mirroring pddl's one
         if self._isTest == -1:
             block1 = p.loadURDF(os.path.join(self._urdfRoot, "cube_small.urdf"))
@@ -806,13 +812,13 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             for id_ in self._objectUids:
                 if id_ == self._goal:
                     continue
-                elif id_ == self._numObjects + 2 and self._operation == 'place':
+                elif id_ == 3 and self._operation == 'place':  #self._numObjects + 2
                     continue
 
                 # get the block's position (X, Y, Z) and orientation (Quaternion)
                 blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
 
-                if is_sensing and id_ != 3:
+                if is_sensing:
                     blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos, blockOrn)
                     #try:
                     objects.append(list(blockPosInGripper))
@@ -1350,3 +1356,14 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         b = list(itertools.chain(*a))
 
         return np.sqrt(inner1d(b, b))
+
+    def set_phase(self, phase):
+        """
+        A learning phase for curriculum learning
+        :param phase: int
+        :return:
+        """
+        if phase == 0:
+            self._numObjects = 5
+        else:
+            self._numObjects = 6
