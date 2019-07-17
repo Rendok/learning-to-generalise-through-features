@@ -2,6 +2,7 @@ import ray
 from ray.tune.registry import register_env
 import ray.tune as tune
 import argparse
+import numpy as np
 
 # my_experiment = 'move_pick'
 my_experiment = 'place'
@@ -32,6 +33,26 @@ def on_train_result(info):
     trainer.workers.foreach_worker(
         lambda ev: ev.foreach_env(
             lambda env: env.set_phase(phase)))
+
+
+def on_episode_start(info):
+    episode = info["episode"]
+    #print("episode {} started".format(episode.episode_id))
+    episode.user_data["num_blocks"] = []
+
+
+def on_episode_step(info):
+    episode = info["episode"]
+    blocks = episode.last_info_for['num_blocks']
+    episode.user_data["num_blocks"].append(blocks)
+
+
+def on_episode_end(info):
+    episode = info["episode"]
+    blocks = np.mean(episode.user_data["num_blocks"])
+    print("episode {} ended with length {} and number of blocks {}".format(
+        episode.episode_id, episode.length, blocks))
+    episode.custom_metrics["pole_angle"] = blocks
 
 
 if __name__ == '__main__':
@@ -189,6 +210,9 @@ if __name__ == '__main__':
                 "sample_batch_size": 25,  # 50,
                 "train_batch_size": 1250,  # 2500,
                 "callbacks": {
+                    "on_episode_start": tune.function(on_episode_start),
+                    "on_episode_step": tune.function(on_episode_step),
+                    "on_episode_end": tune.function(on_episode_end),
                     "on_train_result": tune.function(on_train_result),
                 },
             },

@@ -821,11 +821,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
                 if is_sensing and not id_ == 3:
                     blockPosInGripper, blockOrnInGripper = p.multiplyTransforms(invGripperPos, invGripperOrn, blockPos, blockOrn)
-                    #try:
                     objects.append(list(blockPosInGripper))
-                    #except:
-                    #    objects = []
-                    #    objects.append(list(blockPosInGripper))
+
                 elif not is_sensing:
                     #blockEulerInGripper = p.getEulerFromQuaternion(blockOrnInGripper)
                     #print("projectedBlockPos2D:", [blockPosInGripper[0], blockPosInGripper[1], blockPosInGripper[2]])
@@ -1020,7 +1017,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 'distance_x_y': self.distance_x_y,
                 'distance_z': abs(self.distance_z - 0.0075),
                 'operation': self._operation,
-                'disturbance': self.get_disturbance()
+                'disturbance': self.get_disturbance(),
+                'num_blocks': self._numObjects,
             }
         elif self._operation == 'move':
             debug = {
