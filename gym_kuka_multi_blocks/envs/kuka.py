@@ -88,7 +88,7 @@ class Kuka:
 
     return observation
 
-  def applyAction(self, motorCommands):
+  def applyAction(self, motorCommands, reset=False):
     
     #print ("self.numJoints")
     #print (self.numJoints)
@@ -100,14 +100,7 @@ class Kuka:
       da = motorCommands[3]
       fingerOrn = motorCommands[4:7]  # [0, -math.pi, 0]
       fingerAngle = motorCommands[7]
-      
-      state = p.getLinkState(self.kukaUid,self.kukaEndEffectorIndex)
-      actualEndEffectorPos = state[0]
-      #print("pos[2] (getLinkState(kukaEndEffectorIndex)")
-      #print(actualEndEffectorPos[2])
-      
-    
-      
+
       self.endEffectorPos[0] = self.endEffectorPos[0]+dx
       #if (self.endEffectorPos[0]>0.65):  # TODO: Delete all
       #  self.endEffectorPos[0]=0.65
@@ -146,14 +139,15 @@ class Kuka:
       #print(jointPoses)
       #print("self.kukaEndEffectorIndex")
       #print(self.kukaEndEffectorIndex)
-      if (self.useSimulation):
-        for i in range (self.kukaEndEffectorIndex+1):
+      if self.useSimulation and not reset:
+        for i in range(self.kukaEndEffectorIndex+1):
           #print(i)
           p.setJointMotorControl2(bodyUniqueId=self.kukaUid,jointIndex=i,controlMode=p.POSITION_CONTROL,targetPosition=jointPoses[i],targetVelocity=0,force=self.maxForce,maxVelocity=self.maxVelocity, positionGain=0.3,velocityGain=1)
       else:
         #reset the joint state (ignoring all dynamics, not recommended to use during simulation)
-        for i in range (self.numJoints):
+        for i in range(self.kukaEndEffectorIndex+1): #self.numJoints):
           p.resetJointState(self.kukaUid,i,jointPoses[i])
+          p.setJointMotorControl2(bodyUniqueId=self.kukaUid,jointIndex=i,controlMode=p.POSITION_CONTROL,targetPosition=jointPoses[i],targetVelocity=0,force=self.maxForce,maxVelocity=self.maxVelocity, positionGain=0.3,velocityGain=1)
       #fingers
       p.setJointMotorControl2(self.kukaUid,7,p.POSITION_CONTROL,targetPosition=self.endEffectorAngle,force=self.maxForce)
       p.setJointMotorControl2(self.kukaUid,8,p.POSITION_CONTROL,targetPosition=-fingerAngle,force=self.fingerAForce)

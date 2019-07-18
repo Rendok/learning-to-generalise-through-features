@@ -12,8 +12,8 @@ my_experiment = 'place'
 def env_creator(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
-                               numObjects=6,
-                               isTest=12,
+                               numObjects=5,
+                               isTest=13,
                                operation=my_experiment,
                                constantVector=False,
                                blocksInObservation=True,
@@ -50,10 +50,9 @@ def on_episode_step(info):
 
 def on_episode_end(info):
     episode = info["episode"]
-    blocks = np.mean(episode.user_data["num_blocks"])
-    print("episode {} ended with length {} and number of blocks {}".format(
-        episode.episode_id, episode.length, blocks))
-    episode.custom_metrics["pole_angle"] = blocks
+    info = episode.last_info_for()
+    if info is not None:
+        episode.custom_metrics["num_blocks"] = info['num_blocks']
 
 
 if __name__ == '__main__':
@@ -201,7 +200,7 @@ if __name__ == '__main__':
             checkpoint_freq=args.checkpoint_freq,
             checkpoint_at_end=args.checkpoint_at_end,
             # verbose=1,
-            restore="/home/ubuntu/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-07-17_03-38-44d0nyfysk/checkpoint_1100/checkpoint-1100",
+            # restore="/home/ubuntu/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-07-17_03-38-44d0nyfysk/checkpoint_1100/checkpoint-1100",
             config={
                 "env": "KukaMultiBlocks-v0",
                 "num_gpus": args.num_gpus,  # ppo
@@ -215,7 +214,7 @@ if __name__ == '__main__':
                     # "on_episode_step": tune.function(on_episode_step),
                     # "on_episode_end": tune.function(on_episode_end),
                     # "on_train_result": tune.function(on_train_result),
-                # },
-            },
-        )
+                    # },
+                },
+            )
 
