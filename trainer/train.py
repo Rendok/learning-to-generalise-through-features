@@ -186,9 +186,6 @@ if __name__ == '__main__':
                     "sample_batch_size": 25,  # 50,
                     "train_batch_size": 1250,  # 2500,
                     },
-                "callbacks": {
-                    "on_train_result": tune.function(on_train_result),
-                    },
                 },
             })
 
