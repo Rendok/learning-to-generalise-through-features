@@ -42,7 +42,7 @@ def env_creator_kuka_bl(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
                                numObjects=5,
-                               isTest=12,
+                               isTest=13,
                                operation=operation,
                                constantVector=False,
                                blocksInObservation=True,  # F - e1, T - e2 or e3
@@ -155,11 +155,13 @@ def init_ppo(render):
         ## old without the top block in obs
         # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_s16_8_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-15_03-57-01zwhscs6x/checkpoint_600/checkpoint-600")
         ## new with the top block in obs
-        agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_s16_8_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-17_03-38-44d0nyfysk/checkpoint_1100/checkpoint-1100")
+        # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_s16_8_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-17_03-38-44d0nyfysk/checkpoint_1100/checkpoint-1100")
         # test 12 sensing (16, 8) 5 blocks L = 1 /16
         # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_s16_8_5bl_L1_16/PPO_KukaMultiBlocks-v0_0_2019-07-12_07-21-502xznjp14/checkpoint_620/checkpoint-620")
         # test 12 sensing (16, 8) 5 to 6 blocks L = 0
-        # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_s16_8_5to6_bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-17_08-28-47jd04cmym/checkpoint_1400/checkpoint-1400")
+        # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_s16_8_5to6_bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-17_12-27-52af6_ro56/checkpoint_1260/checkpoint-1260")
+        # test 13 sensing (16, 8) 5 blocks L = 0
+        agent.restore("/Users/dgrebenyuk/Research/policies/place/test13_s16_8_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-19_04-00-59a_03ywrf/checkpoint_600/checkpoint-600")
     elif operation == 'move':
         agent.restore("/Users/dgrebenyuk/ray_results/move/PPO_KukaMultiBlocks-v0_0_2019-04-09_02-24-40kihke9e8/checkpoint_40/checkpoint-40")
     elif operation == 'pick':
@@ -193,7 +195,7 @@ def test_kuka(run="PPO", iterations=1, render=True, scatter=False, stats=False, 
             action = agent.compute_action(obs)
             obs, rew, done, info = env.step(action)
             # obs, rew, done, info = env.step([0, 0, -1, 0])
-            print("__________REWARD____________", rew, info)
+            # print("__________REWARD____________", rew, info)
             reward += rew
             i += 1
 
@@ -262,8 +264,8 @@ def print_hist(data):
 
 ray.init()
 
-test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
-# test_kuka(iterations=2000, render=False, scatter=True, stats=True, hist=True)
+# test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
+test_kuka(iterations=20, render=False, scatter=True, stats=True, hist=True)
 
 
 # case 3 L = 1
