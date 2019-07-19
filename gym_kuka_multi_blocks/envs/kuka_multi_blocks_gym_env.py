@@ -688,7 +688,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 elif self._isTest == 13:
                     from random import choice
 
-                    if not 3 <= self._numObjects <= 6:
+                    if not 3 <= self._numObjects:
                         raise ValueError
 
                     if i == 0:
@@ -1380,5 +1380,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         x = radius * sin(theta) * cos(phi) + x0
         y = radius * sin(theta) * sin(phi) + y0
         z = radius * cos(theta) + (self._numObjects - 3) * 0.05
+
+        print(x, y, z)
 
         return x, y, z, x0, y0, z0
