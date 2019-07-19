@@ -88,7 +88,7 @@ class Kuka:
 
     return observation
 
-  def applyAction(self, motorCommands, reset=False):
+  def applyAction(self, motorCommands):
     
     #print ("self.numJoints")
     #print (self.numJoints)
@@ -139,15 +139,14 @@ class Kuka:
       #print(jointPoses)
       #print("self.kukaEndEffectorIndex")
       #print(self.kukaEndEffectorIndex)
-      if self.useSimulation and not reset:
+      if self.useSimulation:
         for i in range(self.kukaEndEffectorIndex+1):
           #print(i)
           p.setJointMotorControl2(bodyUniqueId=self.kukaUid,jointIndex=i,controlMode=p.POSITION_CONTROL,targetPosition=jointPoses[i],targetVelocity=0,force=self.maxForce,maxVelocity=self.maxVelocity, positionGain=0.3,velocityGain=1)
       else:
         #reset the joint state (ignoring all dynamics, not recommended to use during simulation)
-        for i in range(self.kukaEndEffectorIndex+1): #self.numJoints):
+        for i in range(self.numJoints):
           p.resetJointState(self.kukaUid,i,jointPoses[i])
-          p.setJointMotorControl2(bodyUniqueId=self.kukaUid,jointIndex=i,controlMode=p.POSITION_CONTROL,targetPosition=jointPoses[i],targetVelocity=0,force=self.maxForce,maxVelocity=self.maxVelocity, positionGain=0.3,velocityGain=1)
       #fingers
       p.setJointMotorControl2(self.kukaUid,7,p.POSITION_CONTROL,targetPosition=self.endEffectorAngle,force=self.maxForce)
       p.setJointMotorControl2(self.kukaUid,8,p.POSITION_CONTROL,targetPosition=-fingerAngle,force=self.fingerAForce)

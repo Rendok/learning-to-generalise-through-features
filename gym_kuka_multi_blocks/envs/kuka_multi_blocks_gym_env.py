@@ -172,11 +172,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._envStepCounter = 0
         p.stepSimulation()
 
-        if self._operation == 'place':
-            self._kuka.endEffectorPos[2] += 0.1
-            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
-        #    for _ in range(self._actionRepeat):
-        #        p.stepSimulation()
+        self._kuka.endEffectorPos[2] += 0.1
+        self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
+        for _ in range(self._actionRepeat):
+            p.stepSimulation()
 
 
         # performing configuration mirroring pddl's one
@@ -194,9 +193,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         sink = load_model(SINK_URDF)
         set_pose(sink, Pose(Point(x=0.7, z=stable_z(sink, table))))
 
-        if self._isTest != 13:
-            for _ in range(100):
-                p.stepSimulation()
+        for _ in range(100):
+            p.stepSimulation()
 
         if self._operation == "move_pick":
             # randomly choose a block to be a goal
@@ -243,7 +241,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             # self._kuka.endEffectorAngle = blockOrn[0] # observation[18]
 
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
-            for _ in range(8 * self._actionRepeat):
+            for _ in range(3 * self._actionRepeat):
                 p.stepSimulation()
 
         elif self._operation == "place":
@@ -256,23 +254,22 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             self._kuka.endEffectorPos[2] = blockPos[2] + 0.45
             self._kuka.endEffectorAngle = blockOrn[0]
 
-            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
-            #for _ in range(4*self._actionRepeat):
-            #    p.stepSimulation()
+            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
+            for _ in range(4*self._actionRepeat):
+                p.stepSimulation()
 
             self._kuka.endEffectorPos[2] = blockPos[2] + 0.251
-            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
-            #for _ in range(3*self._actionRepeat):
-            #    p.stepSimulation()
+            self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4])
+            for _ in range(3*self._actionRepeat):
+                p.stepSimulation()
 
             # Hardcoded grasping
             finger_angle = 0.3
 
             while finger_angle > 0:
                 grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
-                self._kuka.applyAction(grasp_action, reset=True)
-                if self._isTest != 13:
-                    p.stepSimulation()
+                self._kuka.applyAction(grasp_action)
+                p.stepSimulation()
                 finger_angle -= 0.3 / 100.
                 if finger_angle < 0:
                     finger_angle = 0
@@ -286,6 +283,31 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         p.stepSimulation()
                     if self._renders:
                         time.sleep(self._timeStep)
+
+            elif self._isTest == 13:
+
+                pos, _ = p.getBasePositionAndOrientation(self._numObjects + 2)
+
+                # move the hand up
+                self._kuka.endEffectorPos[0] = pos[0]
+                self._kuka.endEffectorPos[1] = pos[1]
+                self._kuka.endEffectorPos[2] = pos[2] + 0.5
+                self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.0])
+                for _ in range(4 * self._actionRepeat):
+                    p.stepSimulation()
+
+                # get the block's position on a sphere
+                blockPos, blockOrn = self._get_place_on_sphere(radius=0.2)
+
+                # move the effector in the position above the block
+                self._kuka.endEffectorPos[0] = blockPos[0]
+                self._kuka.endEffectorPos[1] = blockPos[1] - 0.01
+                self._kuka.endEffectorPos[2] = blockPos[2] + 0.27
+                self._kuka.endEffectorAngle = blockOrn[0]
+
+                self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.0])
+                for _ in range(2 * self._actionRepeat):
+                    p.stepSimulation()
 
         self.initial_state = self._get_observation(inMatrixForm=True, is_sensing=False)
 
@@ -657,10 +679,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
                 # for placing. Two blocks in a tower, one faraway.
-                elif self._isTest == 12:
+                elif self._isTest == 12 or self._isTest == 13:
                     from random import choice
 
-                    if not 3 <= self._numObjects <= 6:
+                    if not 3 <= self._numObjects:
                         raise ValueError
 
                     if i == 0:
@@ -685,7 +707,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
                 # for placing. Two blocks in a tower, one on a sphere.
-                elif self._isTest == 13:
+                elif self._isTest == 14:
                     from random import choice
 
                     if not 3 <= self._numObjects:
@@ -1365,20 +1387,18 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             self._numObjects = 6
 
-    def _place_on_sphere(self, radius):
+    def _get_place_on_sphere(self, radius):
         from math import cos, sin, pi
         from random import uniform
 
-        # i don't wont to change the observation space, so I have to generate the coordinates for block i=1 as well
-        x0 = 0.4 + random.random() / 10.0
-        y0 = (random.random() - .5) / 10.0
-        z0 = -0.05
+        pos, orn = p.getBasePositionAndOrientation(self._numObjects + 2)
+
 
         theta = uniform(0, pi/2)  # [0, pi/2] upper half
         phi = uniform(0, 2*pi)  # [0, 2*pi)
 
-        x = radius * sin(theta) * cos(phi) + x0
-        y = radius * sin(theta) * sin(phi) + y0
-        z = radius * cos(theta) + (self._numObjects - 3) * 0.05
+        x = radius * sin(theta) * cos(phi) + pos[0]
+        y = radius * sin(theta) * sin(phi) + pos[1]
+        z = radius * cos(theta) + pos[2]
 
-        return x, y, z, x0, y0, z0
+        return (x, y, z), orn
