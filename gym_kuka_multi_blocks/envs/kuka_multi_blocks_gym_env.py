@@ -1381,6 +1381,4 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         y = radius * sin(theta) * sin(phi) + y0
         z = radius * cos(theta) + (self._numObjects - 3) * 0.05
 
-        print(x, y, z)
-
         return x, y, z, x0, y0, z0
