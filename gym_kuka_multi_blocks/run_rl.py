@@ -41,7 +41,7 @@ operation = 'place'
 def env_creator_kuka_bl(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
-                               numObjects=5,
+                               numObjects=8,
                                isTest=13,
                                operation=operation,
                                constantVector=False,
@@ -161,7 +161,7 @@ def init_ppo(render):
         # test 12 sensing (16, 8) 5 to 6 blocks L = 0
         # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_s16_8_5to6_bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-17_12-27-52af6_ro56/checkpoint_1260/checkpoint-1260")
         # test 13 sensing (16, 8) 5 blocks L = 0
-        agent.restore("/Users/dgrebenyuk/Research/policies/place/test13_s16_8_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-19_04-00-59a_03ywrf/checkpoint_600/checkpoint-600")
+        agent.restore("/Users/dgrebenyuk/Research/policies/place/test13_s16_8_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-19_07-28-47dnqkrsy0/checkpoint_750/checkpoint-750")
     elif operation == 'move':
         agent.restore("/Users/dgrebenyuk/ray_results/move/PPO_KukaMultiBlocks-v0_0_2019-04-09_02-24-40kihke9e8/checkpoint_40/checkpoint-40")
     elif operation == 'pick':
@@ -194,8 +194,8 @@ def test_kuka(run="PPO", iterations=1, render=True, scatter=False, stats=False, 
         while not done:
             action = agent.compute_action(obs)
             obs, rew, done, info = env.step(action)
-            # obs, rew, done, info = env.step([0, 0, -1, 0])
-            # print("__________REWARD____________", rew, info)
+            # obs, rew, done, info = env.step([0, 0, 0, 0])
+            print("__________REWARD____________", rew, info)
             reward += rew
             i += 1
 
@@ -224,10 +224,10 @@ def test_kuka(run="PPO", iterations=1, render=True, scatter=False, stats=False, 
         b = st.t.interval(0.95, len(steps) - 1, loc=np.mean(steps), scale=st.sem(steps))
         c = st.t.interval(0.95, len(dists) - 1, loc=np.mean(dists), scale=st.sem(dists))
         d = st.t.interval(0.95, len(s_dists) - 1, loc=np.mean(s_dists), scale=st.sem(s_dists))
-        print('Success rate:', sum(success) / iterations, '+-', sum(success) / iterations - a[0],  "conf int: ", a, '\n',
-              'Average time: ', sum(steps) / len(steps), '+-', sum(steps) / len(steps) - b[0], 'conf int: ', b, '\n',
-              'Average disturbance: ', sum(dists) / len(dists), '+-', sum(dists) / len(dists) - c[0], 'conf int', c, '\n',
-              'Success disturbance: ', sum(s_dists) / len(s_dists), '+-', sum(s_dists) / len(s_dists) - d[0], 'conf int', d
+        print('Success rate:', sum(success) / iterations, '+-', sum(success) / iterations - a[0],  "conf int: ", a,
+              '\nAverage time: ', sum(steps) / len(steps), '+-', sum(steps) / len(steps) - b[0], 'conf int: ', b,
+              '\nAverage disturbance: ', sum(dists) / len(dists), '+-', sum(dists) / len(dists) - c[0], 'conf int', c,
+              '\nSuccess disturbance: ', sum(s_dists) / len(s_dists), '+-', sum(s_dists) / len(s_dists) - d[0], 'conf int', d
               )
 
     if hist:
@@ -264,8 +264,8 @@ def print_hist(data):
 
 ray.init()
 
-# test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
-test_kuka(iterations=20, render=False, scatter=True, stats=True, hist=True)
+test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
+# test_kuka(iterations=2000, render=False, scatter=True, stats=True, hist=True)
 
 
 # case 3 L = 1
@@ -746,3 +746,27 @@ test_kuka(iterations=20, render=False, scatter=True, stats=True, hist=True)
 # Average time:  39.702 +- 0.13993944094669075 conf int:  (39.56206055905331, 39.84193944094669)
 # Average disturbance:  0.0 +- nan conf int (nan, nan)
 # Success disturbance:  0.0 +- nan conf int (nan, nan)
+
+# test 12 sen (16, 8) 5 blocks L = 0
+# Success rate: 0.969 +- 0.00760234308902108 conf int:  (0.9613976569109789, 0.976602343089021)
+# Average time:  8.2915 +- 0.10080556606248514 conf int:  (8.190694433937514, 8.392305566062484)
+# Average disturbance:  0.008997878841961644 +- 0.004496016280215664 conf int (0.004501862561745979, 0.013493895122177326)
+# Success disturbance:  0.00523383305892371 +- 0.0003718304960277242 conf int (0.004862002562895986, 0.005605663554951429)
+
+# test 12 sen (16, 8) 5 on 6 blocks L = 0
+# Success rate: 0.9285 +- 0.011301828287927362 conf int:  (0.9171981717120726, 0.9398018282879274)
+# Average time:  8.266 +- 0.13972650028633282 conf int:  (8.126273499713667, 8.405726500286333)
+# Average disturbance:  0.022084497056192712 +- 0.008171938380302092 conf int (0.01391255867589062, 0.03025643543649477)
+# Success disturbance:  0.007524706739054819 +- 0.0008151126393608592 conf int (0.00670959409969396, 0.00833981937841569)
+
+# test 12 sen (16, 8) 5 on 7 blocks L = 0
+# Success rate: 0.8315 +- 0.016418588153581326 conf int:  (0.8150814118464187, 0.8479185881535813)
+# Average time:  9.9455 +- 0.2642089497684754 conf int:  (9.681291050231524, 10.209708949768475)
+# Average disturbance:  0.10669808821574928 +- 0.021072504469890077 conf int (0.0856255837458592, 0.12777059268563917)
+# Success disturbance:  0.009748363176466029 +- 0.002569240062498682 conf int (0.007179123113967347, 0.012317603238964697)
+
+# test 12 sen (16, 8) 5 on 8 blocks L = 0
+# Success rate: 0.5795 +- 0.021652819217573782 conf int:  (0.5578471807824262, 0.6011528192175738)
+# Average time:  17.152 +- 0.5332994992586855 conf int:  (16.618700500741316, 17.685299499258686)
+# Average disturbance:  0.40159956382125295 +- 0.04220386534714826 conf int (0.3593956984741047, 0.4438034291684029)
+# Success disturbance:  0.014146717422790956 +- 0.003812168866317892 conf int (0.010334548556473065, 0.017958886289108873)
