@@ -168,7 +168,7 @@ if __name__ == '__main__':
                 },
             },
         })
-    elif False:
+    else:
         # run an experiment with a config
         tune.run_experiments({
             my_experiment: {
@@ -192,29 +192,29 @@ if __name__ == '__main__':
                 },
             })
 
-    else:
-        tune.run(
-            run_or_experiment=args.run,
-            name=my_experiment,
-            stop={"episode_reward_mean": 50},
-            checkpoint_freq=args.checkpoint_freq,
-            checkpoint_at_end=args.checkpoint_at_end,
-            # verbose=1,
-            # restore="/home/ubuntu/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-07-17_03-38-44d0nyfysk/checkpoint_1100/checkpoint-1100",
-            config={
-                "env": "KukaMultiBlocks-v0",
-                "num_gpus": args.num_gpus,  # ppo
-                "num_workers": args.num_workers,
-                "num_envs_per_worker": args.num_envs_per_worker,
-                "horizon": 40,
-                "sample_batch_size": 25,  # 50,
-                "train_batch_size": 1250,  # 2500,
-                # "callbacks": {
-                    # "on_episode_start": tune.function(on_episode_start),
-                    # "on_episode_step": tune.function(on_episode_step),
-                    # "on_episode_end": tune.function(on_episode_end),
-                    # "on_train_result": tune.function(on_train_result),
-                    # },
-                },
-            )
+    # else:
+    #    tune.run(
+    #        run_or_experiment=args.run,
+    #         name=my_experiment,
+    #         stop={"episode_reward_mean": 50},
+    #         checkpoint_freq=args.checkpoint_freq,
+    #         checkpoint_at_end=args.checkpoint_at_end,
+    #         # verbose=1,
+    #         # restore="/home/ubuntu/ray_results/place/PPO_KukaMultiBlocks-v0_0_2019-07-17_03-38-44d0nyfysk/checkpoint_1100/checkpoint-1100",
+    #         config={
+    #             "env": "KukaMultiBlocks-v0",
+    #             "num_gpus": args.num_gpus,  # ppo
+    #             "num_workers": args.num_workers,
+    #             "num_envs_per_worker": args.num_envs_per_worker,
+    #             "horizon": 40,
+    #             "sample_batch_size": 25,  # 50,
+    #             "train_batch_size": 1250,  # 2500,
+    #             # "callbacks": {
+    #                 # "on_episode_start": tune.function(on_episode_start),
+    #                 # "on_episode_step": tune.function(on_episode_step),
+    #                 # "on_episode_end": tune.function(on_episode_end),
+    #                 # "on_train_result": tune.function(on_train_result),
+    #                 # },
+    #             },
+    #         )
 

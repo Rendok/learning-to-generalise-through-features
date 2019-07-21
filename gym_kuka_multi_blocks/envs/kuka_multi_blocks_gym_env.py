@@ -173,10 +173,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         p.stepSimulation()
 
         if self._operation == 'place':
-            self._kuka.endEffectorPos[2] += 0.1
+            self._kuka.endEffectorPos[2] += (self._numObjects - 3) * 0.05
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
-        #    for _ in range(self._actionRepeat):
-        #        p.stepSimulation()
+            for _ in range(self._actionRepeat):
+                p.stepSimulation()
 
 
         # performing configuration mirroring pddl's one
@@ -260,7 +260,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             #for _ in range(4*self._actionRepeat):
             #    p.stepSimulation()
 
-            self._kuka.endEffectorPos[2] = blockPos[2] + 0.251
+            self._kuka.endEffectorPos[2] = blockPos[2] + 0.24 # 0.251
             self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
             #for _ in range(3*self._actionRepeat):
             #    p.stepSimulation()
@@ -697,9 +697,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
                     elif i == 1:
-                        xpos = xpos0  # 0.4 + random.random() / 10.0
-                        ypos = ypos0  # (random.random() - .5) / 10.0
-                        zpos = zpos0  # -0.05
+                        xpos = xpos0
+                        ypos = ypos0
+                        zpos = zpos0
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -1374,8 +1374,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         y0 = (random.random() - .5) / 10.0
         z0 = -0.05
 
-        theta = uniform(0, pi/2)  # [0, pi/2] upper half
-        phi = uniform(0, 2*pi)  # [0, 2*pi)
+        theta = pi/2 # uniform(0, pi/2)  # [0, pi/2] upper half
+        phi = pi/2 # uniform(0, 2*pi)  # [0, 2*pi)
 
         x = radius * sin(theta) * cos(phi) + x0
         y = radius * sin(theta) * sin(phi) + y0
