@@ -1374,8 +1374,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         y0 = (random.random() - .5) / 10.0
         z0 = -0.05
 
-        theta = pi/2 # uniform(0, pi/2)  # [0, pi/2] upper half
-        phi = pi/2 # uniform(0, 2*pi)  # [0, 2*pi)
+        theta = uniform(0, pi/2)  # [0, pi/2] upper half
+        phi = uniform(0, 2*pi)  # [0, 2*pi)
 
         x = radius * sin(theta) * cos(phi) + x0
         y = radius * sin(theta) * sin(phi) + y0
