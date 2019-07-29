@@ -15,11 +15,11 @@ def append_spherical_np(xyz):
 
 def is_in_sector(cd, angles, radius, num_sectors):
     """
-    :param cd: coordinates
-    :param angles: [theta, phi]
-    :param radius: int, r > 0
-    :param num_sectors: tuple, (theta, phi)
-    :return: bool
+    :param array cd: An object's coordinates, [x, y, z, r, phi, theta]
+    :param array angles: The array containing the left bounds of a sectors, [theta, phi]
+    :param float radius: The radius of a sensing sphere, r > 0
+    :param tuple num_sectors: The number of sectors, (theta, phi)
+    :return bool: Confirms if the object is in the sector
     """
 
     r = cd[3]
