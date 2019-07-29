@@ -35,14 +35,14 @@ def init_ddpg():
 
 #-----------------------------------
 
-# operation = 'move_pick'
-operation = 'place'
+operation = 'move_pick'
+# operation = 'place'
 
 def env_creator_kuka_bl(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
-                               numObjects=5,
-                               isTest=13,
+                               numObjects=4,
+                               isTest=10,
                                operation=operation,
                                constantVector=False,
                                blocksInObservation=True,  # F - e1, T - e2 or e3
@@ -62,7 +62,7 @@ def init_ppo(render):
     agent = ppo.PPOAgent(config=config, env="my_env")
 
     if operation == 'move_pick':
-        pass
+        # pass
         # test == 0
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test0/PPO_KukaMultiBlocks-v0_0_2019-03-27_11-13-30nbdyzah7/checkpoint_300/checkpoint-300")
         # test == 3 close blocks without obs and reward
@@ -133,11 +133,11 @@ def init_ppo(render):
         # test 10 4 blocks L = 1/16
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_e1_4bl_L1_16/PPO_KukaMultiBlocks-v0_0_2019-07-01_05-07-19twff5yx9/checkpoint_260/checkpoint-260")
         # test 10 sensing (16, 8) 4 blocks L = 0
-        # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-08_11-09-28n2x8pznf/checkpoint_840/checkpoint-840")
+        agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-08_11-09-28n2x8pznf/checkpoint_840/checkpoint-840")
         # test 10 sensing (16, 8) 4 blocks L = 1/25
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L1_25/PPO_KukaMultiBlocks-v0_0_2019-07-10_03-19-29_j5vgc99/checkpoint_1720/checkpoint-1720")
         # test 10 sensing (16, 8) 4 blocks L = 1/36
-        agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L1_36/PPO_KukaMultiBlocks-v0_0_2019-07-11_04-09-11of7noaqc/checkpoint_2220/checkpoint-2220")
+        # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L1_36/PPO_KukaMultiBlocks-v0_0_2019-07-11_04-09-11of7noaqc/checkpoint_2220/checkpoint-2220")
     elif operation == 'place':
         # test == 12 e2 L = 0
         # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_L0/PPO_KukaMultiBlocks-v0_0_2019-06-12_08-40-31lhabnnke/checkpoint_220/checkpoint-220")
@@ -161,7 +161,7 @@ def init_ppo(render):
         # test 12 sensing (16, 8) 5 to 6 blocks L = 0
         # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_s16_8_5to6_bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-17_12-27-52af6_ro56/checkpoint_1260/checkpoint-1260")
         # test 13 sensing (16, 8) 5 blocks L = 0
-        agent.restore("/Users/dgrebenyuk/Research/policies/place/test13_s16_8_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-22_01-47-51w5pobtle/checkpoint_750/checkpoint-750")
+        agent.restore("/Users/dgrebenyuk/Research/policies/place/test13_s16_8_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-22_04-32-20gtbab48l/checkpoint_400/checkpoint-400")
     elif operation == 'move':
         agent.restore("/Users/dgrebenyuk/ray_results/move/PPO_KukaMultiBlocks-v0_0_2019-04-09_02-24-40kihke9e8/checkpoint_40/checkpoint-40")
     elif operation == 'pick':
@@ -194,7 +194,7 @@ def test_kuka(run="PPO", iterations=1, render=True, scatter=False, stats=False, 
         while not done:
             action = agent.compute_action(obs)
             obs, rew, done, info = env.step(action)
-            # obs, rew, done, info = env.step([0, 0, -1, 0])
+            # obs, rew, done, info = env.step([0, 0, 0, 0])
             # print("__________REWARD____________", rew, info)
             reward += rew
             i += 1
@@ -264,8 +264,8 @@ def print_hist(data):
 
 ray.init()
 
-# test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
-test_kuka(iterations=2000, render=False, scatter=True, stats=True, hist=True)
+test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
+# test_kuka(iterations=2000, render=False, scatter=True, stats=True, hist=True)
 
 
 # case 3 L = 1
@@ -747,38 +747,50 @@ test_kuka(iterations=2000, render=False, scatter=True, stats=True, hist=True)
 # Average disturbance:  0.0 +- nan conf int (nan, nan)
 # Success disturbance:  0.0 +- nan conf int (nan, nan)
 
-# test 12 sen (16, 8) 5 blocks L = 0
-# Success rate: 0.9155 +- 0.012200068201556724 conf int:  (0.9032999317984433, 0.9277000682015567)
-# Average time:  9.721 +- 0.13006261944745745 conf int:  (9.590937380552543, 9.851062619447458)
-# Average disturbance:  0.004527577134991789 +- 0.0013374872815817293 conf int (0.0031900898534100598, 0.005865064416573546)
-# Success disturbance:  0.0045415610022680655 +- 0.0014522544223295954 conf int (0.00308930657993847, 0.005993815424597674)
+# test 13 sen (16, 8) 5 on 5 blocks L = 0
+# Success rate: 0.9105 +- 0.012521496095775464 conf int:  (0.8979785039042245, 0.9230214960957754)
+# Average time:  9.9375 +- 0.17268351374092283 conf int:  (9.764816486259077, 10.110183513740923)
+# Average disturbance:  0.031745999754874236 +- 0.009253288699421998 conf int (0.02249271105545224, 0.04099928845429626)
+# Success disturbance:  0.0114556862552186 +- 0.0015125912115646692 conf int (0.00994309504365393, 0.012968277466783213)
 
-# test 12 sen (16, 8) 5 on 6 blocks L = 0
-# Success rate: 0.8795 +- 0.014279604369783816 conf int:  (0.8652203956302161, 0.8937796043697838)
-# Average time:  8.863 +- 0.15636778343765378 conf int:  (8.706632216562346, 9.019367783437653)
-# Average disturbance:  0.023020572858918165 +- 0.009213913956052084 conf int (0.013806658902866082, 0.03223448681497024)
-# Success disturbance:  0.005110325900712617 +- 0.0010845784651027082 conf int (0.004025747435609909, 0.006194904365815317)
+# test 13 sen (16, 8) 5 on 6 blocks L = 0
+# Success rate: 0.895 +- 0.013446550799047885 conf int:  (0.8815534492009521, 0.9084465507990479)
+# Average time:  9.5035 +- 0.21250561659866385 conf int:  (9.290994383401337, 9.716005616598665)
+# Average disturbance:  0.054649128349937806 +- 0.013889102768612611 conf int (0.040760025581325195, 0.06853823111855069)
+# Success disturbance:  0.011694700964264042 +- 0.001624865698473591 conf int (0.010069835265790451, 0.013319566662737675)
 
-# test 12 sen (16, 8) 5 on 7 blocks L = 0
-# Success rate: 0.7945 +- 0.01772383072589523 conf int:  (0.7767761692741048, 0.8122238307258952)
-# Average time:  10.5575 +- 0.3617080781334714 conf int:  (10.195791921866528, 10.91920807813347)
-# Average disturbance:  0.17340497922313203 +- 0.027366930335550294 conf int (0.14603804888758173, 0.20077190955868288)
-# Success disturbance:  0.008667723822461077 +- 0.0019306651175716224 conf int (0.006737058704889455, 0.010598388940032706)
+# test 13 sen (16, 8) 5 on 7 blocks L = 0
+# Success rate: 0.846 +- 0.015832528251185973 conf int:  (0.830167471748814, 0.861832528251186)
+# Average time:  10.2285 +- 0.3109381470774597 conf int:  (9.91756185292254, 10.53943814707746)
+# Average disturbance:  0.13853160713870916 +- 0.024943271106540488 conf int (0.11358833603216867, 0.1634748782452497)
+# Success disturbance:  0.009236035544582938 +- 0.0016193564239254691 conf int (0.007616679120657469, 0.010855391968508415)
 
-# test 12 sen (16, 8) 5 on 8 blocks L = 0
-# Success rate: 0.612 +- 0.021374516695793155 conf int:  (0.5906254833042068, 0.6333745166957931)
-# Average time:  15.751 +- 0.5671028321470892 conf int:  (15.18389716785291, 16.318102832147087)
-# Average disturbance:  0.5875251311271352 +- 0.049365573126411766 conf int (0.5381595580007235, 0.6368907042535483)
-# Success disturbance:  0.021520277901549614 +- 0.00525911648715922 conf int (0.016261161414390393, 0.026779394388708765)
+# test 13 sen (16, 8) 5 on 8 blocks L = 0
+# Success rate: 0.736 +- 0.019335063392890817 conf int:  (0.7166649366071092, 0.7553350633928908)
+# Average time:  12.302 +- 0.4537731743021993 conf int:  (11.8482268256978, 12.755773174302199)
+# Average disturbance:  0.3269883956632031 +- 0.03955075614415737 conf int (0.2874376395190457, 0.366539151807361)
+# Success disturbance:  0.01052850470809569 +- 0.0032435850221807835 conf int (0.007284919685914907, 0.013772089730276464)
 
-# test 12 sen (16, 8) 5 on 9 blocks L = 0
-# Success rate: 0.3355 +- 0.020710876769187092 conf int:  (0.31478912323081293, 0.3562108767691871)
-# Average time:  23.9675 +- 0.6714454682007727 conf int:  (23.29605453179923, 24.638945468200774)
-# Average disturbance:  1.4400685195301033 +- 0.06553963977805588 conf int (1.3745288797520474, 1.505608159308164)
-# Success disturbance:  0.017249609636840718 +- 0.004523832124196998 conf int (0.01272577751264372, 0.021773441761037744)
+# test 13 sen (16, 8) 5 on 9 blocks L = 0
+# Success rate: 0.594 +- 0.021540757371135588 conf int:  (0.5724592426288644, 0.6155407573711356)
+# Average time:  16.512 +- 0.6077875339812202 conf int:  (15.90421246601878, 17.11978753398122)
+# Average disturbance:  0.7493469187832684 +- 0.057979095631427 conf int (0.6913678231518414, 0.8073260144146921)
+# Success disturbance:  0.012414259502533866 +- 0.0049254076406811806 conf int (0.007488851861852685, 0.017339667143215044)
 
-# test 12 sen (16, 8) 5 on 5 blocks L = 0
-# Success rate: 0.144 +- 0.015400075786906109 conf int:  (0.12859992421309388, 0.1594000757869061)
-# Average time:  34.0985 +- 0.5184764577312038 conf int:  (33.5800235422688, 34.616976457731205)
-# Average disturbance:  0.02032210752549854 +- 0.00844622951202529 conf int (0.01187587801347325, 0.028768337037523788)
-# Success disturbance:  0.01113855730514993 +- 0.0054225489408290285 conf int (0.005716008364320901, 0.01656110624597896)
+# test 13 sen (16, 8) 5 on 4 blocks L = 0
+# Success rate: 0.911 +- 0.012489898858073611 conf int:  (0.8985101011419264, 0.9234898988580736)
+# Average time:  10.965 +- 0.15377805510254028 conf int:  (10.81122194489746, 11.11877805510254)
+# Average disturbance:  0.013430563061099994 +- 0.004032643591494649 conf int (0.009397919469605345, 0.01746320665259463)
+# Success disturbance:  0.00937026422465695 +- 0.0007132210064149554 conf int (0.008657043218241995, 0.010083485231071903)
+
+# test 13 sen (16, 8) 5 on 3 blocks L = 0
+# Success rate: 0.892 +- 0.013614416562135023 conf int:  (0.878385583437865, 0.905614416562135)
+# Average time:  13.416 +- 0.24412766932182528 conf int:  (13.171872330678175, 13.660127669321826)
+# Average disturbance:  0.008059876707594239 +- 0.0006583720506621307 conf int (0.007401504656932108, 0.008718248758256384)
+# Success disturbance:  0.008605954868934068 +- 0.0007257823276632918 conf int (0.007880172541270776, 0.009331737196597373)
+
+# test 13 sen (16, 8) 5 on 2 blocks L = 0
+# Success rate: 0.7685 +- 0.018501296505900933 conf int:  (0.749998703494099, 0.7870012965059009)
+# Average time:  20.8295 +- 0.44121776417124536 conf int:  (20.388282235828754, 21.270717764171245)
+# Average disturbance:  0.006092503169449215 +- 0.0014717628119025744 conf int (0.004620740357546641, 0.007564265981351814)
+# Success disturbance:  0.0064599417815783015 +- 0.0006213423883730173 conf int (0.005838599393205284, 0.007081284169951305)

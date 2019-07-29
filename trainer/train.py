@@ -4,16 +4,16 @@ import ray.tune as tune
 import argparse
 import numpy as np
 
-# my_experiment = 'move_pick'
-my_experiment = 'place'
+my_experiment = 'move_pick'
+# my_experiment = 'place'
 
 
 # needs to register a custom environment
 def env_creator(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
-                               numObjects=5,
-                               isTest=13,
+                               numObjects=4,
+                               isTest=10,
                                operation=my_experiment,
                                constantVector=False,
                                blocksInObservation=True,
