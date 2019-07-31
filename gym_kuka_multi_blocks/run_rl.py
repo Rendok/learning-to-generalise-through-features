@@ -15,20 +15,17 @@ def env_creator_kuka_gym(renders=True):
     import gym_kuka_multi_blocks
     return gym.make("KukaMultiBlocks-v0")
 
-def init_ddpg():
-    from ray.rllib.models import ModelCatalog
+def init_ddpg(render):
 
     register_env("my_env", env_creator_kuka_bl)
 
-    config = ddpg.apex.APEX_DDPG_DEFAULT_CONFIG.copy()
+    config = ddpg.DEFAULT_CONFIG.copy()
     config["num_workers"] = 3
 
-    ray.init()
-    env = ModelCatalog.get_preprocessor_as_wrapper(env_creator_kuka_bl(renders=True))
-    #env = env_creator_kuka_bl(renders=True)
+    env = env_creator_kuka_bl(renders=render)
 
-    agent = ddpg.apex.ApexDDPGAgent(config=config, env="my_env")
-    agent.restore("/Users/dgrebenyuk/ray_results/my_experiment/APEX_DDPG_KukaMultiBlocks-v0_0_2018-11-11_09-19-105785pfg0/checkpoint_55/checkpoint-55")
+    agent = ddpg.DDPGAgent(config=config, env="my_env")
+    # agent.restore("/Users/dgrebenyuk/ray_results/my_experiment/APEX_DDPG_KukaMultiBlocks-v0_0_2018-11-11_09-19-105785pfg0/checkpoint_55/checkpoint-55")
     return agent, env
 
 # ---- dump
@@ -46,9 +43,10 @@ def env_creator_kuka_bl(renders=False):
                                operation=operation,
                                constantVector=False,
                                blocksInObservation=True,  # F - e1, T - e2 or e3
-                               sensing=True,
+                               sensing=False,
                                num_sectors=(16, 8))
     return env
+
 
 def init_ppo(render):
 
@@ -62,7 +60,7 @@ def init_ppo(render):
     agent = ppo.PPOAgent(config=config, env="my_env")
 
     if operation == 'move_pick':
-        # pass
+        pass
         # test == 0
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test0/PPO_KukaMultiBlocks-v0_0_2019-03-27_11-13-30nbdyzah7/checkpoint_300/checkpoint-300")
         # test == 3 close blocks without obs and reward
@@ -133,7 +131,7 @@ def init_ppo(render):
         # test 10 4 blocks L = 1/16
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_e1_4bl_L1_16/PPO_KukaMultiBlocks-v0_0_2019-07-01_05-07-19twff5yx9/checkpoint_260/checkpoint-260")
         # test 10 sensing (16, 8) 4 blocks L = 0
-        agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-08_11-09-28n2x8pznf/checkpoint_840/checkpoint-840")
+        # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-29_05-46-38y250zip7/checkpoint_1450/checkpoint-1450")
         # test 10 sensing (16, 8) 4 blocks L = 1/25
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L1_25/PPO_KukaMultiBlocks-v0_0_2019-07-10_03-19-29_j5vgc99/checkpoint_1720/checkpoint-1720")
         # test 10 sensing (16, 8) 4 blocks L = 1/36
@@ -177,7 +175,7 @@ def test_kuka(run="PPO", iterations=1, render=True, scatter=False, stats=False, 
     if run == "PPO":
         agent, env = init_ppo(render)
     elif run == "DDPG":
-        agent, env = init_ddpg()
+        agent, env = init_ddpg(render)
     else:
         env = env_creator_kuka_bl(renders=True)
 
@@ -264,7 +262,7 @@ def print_hist(data):
 
 ray.init()
 
-test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
+test_kuka("DDPG", iterations=1, render=True, scatter=False, stats=False, hist=False)
 # test_kuka(iterations=2000, render=False, scatter=True, stats=True, hist=True)
 
 
@@ -652,11 +650,25 @@ test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
 # Average disturbance:  0.6368948201939757 +- 0.03248625170962094 conf int (0.6044085684843548, 0.6693810719035942)
 # Success disturbance:  0.6244996253123338 +- 0.032824587615548406 conf int (0.5916750376967854, 0.6573242129278798)
 
+# test 10 sen (16, 8) 4 blocks L = 0
+# re-trained
+# Success rate: 0.994 +- 0.003387455097334624 conf int:  (0.9906125449026654, 0.9973874550973346)
+# Average time:  4.3355 +- 0.07391954635469578 conf int:  (4.261580453645304, 4.4094195463546955)
+# Average disturbance:  0.9912042232404342 +- 0.03388812106024808 conf int (0.9573161021801861, 1.0250923443006819)
+# Success disturbance:  0.9894163920147926 +- 0.03403910658009934 conf int (0.9553772854346932, 1.0234554985948916)
+
 # test 10 sen (16, 8) 4 on 3 blocks L = 0
 # Success rate: 0.8295 +- 0.016495865866269277 conf int:  (0.8130041341337307, 0.8459958658662693)
 # Average time:  12.474 +- 0.47761715019606577 conf int:  (11.996382849803934, 12.951617150196066)
 # Average disturbance:  0.28318913817486696 +- 0.019683116375936116 conf int (0.26350602179893085, 0.3028722545508034)
 # Success disturbance:  0.3030882627909042 +- 0.022133084306836526 conf int (0.28095517848406765, 0.3252213470977415)
+
+# test 10 sen (16, 8) 4 on 3 blocks L = 0
+# re-trained
+# Success rate: 0.9545 +- 0.00914109861972734 conf int:  (0.9453589013802727, 0.9636410986197274)
+# Average time:  6.3915 +- 0.31763527895503874 conf int:  (6.073864721044961, 6.7091352789550385)
+# Average disturbance:  0.5197432877960895 +- 0.02612449035398262 conf int (0.49361879744210685, 0.5458677781500708)
+# Success disturbance:  0.5336910921274732 +- 0.02686838665812874 conf int (0.5068227054693445, 0.5605594787856004)
 
 # test 10 sen (16, 8) 4 blocks L = 1/25
 # Success rate: 0.891 +- 0.013669632239438623 conf int:  (0.8773303677605614, 0.9046696322394386)
@@ -675,6 +687,18 @@ test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
 # Average time:  4.189 +- 0.08550912661690102 conf int:  (4.103490873383099, 4.274509126616901)
 # Average disturbance:  0.5665168598282163 +- 0.022659780555494557 conf int (0.5438570792727218, 0.5891766403837115)
 # Success disturbance:  0.5956924145396831 +- 0.02821200658700218 conf int (0.567480407952681, 0.6239044211266846)
+
+# test 10 sen (16, 8) 4 on row t7 L = 0
+# Success rate: 0.7675 +- 0.018529145874210062 conf int:  (0.7489708541257899, 0.78602914587421)
+# Average time:  10.3915 +- 0.44867434724150534 conf int:  (9.942825652758495, 10.840174347241506)
+# Average disturbance:  0.25617523169149164 +- 0.010960274602593856 conf int (0.2452149570888978, 0.26713550629408583)
+# Success disturbance:  0.28002997425409876 +- 0.012982077176250828 conf int (0.26704789707784793, 0.2930120514303509)
+
+# test 10 sen (16, 8) 4 on 5 blocks L = 0
+# Success rate: 0.766 +- 0.018570647360755532 conf int:  (0.7474293526392445, 0.7845706473607555)
+# Average time:  15.7885 +- 0.6094186613051811 conf int:  (15.17908133869482, 16.397918661305184)
+# Average disturbance:  1.0557150062002998 +- 0.044278292231443084 conf int (1.0114367139688567, 1.0999932984317407)
+# Success disturbance:  1.2355828942314553 +- 0.04971818869570255 conf int (1.1858647055357527, 1.2853010829271565)
 
 # test 12 sen (16, 8) 5 blocks L = 0
 # Success rate: 0.8535 +- 0.015510482382981916 conf int:  (0.8379895176170181, 0.869010482382982)
@@ -794,3 +818,9 @@ test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
 # Average time:  20.8295 +- 0.44121776417124536 conf int:  (20.388282235828754, 21.270717764171245)
 # Average disturbance:  0.006092503169449215 +- 0.0014717628119025744 conf int (0.004620740357546641, 0.007564265981351814)
 # Success disturbance:  0.0064599417815783015 +- 0.0006213423883730173 conf int (0.005838599393205284, 0.007081284169951305)
+
+# test 10 sen (16, 8) 4 on row t7 L = 0
+# Success rate: 0.7675 +- 0.018529145874210062 conf int:  (0.7489708541257899, 0.78602914587421)
+# Average time:  10.3915 +- 0.44867434724150534 conf int:  (9.942825652758495, 10.840174347241506)
+# Average disturbance:  0.25617523169149164 +- 0.010960274602593856 conf int (0.2452149570888978, 0.26713550629408583)
+# Success disturbance:  0.28002997425409876 +- 0.012982077176250828 conf int (0.26704789707784793, 0.2930120514303509)

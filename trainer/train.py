@@ -17,7 +17,7 @@ def env_creator(renders=False):
                                operation=my_experiment,
                                constantVector=False,
                                blocksInObservation=True,
-                               sensing=True,
+                               sensing=False,
                                num_sectors=(16, 8)
                                )
     return env
@@ -142,11 +142,13 @@ if __name__ == '__main__':
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
                 "config": {
-                    "gpu": gpu,  # ddpg
+                    "gpu": False,  # ddpg
                     "num_workers": args.num_workers,
                     "num_envs_per_worker": args.num_envs_per_worker,
-                    "horizon": 20,
-                    "optimizer_class": "AsyncReplayOptimizer",
+                    "horizon": 40,
+                    #"optimizer_class": "AsyncReplayOptimizer",
+                    "sample_batch_size": 25,  # 50,
+                    "train_batch_size": 1250,  # 2500,
                 },
             },
         })
