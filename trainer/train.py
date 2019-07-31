@@ -142,7 +142,8 @@ if __name__ == '__main__':
                 "checkpoint_freq": args.checkpoint_freq,
                 "checkpoint_at_end": args.checkpoint_at_end,
                 "config": {
-                    "gpu": False,  # ddpg
+                    # "gpu": False,  # ddpg
+                    "num_gpus": 0,
                     "num_workers": args.num_workers,
                     "num_envs_per_worker": args.num_envs_per_worker,
                     "horizon": 40,
