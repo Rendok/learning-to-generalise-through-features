@@ -868,7 +868,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             else:
                 observation.extend(sens_vec)
 
-        print(observation)
+        # print(observation)
         return np.array(observation)
 
     def _step(self, action):
