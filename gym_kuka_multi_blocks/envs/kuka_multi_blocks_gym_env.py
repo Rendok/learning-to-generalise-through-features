@@ -87,7 +87,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self.terminated = 0
         self._cam_dist = 1.3
         self._cam_yaw = 135
-        self._cam_pitch = -31
+        self._cam_pitch = -31 # -55
         self._dv = dv
         self._p = p
         self._removeHeightHack = removeHeightHack # TODO: delete
@@ -483,7 +483,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
-                # three blocks, T-shape
+                # three blocks, L-shape
                 elif self._isTest == 8:
                     from random import choice
 
