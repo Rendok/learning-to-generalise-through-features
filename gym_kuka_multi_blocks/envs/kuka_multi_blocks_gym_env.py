@@ -138,7 +138,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             self.observation_space = spaces.Box(low=-100,
                                                 high=100,
-                                                shape=(14 + self._num_sectors[0]*self._num_sectors[1],),
+                                                shape=(14 + self._num_sectors[0]*self._num_sectors[1],), # 14 in global gr
                                                 dtype=np.float32)
 
         self.viewer = None
@@ -759,7 +759,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
         observation = []
         if inMatrixForm:
-            observation.append(list(gripperPos) + list(gripperOrn))
+            # this line for global gripper
+            observation.append([0, 0, 0, 0, 0, 0, 0])
+            # observation.append(list(gripperPos) + list(gripperOrn))
             if type(self._goal) == int:
                 bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
                 if is_sensing:
@@ -780,8 +782,10 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 print(type(self._goal), self._goal)
                 raise TypeError
         else:
-            observation.extend(list(gripperPos))
-            observation.extend(list(gripperOrn))
+            # this line for global gripper
+            observation.extend([0, 0, 0, 0, 0, 0, 0])
+            # observation.extend(list(gripperPos))
+            # observation.extend(list(gripperOrn))
             if type(self._goal) == int:
                 bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
                 if is_sensing:
@@ -864,7 +868,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
             else:
                 observation.extend(sens_vec)
 
-        # print(observation)
+        print(observation)
         return np.array(observation)
 
     def _step(self, action):
