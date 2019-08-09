@@ -760,8 +760,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         observation = []
         if inMatrixForm:
             # this line for global gripper
-            observation.append([0, 0, 0, 0, 0, 0, 0])
-            # observation.append(list(gripperPos) + list(gripperOrn))
+            # observation.append([0, 0, 0, 0, 0, 0, 0])
+            observation.append(list(gripperPos) + list(gripperOrn))
             if type(self._goal) == int:
                 bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
                 if is_sensing:
