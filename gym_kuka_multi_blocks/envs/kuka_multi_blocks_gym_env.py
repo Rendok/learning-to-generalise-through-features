@@ -47,7 +47,8 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                  constantVector=False,
                  blocksInObservation=True,
                  sensing=False,
-                 num_sectors=(4, 2)
+                 num_sectors=(4, 2),
+                 globalGripper=True,
                  ):
         """Initializes the KukaDiverseObjectEnv.
 
@@ -104,6 +105,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self._blocksInObservation = blocksInObservation
         self._sensing = sensing
         self._num_sectors = num_sectors
+        self._globalGripper = globalGripper
 
         if self._renders:
             self.cid = p.connect(p.SHARED_MEMORY)
@@ -383,20 +385,20 @@ class KukaMultiBlocksEnv(KukaGymEnv):
 
                 elif self._isTest == 4:
 
-                    if self._numObjects != 2:
+                    if self._numObjects < 2:
                         raise ValueError
 
                     if i == 0:
                         xpos = 0.4
-                        ypos = 0
-                        zpos = 0.1
+                        ypos = -0.1
+                        zpos = 0.0
                         angle = np.pi / 2
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
-                    elif i == 1:
+                    elif i > 0:
 
-                        xpos = xpos + 0.05
-                        ypos = 0
+                        xpos = 0.4  # xpos + 0.1
+                        ypos = ypos + 0.1
                         angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
                         orn = p.getQuaternionFromEuler([0, 0, angle])
 
@@ -783,9 +785,12 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                 raise TypeError
         else:
             # this line for global gripper
-            observation.extend([0, 0, 0, 0, 0, 0, 0])
-            # observation.extend(list(gripperPos))
-            # observation.extend(list(gripperOrn))
+            if self._globalGripper:
+                observation.extend(list(gripperPos))
+                observation.extend(list(gripperOrn))
+            else:
+                observation.extend([0, 0, 0, 0, 0, 0, 0])
+
             if type(self._goal) == int:
                 bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
                 if is_sensing:
