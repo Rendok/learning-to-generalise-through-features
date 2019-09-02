@@ -88,7 +88,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         self.terminated = 0
         self._cam_dist = 1.3
         self._cam_yaw = 135
-        self._cam_pitch = -31 # -55
+        self._cam_pitch = -31  # -55
         self._dv = dv
         self._p = p
         self._removeHeightHack = removeHeightHack # TODO: delete
@@ -129,9 +129,9 @@ class KukaMultiBlocksEnv(KukaGymEnv):
                                                     dtype=np.float32)
             elif self._constantVector:
                 self.observation_space = spaces.Box(low=-100,
-                                                high=100,
-                                                shape=(14 + 7 * 4,),
-                                                dtype=np.float32)
+                                                    high=100,
+                                                    shape=(14 + 7 * 4,),
+                                                    dtype=np.float32)
             else:
                 self.observation_space = spaces.Box(low=-100,
                                                     high=100,
@@ -140,7 +140,7 @@ class KukaMultiBlocksEnv(KukaGymEnv):
         else:
             self.observation_space = spaces.Box(low=-100,
                                                 high=100,
-                                                shape=(14 + self._num_sectors[0]*self._num_sectors[1],), # 14 in global gr
+                                                shape=(14 + self._num_sectors[0]*self._num_sectors[1],),
                                                 dtype=np.float32)
 
         self.viewer = None

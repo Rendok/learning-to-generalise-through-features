@@ -32,14 +32,14 @@ def init_ddpg(render):
 
 #-----------------------------------
 
-# operation = 'move_pick'
-operation = 'place'
+operation = 'move_pick'
+# operation = 'place'
 
 def env_creator_kuka_bl(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
-                               numObjects=4,
-                               isTest=13,
+                               numObjects=3,
+                               isTest=7,
                                operation=operation,
                                constantVector=False,
                                blocksInObservation=True,  # F - e1, T - e2 or e3
@@ -133,13 +133,13 @@ def init_ppo(render):
         # test 10 4 blocks L = 1/16
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_e1_4bl_L1_16/PPO_KukaMultiBlocks-v0_0_2019-07-01_05-07-19twff5yx9/checkpoint_260/checkpoint-260")
         # test 10 sensing (16, 8) 4 blocks L = 0
-        agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-29_05-46-38y250zip7/checkpoint_1450/checkpoint-1450")
+        # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-29_05-46-38y250zip7/checkpoint_1450/checkpoint-1450")
         # test 10 sensing (16, 8) 4 blocks L = 1/25
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L1_25/PPO_KukaMultiBlocks-v0_0_2019-07-10_03-19-29_j5vgc99/checkpoint_1720/checkpoint-1720")
         # test 10 sensing (16, 8) 4 blocks L = 1/36
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L1_36/PPO_KukaMultiBlocks-v0_0_2019-07-11_04-09-11of7noaqc/checkpoint_2220/checkpoint-2220")
         # test 10 sensing (16, 8) 4 blocks no grip L = 0
-        # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_4bl_noGr_L0/PPO_KukaMultiBlocks-v0_0_2019-08-09_06-29-56un4wmget/checkpoint_1700/checkpoint-1700")
+        agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_4bl_noGr_L0/PPO_KukaMultiBlocks-v0_0_2019-08-10_11-14-24pd7tvr6t/checkpoint_1500/checkpoint-1500")
     elif operation == 'place':
         # pass
         # test == 12 e2 L = 0
@@ -200,7 +200,7 @@ def test_kuka(run="PPO", iterations=1, render=True, scatter=False, stats=False, 
             action = agent.compute_action(obs)
             obs, rew, done, info = env.step(action)
             # obs, rew, done, info = env.step([0, 0, 0, 0])
-            print("__________REWARD____________", rew, info)
+            # print("__________REWARD____________", rew, info)
             reward += rew
             i += 1
 
@@ -274,8 +274,8 @@ def print_hist(data):
 
 ray.init()
 
-test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
-# test_kuka(iterations=1000, render=False, scatter=True, stats=True, hist=True)
+# test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
+test_kuka(iterations=2000, render=False, scatter=True, stats=True, hist=True)
 
 
 # case 3 L = 1
@@ -730,6 +730,27 @@ test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
 # Average disturbance:  0.25617523169149164 +- 0.010960274602593856 conf int (0.2452149570888978, 0.26713550629408583)
 # Success disturbance:  0.28002997425409876 +- 0.012982077176250828 conf int (0.26704789707784793, 0.2930120514303509)
 
+# test 10 sen (16, 8) 4 on 5 no gr L = 0
+# Success rate: 0.129 +- 0.014703091582152827
+# Average time:  35.3165 +- 0.4774459212546631
+# Average disturbance:  0.2622502015577445 +- 0.028544243222517696
+# Success disturbance:  1.4584587641712479 +- 0.10338522170483255
+# {$ 0.129 \pm 0.0147 $} & {$ 35.3165 \pm 0.4774 $} & {$ 0.2623 \pm 0.0285 $} & {$ 1.4585 \pm 0.1034 $}
+
+# test 10 sen (16, 8) 4 on 4 no gr L = 0
+# Success rate: 0.9835 +- 0.005587710329775786
+# Average time:  9.2715 +- 0.2009021447817645
+# Average disturbance:  0.8408960992306929 +- 0.03446564602658875
+# Success disturbance:  0.8373221017515015 +- 0.03479027609091967
+# {$ 0.9835 \pm 0.0056 $} & {$ 9.2715 \pm 0.2009 $} & {$ 0.8409 \pm 0.0345 $} & {$ 0.8373 \pm 0.0348 $}
+
+# test 10 sen (16, 8) 4 on 3 no gr L = 0
+# Success rate: 0.8905 +- 0.013697103933459354
+# Average time:  13.1715 +- 0.4551941037667824
+# Average disturbance:  0.406090772292028 +- 0.024452139785456628
+# Success disturbance:  0.4252097797805167 +- 0.026128828929051162
+# {$ 0.8905 \pm 0.0137 $} & {$ 13.1715 \pm 0.4552 $} & {$ 0.4061 \pm 0.0245 $} & {$ 0.4252 \pm 0.0261 $}
+
 # test 12 sen (16, 8) 5 blocks L = 0
 # Success rate: 0.8535 +- 0.015510482382981916 conf int:  (0.8379895176170181, 0.869010482382982)
 # Average time:  7.773 +- 0.11167990118148374 conf int:  (7.661320098818516, 7.884679901181483)
@@ -854,6 +875,13 @@ test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
 # Average time:  10.3915 +- 0.44867434724150534 conf int:  (9.942825652758495, 10.840174347241506)
 # Average disturbance:  0.25617523169149164 +- 0.010960274602593856 conf int (0.2452149570888978, 0.26713550629408583)
 # Success disturbance:  0.28002997425409876 +- 0.012982077176250828 conf int (0.26704789707784793, 0.2930120514303509)
+
+# test 10 sen (16, 8) 4 on row t7 no gr L = 0
+# Success rate: 0.1585 +- 0.016019406543847203
+# Average time:  22.697 +- 0.6796646016766772
+# Average disturbance:  0.2578537165075272 +- 0.018929502350187505
+# Success disturbance:  0.23577475412536428 +- 0.03904065028278625
+# {$ 0.1585 \pm 0.016 $} & {$ 22.697 \pm 0.6797 $} & {$ 0.2579 \pm 0.0189 $} & {$ 0.2358 \pm 0.039 $}
 
 # test 13 sen (16, 8) 5 on 5 2xmass L = 0
 # Success rate: 0.9145 +- 0.01226534142497615 conf int:  (0.9022346585750238, 0.9267653414249761)

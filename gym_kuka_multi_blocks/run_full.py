@@ -52,7 +52,7 @@ def init_move_pick(renders=False):
     env = env_creator_move_pick(renders=renders)
 
     agent = ppo.PPOAgent(config=config, env="pick")
-    agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-29_05-46-38y250zip7/checkpoint_1450/checkpoint-1450")
+    agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_4bl_noGr_L0/PPO_KukaMultiBlocks-v0_0_2019-08-10_11-14-24pd7tvr6t/checkpoint_1500/checkpoint-1500")
 
     return agent, env
 
