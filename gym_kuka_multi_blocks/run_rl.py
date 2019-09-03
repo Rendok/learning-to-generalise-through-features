@@ -35,6 +35,7 @@ def init_ddpg(render):
 operation = 'move_pick'
 # operation = 'place'
 
+
 def env_creator_kuka_bl(renders=False):
     import gym_kuka_multi_blocks.envs.kuka_multi_blocks_gym_env as e
     env = e.KukaMultiBlocksEnv(renders=renders,
@@ -50,19 +51,29 @@ def env_creator_kuka_bl(renders=False):
     return env
 
 
+def env_creator_kuka_cam(renders=False):
+    import gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym as e
+    env = e.KukaCamMultiBlocksEnv(renders=renders,
+                                  numObjects=3,
+                                  isTest=7,
+                                  operation=operation,
+                                  )
+    return env
+
+
 def init_ppo(render):
 
-    register_env("my_env", env_creator_kuka_bl)
+    register_env("my_env", env_creator_kuka_cam)
 
     config = ppo.DEFAULT_CONFIG.copy()
     config["num_workers"] = 3
 
-    env = env_creator_kuka_bl(renders=render)
+    env = env_creator_kuka_cam(renders=render)
 
-    agent = ppo.PPOAgent(config=config, env="my_env")
+    agent = ppo.PPOTrainer(config=config, env="my_env")
 
     if operation == 'move_pick':
-        # pass
+        pass
         # test == 0
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test0/PPO_KukaMultiBlocks-v0_0_2019-03-27_11-13-30nbdyzah7/checkpoint_300/checkpoint-300")
         # test == 3 close blocks without obs and reward
@@ -139,9 +150,9 @@ def init_ppo(render):
         # test 10 sensing (16, 8) 4 blocks L = 1/36
         # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_s16_8_4bl_L1_36/PPO_KukaMultiBlocks-v0_0_2019-07-11_04-09-11of7noaqc/checkpoint_2220/checkpoint-2220")
         # test 10 sensing (16, 8) 4 blocks no grip L = 0
-        agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_4bl_noGr_L0/PPO_KukaMultiBlocks-v0_0_2019-08-10_11-14-24pd7tvr6t/checkpoint_1500/checkpoint-1500")
+        # agent.restore("/Users/dgrebenyuk/Research/policies/move_pick/test10_4bl_noGr_L0/PPO_KukaMultiBlocks-v0_0_2019-08-10_11-14-24pd7tvr6t/checkpoint_1500/checkpoint-1500")
     elif operation == 'place':
-        # pass
+        pass
         # test == 12 e2 L = 0
         # agent.restore("/Users/dgrebenyuk/Research/policies/place/test12_L0/PPO_KukaMultiBlocks-v0_0_2019-06-12_08-40-31lhabnnke/checkpoint_220/checkpoint-220")
         # test == 12 e2 L = 1
@@ -166,7 +177,7 @@ def init_ppo(render):
         # test 13 sensing (16, 8) 5 blocks L = 0
         # agent.restore("/Users/dgrebenyuk/Research/policies/place/test13_s16_8_5bl_L0/PPO_KukaMultiBlocks-v0_0_2019-07-22_04-32-20gtbab48l/checkpoint_400/checkpoint-400")
         # test 13 sensing (16, 8) no gr 5 blocks L = 0
-        agent.restore("/Users/dgrebenyuk/Research/policies/place/test13_s16_8_5bl_noGr_L0/PPO_KukaMultiBlocks-v0_0_2019-08-09_06-29-56un4wmget/checkpoint_1000/checkpoint-1000") #1000
+        # agent.restore("/Users/dgrebenyuk/Research/policies/place/test13_s16_8_5bl_noGr_L0/PPO_KukaMultiBlocks-v0_0_2019-08-09_06-29-56un4wmget/checkpoint_1000/checkpoint-1000") #1000
     elif operation == 'move':
         agent.restore("/Users/dgrebenyuk/ray_results/move/PPO_KukaMultiBlocks-v0_0_2019-04-09_02-24-40kihke9e8/checkpoint_40/checkpoint-40")
     elif operation == 'pick':
@@ -198,8 +209,8 @@ def test_kuka(run="PPO", iterations=1, render=True, scatter=False, stats=False, 
         i = 0
         while not done:
             action = agent.compute_action(obs)
-            obs, rew, done, info = env.step(action)
-            # obs, rew, done, info = env.step([0, 0, 0, 0])
+            # obs, rew, done, info = env.step(action)
+            obs, rew, done, info = env.step([0, 0, -1, 0])
             # print("__________REWARD____________", rew, info)
             reward += rew
             i += 1
@@ -274,8 +285,8 @@ def print_hist(data):
 
 ray.init()
 
-# test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
-test_kuka(iterations=2000, render=False, scatter=True, stats=True, hist=True)
+test_kuka(iterations=1, render=True, scatter=False, stats=False, hist=False)
+# test_kuka(iterations=2000, render=False, scatter=True, stats=True, hist=True)
 
 
 # case 3 L = 1

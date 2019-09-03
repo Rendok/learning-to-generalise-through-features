@@ -12,6 +12,7 @@ import distutils.dir_util
 import glob
 from pkg_resources import parse_version
 import gym
+from math import pi
 
 
 class KukaCamMultiBlocksEnv(KukaGymEnv):
@@ -22,19 +23,18 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
 
     def __init__(self,
                  urdfRoot=pybullet_data.getDataPath(),
-                 actionRepeat=1,  # <---- was 8?
+                 actionRepeat=80,
                  isEnableSelfCollision=True,
                  renders=False,
-                 isDiscrete=False,
-                 maxSteps=1000,  # <---- was 8?
+                 maxSteps=40,
                  dv=0.06,
-                 removeHeightHack=True,
-                 blockRandom=0.3,
-                 cameraRandom=0,
-                 width=48,
-                 height=48,
+                 blockRandom=0.5,
+                 width=84,
+                 height=84,
                  numObjects=3,
-                 isTest=False):
+                 isTest=0,
+                 operation="place"
+                 ):
         """Initializes the KukaDiverseObjectEnv.
 
         Args:
@@ -56,83 +56,102 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
           width: The image width.
           height: The observation image height.
           numObjects: The number of objects in the bin.
-          isTest: If true, use the test set of objects. If false, use the train
-            set of objects.
+          isTest: If 0, blocks are placed in random. If 1, blocks are placed in a test configuration.
         """
 
-        self._isDiscrete = isDiscrete
         self._timeStep = 1. / 240.
         self._urdfRoot = urdfRoot
         self._actionRepeat = actionRepeat
         self._isEnableSelfCollision = isEnableSelfCollision
-        self._observation = []
         self._envStepCounter = 0
         self._renders = renders
         self._maxSteps = maxSteps
         self.terminated = 0
         self._cam_dist = 1.3
-        self._cam_yaw = 180
-        self._cam_pitch = -40
+        self._cam_yaw = 135
+        self._cam_pitch = -31
         self._dv = dv
         self._p = p
-        self._removeHeightHack = removeHeightHack
         self._blockRandom = blockRandom
-        self._cameraRandom = cameraRandom
         self._width = width
         self._height = height
         self._numObjects = numObjects
         self._isTest = isTest
+        self._operation = operation
 
         if self._renders:
             self.cid = p.connect(p.SHARED_MEMORY)
-            if (self.cid < 0):
+            if self.cid < 0:
                 self.cid = p.connect(p.GUI)
-            p.resetDebugVisualizerCamera(1.3, 180, -41, [0.52, -0.2, -0.33])
-        else:
+            p.resetDebugVisualizerCamera(self._cam_dist, self._cam_yaw, self._cam_pitch, [0.52, -0.2, -0.33])
+
+        elif self._isTest >= 0:
             self.cid = p.connect(p.DIRECT)
 
         self._seed()
 
-        if (self._isDiscrete):
-            if self._removeHeightHack:
-                self.action_space = spaces.Discrete(9)
-            else:
-                self.action_space = spaces.Discrete(7)
-        else:
-            self.action_space = spaces.Box(low=-1, high=1, shape=(3,))  # dx, dy, da
-            if self._removeHeightHack:
-                self.action_space = spaces.Box(low=-1,
-                                               high=1,
-                                               shape=(4,))  # dx, dy, dz, da
+        self.action_space = spaces.Box(low=-1,
+                                       high=1,
+                                       shape=(4,),
+                                       dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
-        # self.observation_space = spaces.Box(-observation_high, observation_high) <--- is absent
+        # pixels
+        self.observation_space = spaces.Box(0, 255, [height, width, 9], dtype=np.uint8)
 
         self.viewer = None
+
+        # Pre-compute the camera settings #
+
+        # a view from z
+        look = [0.4, 0.0, 0.54]  # [0.23, 0.2, 0.54]
+        distance = 1.3  # 1.
+        yaw = 180  # 245
+        pitch = -90  # -56
+        roll = 0
+
+        self._view_matrix = np.array(p.computeViewMatrixFromYawPitchRoll(
+                                            look, distance, yaw, pitch, roll, 2))
+
+        # from y
+        look = [0.4, 0.0, 0.2]
+        distance = 2.0
+        yaw = 180
+        pitch = 0
+        roll = 0
+
+        self._view_matrix = np.append(self._view_matrix,
+                                      p.computeViewMatrixFromYawPitchRoll(
+                                                look, distance, yaw, pitch, roll, 2))
+
+        # from x
+        look = [0.4, 0.0, 0.2]
+        distance = 2.0
+        yaw = 90
+        pitch = 0
+        roll = 0
+
+        self._view_matrix = np.append(self._view_matrix,
+                                      p.computeViewMatrixFromYawPitchRoll(
+                                                look, distance, yaw, pitch, roll, 2))
+
+        self._view_matrix = self._view_matrix.reshape([3, 16]).T
+
+        fov = 20.
+        aspect = self._width / self._height
+        near = 0.01
+        far = 10
+
+        self._proj_matrix = p.computeProjectionMatrixFOV(fov, aspect, near, far)
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
         """
 
-        # Set the camera settings. # TODO somehow delete the camera settings
-        look = [0.23, 0.2, 0.54]
-        distance = 1.
-        pitch = -56 + self._cameraRandom * np.random.uniform(-3, 3)
-        yaw = 245 + self._cameraRandom * np.random.uniform(-3, 3)
-        roll = 0
-        self._view_matrix = p.computeViewMatrixFromYawPitchRoll(
-            look, distance, yaw, pitch, roll, 2)
-        fov = 20. + self._cameraRandom * np.random.uniform(-2, 2)
-        aspect = self._width / self._height
-        near = 0.01
-        far = 10
-        self._proj_matrix = p.computeProjectionMatrixFOV(
-            fov, aspect, near, far)
-
-        self._attempted_grasp = False  # TODO delete
+        # Set all the parameters
         self._env_step = 0
-        self.terminated = 0
+        self._done = False
 
-        # set the physics engine
+        # Set the physics engine
         p.resetSimulation()
         p.setPhysicsEngineParameter(numSolverIterations=150)
         p.setTimeStep(self._timeStep)
@@ -141,29 +160,32 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         # load a table
         p.loadURDF(os.path.join(self._urdfRoot, "plane.urdf"), [0, 0, -1])
 
-        p.loadURDF(os.path.join(self._urdfRoot, "table/table.urdf"), 0.5000000, 0.00000, -.820000, 0.000000, 0.000000,
-                   0.0, 1.0)
+        table = p.loadURDF(os.path.join(self._urdfRoot, "table/table.urdf"), 0.5000000, 0.00000, -.700000, 0.000000,
+                           0.000000,
+                           0.0, 1.0)
 
         # load a kuka arm
         self._kuka = kuka.Kuka(urdfRootPath=self._urdfRoot, timeStep=self._timeStep)
         self._envStepCounter = 0
         p.stepSimulation()
 
-        # Choose the objects in the bin. TODO change random shape objects to blocks
-        # urdfList = self._get_random_object(
-        #    self._numObjects, self._isTest)
-        # self._objectUids = self._randomly_place_objects(urdfList)
+        # Generate the blocks
+        self._objectUids = self._randomly_place_objects(self._numObjects, table)
 
-        # Generarate the # of blocks
-        self._objectUids = self._randomly_place_objects(self._numObjects)
+        if self._isTest != 13:
+            for _ in range(100):
+                p.stepSimulation()
+
+        # FIXME: a more comprehensive goal state
+        self._goal = 0  # self._get_goal()
 
         # set observations
         self._observation = self._get_observation()
 
         # return observations
-        return np.array(self._observation)
+        return self._observation
 
-    def _randomly_place_objects(self, urdfList):
+    def _randomly_place_objects(self, urdfList, table):
         """Randomly places the objects in the bin.
 
         Args:
@@ -175,31 +197,428 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
 
         # Randomize positions of each object urdf.
         objectUids = []
-        for _ in range(urdfList):
-            xpos = 0.4 + self._blockRandom * random.random()
-            ypos = self._blockRandom * (random.random() - .5)
-            angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
-            orn = p.getQuaternionFromEuler([0, 0, angle])
-            urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")  # urdf_name
-            uid = p.loadURDF(urdf_path, [xpos, ypos, .15],  # review it's -0.15 in another file
+
+        for i in range(urdfList):
+            if self._isTest == 1:
+
+                if i != 1:
+                    xpos = 0.4 + self._blockRandom * random.random()
+                    ypos = self._blockRandom * (random.random() - .5)
+                    zpos = 0.1
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 1:
+
+                    xpos = xpos + 0.1 + self._blockRandom * random.random()
+                    ypos = self._blockRandom * (random.random() - .5)
+                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            elif self._isTest == 2:
+
+                if i == 0:
+                    xpos = 0.51 #0.5 # 0.55
+                    ypos = 0.02 # 0.02 # 0.1
+                    zpos = 0.1
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 1:
+                    xpos = xpos + 0.25
+                    ypos = -0.1
+                    angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 2:
+                    xpos = 0.6
+                    ypos = -0.2
+                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            # the blocks are close
+            elif self._isTest == 3:
+
+                if self._numObjects != 2:
+                    raise ValueError
+
+                if i != 1:
+                    xpos = 0.4 + random.random() / 10.0
+                    ypos = (random.random() - .5) / 10.0
+                    zpos = 0.1
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 1:
+
+                    xpos = xpos + (random.random() - 0.5) / 10.0
+                    ypos = (random.random() - .5) / 10.0
+                    zpos = 0.1
+                    angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            elif self._isTest == 4:
+
+                if self._numObjects < 2:
+                    raise ValueError
+
+                if i == 0:
+                    xpos = 0.4
+                    ypos = -0.1
+                    zpos = 0.0
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i > 0:
+
+                    xpos = 0.4  # xpos + 0.1
+                    ypos = ypos + 0.1
+                    angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            elif self._isTest == 5:
+
+                if self._numObjects != 2:
+                    raise ValueError
+
+                if i == 0:
+                    xpos = 0.4
+                    ypos = 0
+                    zpos = 0.1
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 1:
+
+                    xpos = xpos
+                    ypos = 0.05
+                    angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            # blocks in contact
+            elif self._isTest == 6:
+                from random import choice
+
+                if self._numObjects != 2:
+                    raise ValueError
+
+                if i == 0:
+                    xpos = 0.4 + random.random() / 10.0
+                    ypos = (random.random() - .5) / 10.0
+                    zpos = 0.1
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                    xpos0 = xpos
+                    ypos0 = ypos
+
+                elif i == 1:
+
+                    coords = [(0, xpos0 + 0.05, ypos0),
+                              (1, xpos0 - 0.05, ypos0),
+                              (2, xpos0, ypos0 + 0.05),
+                              (3, xpos0, ypos0 - 0.05)]
+                    cd = choice(coords)
+
+                    xpos = cd[1]
+                    ypos = cd[2]
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            # three blocks in contact
+            elif self._isTest == 7:
+                from random import choice
+
+                if self._numObjects != 3:
+                    raise ValueError
+
+                if i == 0:
+                    xpos = 0.4 + random.random() / 10.0
+                    ypos = (random.random() - .5) / 10.0
+                    zpos = 0.1
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                    xpos0 = xpos
+                    ypos0 = ypos
+
+                elif i == 1:
+
+                    coords = [(0, xpos0 + 0.05, ypos0, xpos0 - 0.05, ypos0),
+                              (2, xpos0, ypos0 + 0.05, xpos0, ypos0 - 0.05)]
+
+                    cd = choice(coords)
+
+                    xpos = cd[1]
+                    ypos = cd[2]
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 2:
+
+                    xpos = cd[3]
+                    ypos = cd[4]
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            # three blocks, L-shape
+            elif self._isTest == 8:
+                from random import choice
+
+                if self._numObjects != 3:
+                    raise ValueError
+
+                if i == 0:
+                    xpos = 0.4 + random.random() / 10.0
+                    ypos = (random.random() - .5) / 10.0
+                    zpos = 0.1
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                    xpos0 = xpos
+                    ypos0 = ypos
+
+                elif i == 1:
+
+                    coords = [(0, xpos0 + 0.05, ypos0, xpos0, ypos0 + 0.05),
+                              (1, xpos0 + 0.05, ypos0, xpos0, ypos0 - 0.05),
+                              (2, xpos0 - 0.05, ypos0, xpos0, ypos0 + 0.05),
+                              (3, xpos0 - 0.05, ypos0, xpos0, ypos0 - 0.05)]
+
+                    cd = choice(coords)
+
+                    xpos = cd[1]
+                    ypos = cd[2]
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 2:
+
+                    xpos = cd[3]
+                    ypos = cd[4]
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            # test 7 + 8
+            elif self._isTest == 9:
+                from random import choice
+
+                if self._numObjects != 3:
+                    raise ValueError
+
+                if i == 0:
+                    xpos = 0.4 + random.random() / 10.0
+                    ypos = (random.random() - .5) / 10.0
+                    zpos = 0.1
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                    xpos0 = xpos
+                    ypos0 = ypos
+
+                elif i == 1:
+
+                    coords = [(0, xpos0 + 0.05, ypos0, xpos0 - 0.05, ypos0),
+                              (1, xpos0, ypos0 + 0.05, xpos0, ypos0 - 0.05),
+                              (2, xpos0 + 0.05, ypos0, xpos0, ypos0 + 0.05),
+                              (3, xpos0 + 0.05, ypos0, xpos0, ypos0 - 0.05),
+                              (4, xpos0 - 0.05, ypos0, xpos0, ypos0 + 0.05),
+                              (5, xpos0 - 0.05, ypos0, xpos0, ypos0 - 0.05)]
+
+                    cd = choice(coords)
+
+                    xpos = cd[1]
+                    ypos = cd[2]
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 2:
+
+                    xpos = cd[3]
+                    ypos = cd[4]
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            # |. tower
+            elif self._isTest == 10:
+                from random import choice
+
+                if not 3 <= self._numObjects <= 5:
+                    raise ValueError
+
+                if i == 0:
+                    xpos = 0.4 + random.random() / 10.0
+                    ypos = (random.random() - .5) / 10.0
+                    zpos = -0.05
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                    xpos0 = xpos
+                    ypos0 = ypos
+                    zpos0 = zpos
+
+                elif i == 1:
+
+                    coords = [(0, xpos0 + 0.05, ypos0),
+                              (1, xpos0 - 0.05, ypos0),
+                              (2, xpos0, ypos0 + 0.05),
+                              (3, xpos0, ypos0 - 0.05)]
+
+                    cd = choice(coords)
+
+                    xpos = cd[1]
+                    ypos = cd[2]
+                    zpos = zpos0
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 2:
+
+                    xpos = cd[1]
+                    ypos = cd[2]
+                    zpos = zpos0 + 0.05
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 3:
+
+                    xpos = cd[1]
+                    ypos = cd[2]
+                    zpos = zpos0 + 0.1
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 4:
+
+                    xpos = cd[1]
+                    ypos = cd[2]
+                    zpos = zpos0 + 0.15
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            # .
+            # ... case
+            # .
+            elif self._isTest == 11:
+                from random import choice
+
+                if self._numObjects != 5:
+                    raise ValueError
+
+                if i == 0:
+                    xpos = 0.4 + random.random() / 10.0
+                    ypos = (random.random() - .5) / 10.0
+                    zpos = 0.05
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                    xpos0 = xpos
+                    ypos0 = ypos
+                    zpos0 = zpos
+
+                elif i == 1:
+
+                    coords = [[0, (xpos0 + 0.05, ypos0), (xpos0 - 0.05, ypos0), (xpos0, ypos0 - 0.1), (xpos0, ypos0 + 0.1)],
+                              [1, (xpos0, ypos0 + 0.05), (xpos0, ypos0 - 0.05), (xpos0 - 0.1, ypos0), (xpos0 + 0.1, ypos0)]
+                              ]
+
+                    cd = choice(coords)
+
+                    xpos = cd[1][0]
+                    ypos = cd[1][1]
+                    zpos = zpos0
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i > 1:
+
+                    xpos = cd[i][0]
+                    ypos = cd[i][1]
+                    zpos = zpos0
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            # for placing. Two blocks in a tower, one faraway.
+            elif self._isTest == 12:
+                from random import choice
+
+                if not 3 <= self._numObjects <= 6:
+                    raise ValueError
+
+                if i == 0:
+                    xpos = 0.5
+                    ypos = 0.15
+                    zpos = 0.01
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 1:
+                    xpos = 0.4 + random.random() / 10.0
+                    ypos = (random.random() - .5) / 10.0
+                    zpos = -0.05
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                else:
+                    xpos = xpos
+                    ypos = ypos
+                    zpos = zpos + 0.05
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            # for placing. Two blocks in a tower, one on a sphere.
+            elif self._isTest == 13:
+                from random import choice
+
+                if not 2 <= self._numObjects:
+                    raise ValueError
+
+                if i == 0:
+                    xpos, ypos, zpos, xpos0, ypos0, zpos0 = self._place_on_sphere(radius=0.2)
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                elif i == 1:
+                    xpos = xpos0
+                    ypos = ypos0
+                    zpos = zpos0
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+                else:
+                    xpos = xpos
+                    ypos = ypos
+                    zpos = zpos + 0.05
+                    angle = np.pi / 2
+                    orn = p.getQuaternionFromEuler([0, 0, angle])
+
+            urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")
+            uid = p.loadURDF(urdf_path, [xpos, ypos, zpos],
                              [orn[0], orn[1], orn[2], orn[3]])
             objectUids.append(uid)
-            # Let each object fall to the tray individual, to prevent object
-            # intersection.
-            for _ in range(500):
-                p.stepSimulation()
+
         return objectUids
 
     def _get_observation(self):
         """Return the observation as an image.
         """
-        img_arr = p.getCameraImage(width=self._width,
-                                   height=self._height,
-                                   viewMatrix=self._view_matrix,
-                                   projectionMatrix=self._proj_matrix)
-        rgb = img_arr[2]
-        np_img_arr = np.reshape(rgb, (self._height, self._width, 4))
-        return np_img_arr[:, :, :3]
+        import matplotlib.pyplot as plt
+        np_img_arr = np.zeros((self._height, self._width, 9), dtype=np.uint8)
+
+        for i in range(3):
+            img_arr = p.getCameraImage(width=self._width,
+                                       height=self._height,
+                                       viewMatrix=self._view_matrix[:, i],
+                                       projectionMatrix=self._proj_matrix)
+            rgb = img_arr[2]
+            rgb = np.reshape(rgb, (self._height, self._width, 4))
+            np_img_arr[:, :, 3*i:3+3*i] = rgb[:, :, :-1]
+
+        # plt.imshow(np_img_arr[:, :, 0:3])
+        # plt.show()
+        # plt.imshow(np_img_arr[:, :, 3:6])
+        # plt.show()
+        # plt.imshow(np_img_arr[:, :, 6:9])
+        # plt.show()
+
+        assert np_img_arr.shape == (self._width, self._height, 9)
+        assert np_img_arr.dtype.char in np.typecodes['AllInteger']
+
+        return np_img_arr
 
     def _step(self, action):
         """Environment step.
@@ -213,31 +632,28 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
           done: Bool of whether or not the episode has ended.
           debug: Dictionary of extra information provided by environment.
         """
-        dv = self._dv  # velocity per physics step.
-        if self._isDiscrete:
-            # Static type assertion for integers.
-            assert isinstance(action, int)
-            if self._removeHeightHack:
-                dx = [0, -dv, dv, 0, 0, 0, 0, 0, 0][action]
-                dy = [0, 0, 0, -dv, dv, 0, 0, 0, 0][action]
-                dz = [0, 0, 0, 0, 0, -dv, dv, 0, 0][action]
-                da = [0, 0, 0, 0, 0, 0, 0, -0.25, 0.25][action]
-            else:
-                dx = [0, -dv, dv, 0, 0, 0, 0][action]
-                dy = [0, 0, 0, -dv, dv, 0, 0][action]
-                dz = -dv
-                da = [0, 0, 0, 0, 0, -0.25, 0.25][action]
-        else:
-            dx = dv * action[0]
-            dy = dv * action[1]
-            if self._removeHeightHack:
-                dz = dv * action[2]
-                da = 0.25 * action[3]
-            else:
-                dz = -dv
-                da = 0.25 * action[2]
 
-        return self._step_continuous([dx, dy, dz, da, 0.3])
+        dv = self._dv  # velocity per physics step.
+
+        # TODO: add finger's angle into actions
+        # TODO: rewrite all of this
+        action = np.array([dv, dv, dv, 0.25]) * action  # [dx, dy, dz, da]
+        if self._operation == 'move_pick':
+            self.action = np.append(action, np.array([0, -pi, 0, 0.4]))
+
+        elif self._operation == 'pick':
+            self.action = np.append(action, np.array([0, -pi, 0, 0.4]))
+
+        elif self._operation == 'place':
+            self.action = np.append(action, np.array([0, -pi, 0, 0.0]))
+
+        elif self._operation == 'move':
+            self.action = np.append(action, np.array([0, -pi, 0, 0.0]))
+
+        else:
+            raise NotImplementedError
+
+        return self._step_continuous(self.action)  # [dx, dy, dz, da, Al, Bt, Gm, Fn_angle]
 
     def _step_continuous(self, action):
         """Applies a continuous velocity-control action.
@@ -253,46 +669,92 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         """
         # Perform commanded action.
         self._env_step += 1
+
         self._kuka.applyAction(action)
+
+        # Repeat as many times as set in config
         for _ in range(self._actionRepeat):
             p.stepSimulation()
-            if self._renders:
-                time.sleep(self._timeStep)
+
             if self._termination():
                 break
 
-        # If we are close to the bin, attempt grasp.
-        state = p.getLinkState(self._kuka.kukaUid,
-                               self._kuka.kukaEndEffectorIndex)
-        end_effector_pos = state[0]
-        if end_effector_pos[2] <= 0.1:
-            finger_angle = 0.3
-            for _ in range(500):
-                grasp_action = [0, 0, 0, 0, finger_angle]
+        if self._renders:
+            time.sleep(10 * self._timeStep)
+
+        if self._operation == "move_pick":
+            # FIXME: here
+            self.distance_x_y, self.distance_z, gr_z = 0, 0, 0  # self._get_distance_to_goal()
+            # Hardcoded grasping
+            if self.distance_x_y < 0.008 and 0.033 <= self.distance_z < 0.035 and gr_z > 0.01:
+                finger_angle = 0.4
+
+                # Move the hand down
+                grasp_action = [0, 0, -0.17, 0, 0, -pi, 0, finger_angle]
                 self._kuka.applyAction(grasp_action)
-                p.stepSimulation()
-                # if self._renders:
-                #  time.sleep(self._timeStep)
-                finger_angle -= 0.3 / 100.
-                if finger_angle < 0:
-                    finger_angle = 0
-            for _ in range(500):
-                grasp_action = [0, 0, 0.001, 0, finger_angle]
-                self._kuka.applyAction(grasp_action)
-                p.stepSimulation()
+                for _ in range(2 * self._actionRepeat):
+                    p.stepSimulation()
                 if self._renders:
                     time.sleep(self._timeStep)
-                finger_angle -= 0.3 / 100.
-                if finger_angle < 0:
-                    finger_angle = 0
-            self._attempted_grasp = True  # TODO dele to _attempted_grasp
-        observation = self._get_observation()
-        done = self._termination()
-        reward = self._reward()
 
-        debug = {
-            'grasp_success': self._graspSuccess
-        }
+                while finger_angle > 0:
+                    grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
+                    self._kuka.applyAction(grasp_action)
+                    p.stepSimulation()
+                    finger_angle -= 0.4 / 100.
+                    if finger_angle < 0:
+                        finger_angle = 0
+
+                # Move the hand up
+                for _ in range(2):
+                    grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
+                    self._kuka.applyAction(grasp_action)
+                    for _ in range(2*self._actionRepeat):
+                        p.stepSimulation()
+                    if self._renders:
+                        time.sleep(self._timeStep)
+
+                self._attempted_grasp = True
+
+        elif self._operation == "place":
+            # FIXME: here
+            self.distance_x_y, self.distance_z = 0, 0  # self._get_distance_to_goal()
+
+        elif self._operation == "move":
+            # FIXME: here
+            self.distance = 0  # self._get_distance_to_goal()
+
+        observation = self._get_observation()
+        reward = self._reward()
+        done = self._termination()
+
+        if self._operation == "move_pick":
+            debug = {
+                'goal_id': self._goal,
+                'distance_x_y': self.distance_x_y,
+                'distance_z': self.distance_z,
+                'operation': self._operation,
+                # 'disturbance': self.get_disturbance()
+            }
+        elif self._operation == 'place':
+            debug = {
+                'goal_id': self._goal,
+                'distance_x_y': self.distance_x_y,
+                'distance_z': abs(self.distance_z - 0.0075),
+                'operation': self._operation,
+                # 'disturbance': self.get_disturbance(),
+                'num_blocks': self._numObjects,
+            }
+        elif self._operation == 'move':
+            debug = {
+                'goal_id': self._goal[0],
+                'distance': self.distance,
+                'operation': self._operation
+            }
+        else:
+            print(self._operation)
+            raise NotImplementedError
+
         return observation, reward, done, debug
 
     def _reward(self):
@@ -301,23 +763,17 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         The reward is 1 if one of the objects is above height .2 at the end of the
         episode.
         """
-        reward = 0
-        self._graspSuccess = 0
-        for uid in self._objectUids:
-            pos, _ = p.getBasePositionAndOrientation(
-                uid)
-            # If any block is above height, provide reward.
-            if pos[2] > 0.2:
-                self._graspSuccess += 1
-                reward = 1
-                break
-        return reward
+
+        return 0
 
     def _termination(self):
         """Terminates the episode if we have tried to grasp or if we are above
         maxSteps steps.
         """
-        return self._attempted_grasp or self._env_step >= self._maxSteps
+        if self._operation == "move_pick":
+            return self._done or self._env_step >= self._maxSteps
+        else:
+            return self._done or self._env_step >= self._maxSteps
 
     def _get_random_object(self, num_objects, test):
         """Randomly choose an object urdf from the random_urdfs directory.
@@ -346,3 +802,10 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         reset = _reset
 
         step = _step
+
+    def _get_distance_to_goal(self):
+        """
+        To get the distance from the effector to the goal
+        :return: list of floats
+        """
+        pass  # do nothing

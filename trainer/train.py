@@ -209,6 +209,8 @@ if __name__ == '__main__':
     #             "horizon": 40,
     #             "sample_batch_size": 25,  # 50,
     #             "train_batch_size": 1250,  # 2500,
+    #             "env_config": {   # !!!
+    #                            "numObjects": 4,}
     #             # "callbacks": {
     #                 # "on_episode_start": tune.function(on_episode_start),
     #                 # "on_episode_step": tune.function(on_episode_step),
@@ -218,3 +220,4 @@ if __name__ == '__main__':
     #             },
     #         )
 
+    #  and make env config as a dictionary
