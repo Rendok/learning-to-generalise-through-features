@@ -209,8 +209,8 @@ class IMP(object):
 
                     xg_preds.append(xg_pred)
 
-                xg_preds = tf.convert_to_tensor(xg_preds)  # horizon * batch_size * obs_latent_dim
-                xg_preds = tf.transpose(xg_preds, [1, 0, 2])  # batch_size * horizon * obs_latent_dim
+                xg_preds = tf.convert_to_tensor(xg_preds)  # horizon x batch_size x obs_latent_dim
+                xg_preds = tf.transpose(xg_preds, [1, 0, 2])  # batch_size x horizon x obs_latent_dim
                 xg_pred = tf.gather_nd(xg_preds, tf.concat(
                     [tf.expand_dims(tf.range(tf.shape(xg_preds)[0]), 1), tf.expand_dims(eff_horizons, 1)], 1))
 
