@@ -95,53 +95,12 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
                                        shape=(4,),
                                        dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
-        # pixels
-        self.observation_space = spaces.Box(0, 255, [height, width, 9], dtype=np.uint8)
+        # camera images
+        self.observation_space = spaces.Box(0, 255, [self._height, self._width, 3], dtype=np.uint8)
 
-        self.viewer = None
+        self._set_camera_settings()
 
-        # Pre-compute the camera settings #
-
-        # a view from z
-        look = [0.4, 0.0, 0.54]  # [0.23, 0.2, 0.54]
-        distance = 1.3  # 1.
-        yaw = 180  # 245
-        pitch = -90  # -56
-        roll = 0
-
-        self._view_matrix = np.array(p.computeViewMatrixFromYawPitchRoll(
-                                            look, distance, yaw, pitch, roll, 2))
-
-        # from y
-        look = [0.4, 0.0, 0.2]
-        distance = 2.0
-        yaw = 180
-        pitch = 0
-        roll = 0
-
-        self._view_matrix = np.append(self._view_matrix,
-                                      p.computeViewMatrixFromYawPitchRoll(
-                                                look, distance, yaw, pitch, roll, 2))
-
-        # from x
-        look = [0.4, 0.0, 0.2]
-        distance = 2.0
-        yaw = 90
-        pitch = 0
-        roll = 0
-
-        self._view_matrix = np.append(self._view_matrix,
-                                      p.computeViewMatrixFromYawPitchRoll(
-                                                look, distance, yaw, pitch, roll, 2))
-
-        self._view_matrix = self._view_matrix.reshape([3, 16]).T
-
-        fov = 20.
-        aspect = self._width / self._height
-        near = 0.01
-        far = 10
-
-        self._proj_matrix = p.computeProjectionMatrixFOV(fov, aspect, near, far)
+        # self.viewer = None
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
@@ -149,6 +108,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
 
         # Set all the parameters
         self._env_step = 0
+        print("RESET")
         self._done = False
 
         # Set the physics engine
@@ -160,9 +120,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         # load a table
         p.loadURDF(os.path.join(self._urdfRoot, "plane.urdf"), [0, 0, -1])
 
-        table = p.loadURDF(os.path.join(self._urdfRoot, "table/table.urdf"), 0.5000000, 0.00000, -.700000, 0.000000,
-                           0.000000,
-                           0.0, 1.0)
+        table = p.loadURDF(os.path.join(self._urdfRoot, "table/table.urdf"),
+                           0.5000000, 0.00000, -.700000, 0.000000, 0.000000, 0.0, 1.0)
 
         # load a kuka arm
         self._kuka = kuka.Kuka(urdfRootPath=self._urdfRoot, timeStep=self._timeStep)
@@ -596,17 +555,18 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
     def _get_observation(self):
         """Return the observation as an image.
         """
-        import matplotlib.pyplot as plt
-        np_img_arr = np.zeros((self._height, self._width, 9), dtype=np.uint8)
+        # import matplotlib.pyplot as plt
+        # np_img_arr = np.zeros((self._height, self._width, 3), dtype=np.uint8)
 
-        for i in range(3):
-            img_arr = p.getCameraImage(width=self._width,
-                                       height=self._height,
-                                       viewMatrix=self._view_matrix[:, i],
-                                       projectionMatrix=self._proj_matrix)
-            rgb = img_arr[2]
-            rgb = np.reshape(rgb, (self._height, self._width, 4))
-            np_img_arr[:, :, 3*i:3+3*i] = rgb[:, :, :-1]
+        # for i in range(3):
+        img_arr = p.getCameraImage(width=self._width,
+                                   height=self._height,
+                                   viewMatrix=self._view_matrix[:, 1],
+                                   projectionMatrix=self._proj_matrix)
+        rgb = img_arr[2]
+        rgb = np.reshape(rgb, (self._height, self._width, 4))
+        np_img_arr = rgb[:, :, :-1]
+        # np_img_arr[:, :, 3*i:3+3*i] = rgb[:, :, :-1]
 
         # plt.imshow(np_img_arr[:, :, 0:3])
         # plt.show()
@@ -615,7 +575,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         # plt.imshow(np_img_arr[:, :, 6:9])
         # plt.show()
 
-        assert np_img_arr.shape == (self._width, self._height, 9)
+        assert np_img_arr.shape == (self._width, self._height, 3)
         assert np_img_arr.dtype.char in np.typecodes['AllInteger']
 
         return np_img_arr
@@ -669,6 +629,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         """
         # Perform commanded action.
         self._env_step += 1
+
+        print(self._env_step, 'action', action.shape, action)
 
         self._kuka.applyAction(action)
 
@@ -809,3 +771,50 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         :return: list of floats
         """
         pass  # do nothing
+
+    def _set_camera_settings(self):
+        """
+        Pre-compute camera settings: a view_matrix and a projection matrix
+        :return: None
+        """
+
+        # a view from z
+        look = [0.4, 0.0, 0.54]  # [0.23, 0.2, 0.54]
+        distance = 1.3  # 1.
+        yaw = 180  # 245
+        pitch = -90  # -56
+        roll = 0
+
+        self._view_matrix = np.array(p.computeViewMatrixFromYawPitchRoll(
+            look, distance, yaw, pitch, roll, 2))
+
+        # from y
+        look = [0.4, 0.0, 0.2]
+        distance = 2.0
+        yaw = 180
+        pitch = 0
+        roll = 0
+
+        self._view_matrix = np.append(self._view_matrix,
+                                      p.computeViewMatrixFromYawPitchRoll(
+                                          look, distance, yaw, pitch, roll, 2))
+
+        # from x
+        look = [0.4, 0.0, 0.2]
+        distance = 2.0
+        yaw = 90
+        pitch = 0
+        roll = 0
+
+        self._view_matrix = np.append(self._view_matrix,
+                                      p.computeViewMatrixFromYawPitchRoll(
+                                          look, distance, yaw, pitch, roll, 2))
+
+        self._view_matrix = self._view_matrix.reshape([3, 16]).T
+
+        fov = 20.
+        aspect = self._width / self._height
+        near = 0.01
+        far = 10
+
+        self._proj_matrix = p.computeProjectionMatrixFOV(fov, aspect, near, far)

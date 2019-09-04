@@ -23,7 +23,8 @@ class IMP(object):
                  bt_num_units=10,
                  bias_transform=False,
                  nonlinearity='swish',
-                 spatial_softmax=False):
+                 spatial_softmax=False,
+                 env=None):
 
         ######## INITIALIZE THE INPUTS #########
 
@@ -34,6 +35,10 @@ class IMP(object):
         self.inner_horizon = inner_horizon
         self.outer_horizon = outer_horizon
         self.num_plan_updates = num_plan_updates
+        self.conv_params = conv_params
+        self.spatial_softmax = spatial_softmax
+        self.n_hidden = n_hidden
+        self._env = env
 
         # Input Hyperparameter Placeholders
         self.il_lr_0 = tf.placeholder(tf.float32, name='il_lr_0')
@@ -41,12 +46,12 @@ class IMP(object):
         self.ol_lr = tf.placeholder(tf.float32, name='ol_lr')
 
         # Input Tensor Placeholders
-        self.ot = tf.placeholder(tf.float32, [None, img_w, img_h, img_c], name='ot')
+        self.o0 = tf.placeholder(tf.float32, [None, img_w, img_h, img_c], name='o0')
         self.atT_original = tf.placeholder(tf.float32, [None, inner_horizon, act_dim], name='atT_0')
         self.og = tf.placeholder(tf.float32, [None, img_w, img_h, img_c], name='og')
-        self.atT_target = tf.placeholder(tf.float32, [None, inner_horizon, act_dim], name='atT_target')
+        # self.atT_target = tf.placeholder(tf.float32, [None, inner_horizon, act_dim], name='atT_target')
         # self.qt = tf.placeholder(tf.float32, [None, joint_dim], name='qt')
-        self.plan_loss_mask = tf.placeholder(tf.float32, [None, inner_horizon], name='mask')
+        # self.plan_loss_mask = tf.placeholder(tf.float32, [None, inner_horizon], name='mask')
         self.eff_horizons = tf.placeholder(tf.int32, [None], name='eff_horizons')
 
         # Copy placeholder for repeated plan updates
@@ -58,7 +63,7 @@ class IMP(object):
         # first in conv layer and then in fully connected layer
 
         with tf.variable_scope('gradplanner'):
-            xt = self._encode_conv(self.ot,
+            x0 = self._encode_conv(self.o0,
                                    conv_params,
                                    scope='obs_conv_encoding',
                                    layer_norm=True,
@@ -66,7 +71,7 @@ class IMP(object):
                                    spatial_softmax=spatial_softmax,
                                    reuse=False)
 
-            xt = self._encode_fc(xt,
+            x0 = self._encode_fc(x0,
                                  n_hidden=n_hidden,
                                  scope='obs_fc_encoding',
                                  layer_norm=True,
@@ -97,11 +102,12 @@ class IMP(object):
                                                  [1, bt_num_units],
                                                  initializer=tf.constant_initializer(0.1))
 
-                bias_transform = tf.tile(bias_transform, multiples=tf.stack([tf.shape(xt)[0], 1]))
+                bias_transform = tf.tile(bias_transform, multiples=tf.stack([tf.shape(x0)[0], 1]))
 
-                xt = tf.concat([xt, bias_transform], 1)
+                x0 = tf.concat([x0, bias_transform], 1)
 
-            xt = self._fully_connected(xt,
+            # encode obs vector in latent space
+            x0 = self._fully_connected(x0,
                                        scope='joint_encoding',
                                        out_dim=obs_latent_dim,
                                        nonlinearity=nonlinearity,
@@ -111,9 +117,9 @@ class IMP(object):
             # Part 2: Encode the action in the latent space if action_encode is set to True, else just keep it as it is.
             # New variable is utT. Implemented as a component in Part 3
 
-            # Part 3: Rollout the latent plan over the planning horizon
+            # Part 3: Roll out the latent plan over the planning horizon
 
-            self._rollout_plan_in_latent_space(xt,
+            self._rollout_plan_in_latent_space(x0,
                                                xg,
                                                self.eff_horizons,
                                                # self.atT,
@@ -133,32 +139,33 @@ class IMP(object):
                                                reuse=False)
 
         # Part 4: Prepare the Behavior Cloning Loss multipled with the mask so as to handle multiple time scales
+        # TODO: try without reduction in the future
+        if if_huber:
+            loss = tf.reduce_sum(
+                tf.losses.huber_loss(self.xg_reals, self.xg_preds, delta=delta_huber, reduction="none"),
+                reduction_indices=[1])
+        else:
+            loss = tf.reduce_sum(tf.square(self.xg_reals - self.xg_preds), reduction_indices=[1])
 
-        error = tf.reduce_sum(tf.square(self.atT - self.atT_target), reduction_indices=[2])
-        error = error * self.plan_loss_mask
-        bc_loss = tf.reduce_mean(error[:, :outer_horizon])
+        env_cost = tf.reduce_mean(loss)
 
-        # if you want to further restrict the loss to a specific outer horizon when you care only about getting first few actions right
-        bc_loss_one_step = tf.reduce_mean(error[:, 0])
+        # # if you want to further restrict the loss to a specific outer horizon when you care only about getting first few actions right
+        # bc_loss_one_step = tf.reduce_mean(error[:, 0])
 
         # Part 5: Training and Diagnostics Ops
+
         optimizer = tf.train.AdamOptimizer(self.ol_lr)
-        self.train_op = optimizer.minimize(bc_loss)
+        self.train_op = optimizer.minimize(env_cost)
+
         self.get_inner_loss_op = self.plan_loss
-        self.get_outer_loss_op = bc_loss
-        self.get_outer_loss_first_step_op = bc_loss_one_step  # useful for testtime diagnostics
+        self.get_outer_loss_op = env_cost
+        # self.get_outer_loss_first_step_op = bc_loss_one_step  # useful for testtime diagnostics
         self.get_plan_op = self.atT
-        self.get_xt = xt
+        self.get_xt = x0
         self.get_xg = xg
 
-    @property
-    def trainable_vars(self):
-        weights = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="gradplanner")
-        # weights = dict(zip([var.name for var in weights], weights))
-        return weights
-
     def _rollout_plan_in_latent_space(self,
-                                      xt,
+                                      x0,
                                       xg,
                                       eff_horizons,
                                       # atT,
@@ -179,9 +186,12 @@ class IMP(object):
                                       reuse=False):
 
         with tf.variable_scope(scope, reuse=reuse):
+            xt_reals = []
+            xt_preds = []
             for update_idx in range(num_plan_updates):
-                xg_pred = xt
+                xg_pred = x0
                 xg_preds = []
+
                 if update_idx == 0:
                     plan_encode_scope_reuse = False
                 else:
@@ -195,12 +205,46 @@ class IMP(object):
                                         nonlinearity='swish',
                                         reuse=plan_encode_scope_reuse)
 
+                self._env.reset()
+
                 for time_idx in range(0, horizon):
                     if time_idx >= 1 or update_idx >= 1:
                         dynamics_scope_reuse = True
                     else:
                         dynamics_scope_reuse = False
 
+                    # TODO: pass the env class here, AND make a function
+                    # batch_size x obs_dims , batch_size x act_dims
+                    print("act in thr loop", self.atT[0, time_idx, :])
+                    ot_real = self._env.step(self.atT[0, time_idx, :])
+
+                    xt_real = self._encode_conv(ot_real,
+                                                self.conv_params,
+                                                scope='obs_conv_encoding',
+                                                layer_norm=True,
+                                                nonlinearity='swish',
+                                                spatial_softmax=self.spatial_softmax,
+                                                reuse=False)
+
+                    xt_real = self._encode_fc(xt_real,
+                                              n_hidden=self.n_hidden,
+                                              scope='obs_fc_encoding',
+                                              layer_norm=True,
+                                              latent_dim=obs_latent_dim,
+                                              nonlinearity=nonlinearity,
+                                              reuse=False)
+
+                    xt_reals.append(xt_real)
+
+                    xt_pred = self._fully_connected(tf.concat([xt_real, utT[:, time_idx, :]], axis=1),
+                                                    out_dim=obs_latent_dim,
+                                                    scope='dynamics',
+                                                    nonlinearity=nonlinearity,
+                                                    reuse=dynamics_scope_reuse)
+
+                    xt_preds.append(xt_pred)
+
+                    # Computational graph for the gradient
                     xg_pred = self._fully_connected(tf.concat([xg_pred, utT[:, time_idx, :]], axis=1),
                                                     out_dim=obs_latent_dim,
                                                     scope='dynamics',
@@ -217,11 +261,12 @@ class IMP(object):
                 if if_huber:
                     self.plan_loss = tf.reduce_sum(
                         tf.losses.huber_loss(xg, xg_pred, delta=delta_huber, reduction="none"),
-                        reduction_indices=[1])  # Trying Huber Loss
+                        reduction_indices=[1])
                 else:
                     self.plan_loss = tf.reduce_sum(tf.square(xg_pred - xg), reduction_indices=[1])
 
                 self.plan_loss = tf.reduce_mean(self.plan_loss)
+
                 atT_grad = tf.gradients(self.plan_loss, self.atT)[0]
                 atT_grad = tf.clip_by_value(atT_grad, -meta_gradient_clip_value, meta_gradient_clip_value)
 
@@ -230,7 +275,13 @@ class IMP(object):
                 else:
                     self.atT = self.atT - il_lr * atT_grad
 
-            self.xg_pred = xg_pred
+            self.xg_preds = xg_preds  # batch_size x horizon x obs_latent_dim
+
+            # TODO: connect to the env
+            xg_reals = None
+
+            xg_reals = tf.convert_to_tensor(xg_reals)  # horizon x batch_size x obs_latent_dim
+            self.xg_reals = tf.reshape(xg_preds, [-1, tf.shape(xg_reals)[2]])  # batch_size * horizon x obs_latent_dim
 
     def _encode_conv(self,
                      x,
@@ -375,31 +426,33 @@ class IMP(object):
         bias = tf.Variable(tf.random_uniform(bias_shape, minval=-d, maxval=d))
         return weight, bias
 
+    @property
+    def trainable_vars(self):
+        weights = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="gradplanner")
+        # weights = dict(zip([var.name for var in weights], weights))
+        return weights
+
     def train(self,
-              ot,
+              o0,
               og,
               eff_horizons,
               atT_original,
-              atT_target,
-              plan_loss_mask,
               il_lr_0,
               il_lr,
               ol_lr,
               sess):
 
         sess.run(self.train_op,
-                 feed_dict={self.ot: ot,
+                 feed_dict={self.o0: o0,
                             self.og: og,
                             self.eff_horizons: eff_horizons,
                             self.atT_original: atT_original,
-                            self.atT_target: atT_target,
-                            self.plan_loss_mask: plan_loss_mask,
                             self.il_lr_0: il_lr_0,
                             self.il_lr: il_lr,
                             self.ol_lr: ol_lr})
 
     def stats(self,
-              ot,
+              o0,
               og,
               eff_horizons,
               atT_original,
@@ -410,21 +463,18 @@ class IMP(object):
               sess):
 
         bc_loss, plan_loss, xg_pred, xg, bc_loss_first_step = sess.run(
-            [self.get_outer_loss_op, self.get_inner_loss_op, self.xg_pred, self.get_xg,
-             self.get_outer_loss_first_step_op],
-            feed_dict={self.ot: ot,
+            [self.get_outer_loss_op, self.get_inner_loss_op, self.xg_preds, self.get_xg],
+            feed_dict={self.o0: o0,
                        self.og: og,
                        self.eff_horizons: eff_horizons,
                        self.atT_original: atT_original,
-                       self.atT_target: atT_target,
-                       self.plan_loss_mask: plan_loss_mask,
                        self.il_lr_0: il_lr_0,
                        self.il_lr: il_lr})
 
         return np.sqrt(bc_loss), np.sqrt(plan_loss), xg_pred, xg, np.sqrt(bc_loss_first_step)
 
     def plan(self,
-             ot,
+             o0,
              og,
              eff_horizons,
              atT_original,
@@ -433,7 +483,7 @@ class IMP(object):
              sess):
 
         plan = sess.run(self.get_plan_op,
-                        feed_dict={self.ot: ot,
+                        feed_dict={self.o0: o0,
                                    self.og: og,
                                    self.eff_horizons: eff_horizons,
                                    self.atT_original: atT_original,
@@ -441,8 +491,8 @@ class IMP(object):
                                    self.il_lr: il_lr})
         return plan
 
-    def get_latent_embedding(self, ot, og, sess):
-        latent_emb, goal_emb = sess.run([self.get_xt, self.get_xg], feed_dict={self.ot: ot, self.og: og})
+    def get_latent_embedding(self, o0, og, sess):
+        latent_emb, goal_emb = sess.run([self.get_xt, self.get_xg], feed_dict={self.o0: o0, self.og: og})
         return latent_emb, goal_emb
 
     def get_trainable_params(self, sess):
@@ -454,73 +504,78 @@ class IMP(object):
 
 # Potentially an old code-check test. So, might not work. But this isn't relevant. It was just for debugging purposes.
 if __name__ == '__main__':
+    with tf.Session() as sess:
+        # `sess.graph` provides access to the graph used in a `tf.Session`.
+        writer = tf.summary.FileWriter("/Users/dgrebenyuk/Research/rl-task-planning", sess.graph)
 
-    horizon = 5
-    otg = np.random.uniform(0, 1, size=(2000, 6, 84, 84, 3))
-    atT_expert = np.random.uniform(0., 1, size=(2000 * horizon * 4)).reshape((2000, horizon, 4))
-    num_plan_updates = 5
+        writer.close()
 
-    eff_horizons = [5] * 32
+    # horizon = 5
+    # otg = np.random.uniform(0, 1, size=(2000, 6, 84, 84, 3))
+    # atT_expert = np.random.uniform(0., 1, size=(2000 * horizon * 4)).reshape((2000, horizon, 4))
+    # num_plan_updates = 5
+    #
+    # eff_horizons = [5] * 32
+    #
+    #
+    # def batch_sample(otg, atT, batch_size=32, max_horizon=5):
 
-
-    def batch_sample(otg, atT, batch_size=32, max_horizon=5):
-
-        total_num = otg.shape[0]
-        batch_ot = np.zeros((batch_size, otg.shape[2], otg.shape[3], otg.shape[4]))
-        batch_og = np.zeros((batch_size, otg.shape[2], otg.shape[3], otg.shape[4]))
-        batch_atT = np.zeros((batch_size, max_horizon, atT.shape[-1]))
-        batch_mask = np.ones((batch_size, max_horizon))
-
-        for idx in range(batch_size):
-            t1, t2 = 0, 0
-            while t1 == t2:
-                t1, t2 = np.random.randint(0, max_horizon + 1, 2)
-            t1, t2 = min(t1, t2), max(t1, t2)
-            effective_horizon = t2 - t1
-            assert effective_horizon <= max_horizon
-            sample_idx = np.random.randint(0, total_num)
-            batch_ot[idx, :, :, :] = otg[sample_idx, t1, :, :, :]
-            batch_og[idx, :, :, :] = otg[sample_idx, t2, :, :, :]
-            batch_atT[idx, :effective_horizon, :] = atT[sample_idx, t1:t2, :]
-            if effective_horizon < max_horizon:
-                batch_mask[idx, effective_horizon:] = 0
-
-        batch_atT_original = np.random.uniform(-2., 2.,
-                                               size=(batch_size * horizon * 4)).reshape((batch_size, horizon, 4))
-
-        return batch_ot, batch_og, batch_atT, batch_mask, batch_atT_original
-
-
-    il_lr_0 = 0.5
-    il_lr = 0.1
-    ol_lr = 0.005
-    meta_gradient_clip_value = 5
-
-    sess = tf.Session()
-    imp = IMP(img_c=3, outer_horizon=5, meta_gradient_clip_value=meta_gradient_clip_value)
-    sess.run(tf.global_variables_initializer())
-
-    # Just check if loss decreases 
-    for num_iter in range(1000):
-        batch_ot, batch_og, batch_atT_target, batch_mask, batch_atT_original = batch_sample(otg, atT_expert)
-        imp.train(batch_ot,
-                  batch_og,
-                  eff_horizons,
-                  batch_atT_original,
-                  batch_atT_target,
-                  batch_mask,
-                  il_lr_0,
-                  il_lr,
-                  ol_lr,
-                  sess)
-
-        bc_loss, plan_loss, xg_pred, xg, bc_loss_first_step = imp.stats(batch_ot,
-                                                                        batch_og,
-                                                                        batch_atT_original,
-                                                                        batch_atT_target,
-                                                                        batch_mask,
-                                                                        il_lr_0,
-                                                                        il_lr,
-                                                                        sess)
-
-        print("Iter", num_iter, "BC Loss", bc_loss, "Plan Loss", plan_loss)
+    #     total_num = otg.shape[0]
+    #     batch_ot = np.zeros((batch_size, otg.shape[2], otg.shape[3], otg.shape[4]))
+    #     batch_og = np.zeros((batch_size, otg.shape[2], otg.shape[3], otg.shape[4]))
+    #     batch_atT = np.zeros((batch_size, max_horizon, atT.shape[-1]))
+    #     batch_mask = np.ones((batch_size, max_horizon))
+    #
+    #     for idx in range(batch_size):
+    #         t1, t2 = 0, 0
+    #         while t1 == t2:
+    #             t1, t2 = np.random.randint(0, max_horizon + 1, 2)
+    #         t1, t2 = min(t1, t2), max(t1, t2)
+    #         effective_horizon = t2 - t1
+    #         assert effective_horizon <= max_horizon
+    #         sample_idx = np.random.randint(0, total_num)
+    #         batch_ot[idx, :, :, :] = otg[sample_idx, t1, :, :, :]
+    #         batch_og[idx, :, :, :] = otg[sample_idx, t2, :, :, :]
+    #         batch_atT[idx, :effective_horizon, :] = atT[sample_idx, t1:t2, :]
+    #         if effective_horizon < max_horizon:
+    #             batch_mask[idx, effective_horizon:] = 0
+    #
+    #     batch_atT_original = np.random.uniform(-2., 2.,
+    #                                            size=(batch_size * horizon * 4)).reshape((batch_size, horizon, 4))
+    #
+    #     return batch_ot, batch_og, batch_atT, batch_mask, batch_atT_original
+    #
+    #
+    # il_lr_0 = 0.5
+    # il_lr = 0.1
+    # ol_lr = 0.005
+    # meta_gradient_clip_value = 5
+    #
+    # sess = tf.Session()
+    # imp = IMP(img_c=3, outer_horizon=5, meta_gradient_clip_value=meta_gradient_clip_value)
+    # sess.run(tf.global_variables_initializer())
+    #
+    # # Just check if loss decreases
+    # for num_iter in range(1000):
+    #     batch_ot, batch_og, batch_atT_target, batch_mask, batch_atT_original = batch_sample(otg, atT_expert)
+    #     imp.train(batch_ot,
+    #               batch_og,
+    #               eff_horizons,
+    #               batch_atT_original,
+    #               batch_atT_target,
+    #               batch_mask,
+    #               il_lr_0,
+    #               il_lr,
+    #               ol_lr,
+    #               sess)
+    #
+    #     bc_loss, plan_loss, xg_pred, xg, bc_loss_first_step = imp.stats(batch_ot,
+    #                                                                     batch_og,
+    #                                                                     batch_atT_original,
+    #                                                                     batch_atT_target,
+    #                                                                     batch_mask,
+    #                                                                     il_lr_0,
+    #                                                                     il_lr,
+    #                                                                     sess)
+    #
+    #     print("Iter", num_iter, "BC Loss", bc_loss, "Plan Loss", plan_loss)

@@ -20,8 +20,8 @@ register(
 )
 
 register(
-    id='KukaHRLEnv-v0',
-    entry_point='gym_kuka_multi_blocks.envs:KukaHRLEnv',
+    id='KukaCam-v0',
+    entry_point='gym_kuka_multi_blocks.envs:KukaCamMultiBlocksEnv',
 )
 
 
