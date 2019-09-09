@@ -108,7 +108,6 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
 
         # Set all the parameters
         self._env_step = 0
-        print("RESET")
         self._done = False
 
         # Set the physics engine
@@ -629,8 +628,6 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         """
         # Perform commanded action.
         self._env_step += 1
-
-        print(self._env_step, 'action', action.shape, action)
 
         self._kuka.applyAction(action)
 

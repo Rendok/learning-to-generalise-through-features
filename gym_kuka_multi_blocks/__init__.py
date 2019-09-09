@@ -15,8 +15,6 @@ def register(id, *args, **kvargs):
 register(
     id='KukaMultiBlocks-v0',
     entry_point='gym_kuka_multi_blocks.envs:KukaMultiBlocksEnv',
-    timestep_limit=1000,
-    reward_threshold=5.0,
 )
 
 register(
