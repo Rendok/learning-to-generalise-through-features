@@ -38,6 +38,15 @@ class IMP(object):
         self.conv_params = conv_params
         self.spatial_softmax = spatial_softmax
         self.n_hidden = n_hidden
+        self.obs_latent_dim = obs_latent_dim
+        self.act_latent_dim = act_latent_dim
+        self.meta_gradient_clip_value = meta_gradient_clip_value
+        self.if_huber = if_huber
+        self.delta_huber = delta_huber
+        self.bias_transform = bias_transform
+        self.nonlinearity = nonlinearity
+        self.bt_num_units = bt_num_units
+
         self._env = env
 
         # Input Hyperparameter Placeholders
@@ -57,6 +66,11 @@ class IMP(object):
         # Copy placeholder for repeated plan updates
         self.atT = self.atT_original
 
+        self._env_model()
+        self._planer_model()
+
+    def _planer_model(self):
+
         #######  BUILD THE COMPUTATIONAL GRAPH #######
 
         # Part 1: Encode the observation and the goal in a latent space, in two stages -
@@ -64,42 +78,42 @@ class IMP(object):
 
         with tf.variable_scope('gradplanner'):
             x0 = self._encode_conv(self.o0,
-                                   conv_params,
+                                   self.conv_params,
                                    scope='obs_conv_encoding',
                                    layer_norm=True,
                                    nonlinearity='swish',
-                                   spatial_softmax=spatial_softmax,
+                                   spatial_softmax=self.spatial_softmax,
                                    reuse=False)
 
             x0 = self._encode_fc(x0,
-                                 n_hidden=n_hidden,
+                                 n_hidden=self.n_hidden,
                                  scope='obs_fc_encoding',
                                  layer_norm=True,
-                                 latent_dim=obs_latent_dim,
-                                 nonlinearity=nonlinearity,
+                                 latent_dim=self.obs_latent_dim,
+                                 nonlinearity=self.nonlinearity,
                                  reuse=False)
 
             xg = self._encode_conv(self.og,
-                                   conv_params,
+                                   self.conv_params,
                                    scope='obs_conv_encoding',
                                    layer_norm=True,
                                    nonlinearity='swish',
-                                   spatial_softmax=spatial_softmax,
+                                   spatial_softmax=self.spatial_softmax,
                                    reuse=True)
 
             xg = self._encode_fc(xg,
-                                 n_hidden=n_hidden,
+                                 n_hidden=self.n_hidden,
                                  scope='obs_fc_encoding',
                                  layer_norm=True,
-                                 latent_dim=obs_latent_dim,
-                                 nonlinearity=nonlinearity,
+                                 latent_dim=self.obs_latent_dim,
+                                 nonlinearity=self.nonlinearity,
                                  reuse=True)
 
             # xt = tf.concat([xt, self.qt], axis=1)
 
-            if bias_transform:
+            if self.bias_transform:
                 bias_transform = tf.get_variable('bias_transform',
-                                                 [1, bt_num_units],
+                                                 [1, self.bt_num_units],
                                                  initializer=tf.constant_initializer(0.1))
 
                 bias_transform = tf.tile(bias_transform, multiples=tf.stack([tf.shape(x0)[0], 1]))
@@ -109,8 +123,8 @@ class IMP(object):
             # encode obs vector in latent space
             x0 = self._fully_connected(x0,
                                        scope='joint_encoding',
-                                       out_dim=obs_latent_dim,
-                                       nonlinearity=nonlinearity,
+                                       out_dim=self.obs_latent_dim,
+                                       nonlinearity=self.nonlinearity,
                                        layer_norm=True,
                                        reuse=False)
 
@@ -125,44 +139,109 @@ class IMP(object):
                                                # self.atT,
                                                self.il_lr_0,
                                                self.il_lr,
-                                               num_plan_updates=num_plan_updates,
-                                               horizon=inner_horizon,
+                                               num_plan_updates=self.num_plan_updates,
+                                               horizon=self.inner_horizon,
                                                scope='rollout',
-                                               act_dim=act_dim,
-                                               obs_latent_dim=obs_latent_dim,
-                                               act_latent_dim=act_latent_dim,
-                                               nonlinearity=nonlinearity,
-                                               if_huber=if_huber,
-                                               delta_huber=delta_huber,
-                                               meta_gradient_clip_value=meta_gradient_clip_value,
+                                               act_dim=self.act_dim,
+                                               obs_latent_dim=self.obs_latent_dim,
+                                               act_latent_dim=self.act_latent_dim,
+                                               nonlinearity=self.nonlinearity,
+                                               if_huber=self.if_huber,
+                                               delta_huber=self.delta_huber,
+                                               meta_gradient_clip_value=self.meta_gradient_clip_value,
                                                layer_norm=True,
                                                reuse=False)
 
-        # Part 4: Prepare the Behavior Cloning Loss multipled with the mask so as to handle multiple time scales
-        # TODO: try without reduction in the future
-        if if_huber:
-            loss = tf.reduce_sum(
-                tf.losses.huber_loss(self.xg_reals, self.xg_preds, delta=delta_huber, reduction="none"),
-                reduction_indices=[1])
-        else:
-            loss = tf.reduce_sum(tf.square(self.xg_reals - self.xg_preds), reduction_indices=[1])
+    def _env_model(self):
 
-        env_cost = tf.reduce_mean(loss)
+        with tf.variable_scope('env'):
 
-        # # if you want to further restrict the loss to a specific outer horizon when you care only about getting first few actions right
-        # bc_loss_one_step = tf.reduce_mean(error[:, 0])
+            x0 = self._encode_conv(self.o0,
+                                   self.conv_params,
+                                   scope='obs_conv_encoding',
+                                   layer_norm=True,
+                                   nonlinearity='swish',
+                                   spatial_softmax=self.spatial_softmax,
+                                   reuse=False)
 
-        # Part 5: Training and Diagnostics Ops
+            x0 = self._encode_fc(x0,
+                                 n_hidden=self.n_hidden,
+                                 scope='obs_fc_encoding',
+                                 layer_norm=True,
+                                 latent_dim=self.obs_latent_dim,
+                                 nonlinearity=self.nonlinearity,
+                                 reuse=False)
 
-        optimizer = tf.train.AdamOptimizer(self.ol_lr)
-        self.train_op = optimizer.minimize(env_cost)
+            xg = self._encode_conv(self.og,
+                                   self.conv_params,
+                                   scope='obs_conv_encoding',
+                                   layer_norm=True,
+                                   nonlinearity='swish',
+                                   spatial_softmax=self.spatial_softmax,
+                                   reuse=True)
 
-        self.get_inner_loss_op = self.plan_loss
-        self.get_outer_loss_op = env_cost
-        # self.get_outer_loss_first_step_op = bc_loss_one_step  # useful for testtime diagnostics
-        self.get_plan_op = self.atT
-        self.get_xt = x0
-        self.get_xg = xg
+            xg = self._encode_fc(xg,
+                                 n_hidden=self.n_hidden,
+                                 scope='obs_fc_encoding',
+                                 layer_norm=True,
+                                 latent_dim=self.obs_latent_dim,
+                                 nonlinearity=self.nonlinearity,
+                                 reuse=True)
+
+            if self.bias_transform:
+                bias_transform = tf.get_variable('bias_transform',
+                                                 [1, self.bt_num_units],
+                                                 initializer=tf.constant_initializer(0.1))
+
+                bias_transform = tf.tile(bias_transform, multiples=tf.stack([tf.shape(x0)[0], 1]))
+
+                x0 = tf.concat([x0, bias_transform], 1)
+
+            # encode obs vector in latent space
+            x0 = self._fully_connected(x0,
+                                       scope='joint_encoding',
+                                       out_dim=self.obs_latent_dim,
+                                       nonlinearity=self.nonlinearity,
+                                       layer_norm=True,
+                                       reuse=False)
+
+            utT = self._encode_plan(self.atT,
+                                    scope='plan_encoding',
+                                    latent_dim=self.act_latent_dim,
+                                    horizon=self.inner_horizon,
+                                    act_dim=self.act_dim,
+                                    nonlinearity='swish',
+                                    reuse=False)
+
+            utT = tf.reshape(utT, [-1, self.act_latent_dim])
+
+            # Computational graph for the gradient
+            xt_preds = self._fully_connected(tf.concat([x0, utT], axis=1),
+                                             out_dim=self.obs_latent_dim,
+                                             scope='dynamics',
+                                             nonlinearity=self.nonlinearity,
+                                             reuse=False)
+
+            if self.if_huber:
+                loss = tf.reduce_sum(
+                    tf.losses.huber_loss(xg, xt_preds, delta=self.delta_huber, reduction="none"),
+                    reduction_indices=[1])
+            else:
+                loss = tf.reduce_sum(tf.square(xg - xt_preds), reduction_indices=[1])
+
+            env_cost = tf.reduce_mean(loss)
+
+            # Part 5: Training and Diagnostics Ops
+
+            optimizer = tf.train.AdamOptimizer(self.ol_lr)
+            self.train_op = optimizer.minimize(env_cost)
+
+            # self.get_inner_loss_op = self.plan_loss
+            self.get_outer_loss_op = env_cost
+            # self.get_outer_loss_first_step_op = bc_loss_one_step  # useful for testtime diagnostics
+            self.get_plan_op = self.atT
+            self.get_xt = x0
+            self.get_xg = xg
 
     def _rollout_plan_in_latent_space(self,
                                       x0,
@@ -185,9 +264,11 @@ class IMP(object):
                                       layer_norm=True,
                                       reuse=False):
 
+        """
+        Plan updater
+        """
+
         with tf.variable_scope(scope, reuse=reuse):
-            xt_reals = []
-            xt_preds = []
             for update_idx in range(num_plan_updates):
                 xg_pred = x0
                 xg_preds = []
@@ -205,44 +286,11 @@ class IMP(object):
                                         nonlinearity='swish',
                                         reuse=plan_encode_scope_reuse)
 
-                self._env.reset()
-
                 for time_idx in range(0, horizon):
                     if time_idx >= 1 or update_idx >= 1:
                         dynamics_scope_reuse = True
                     else:
                         dynamics_scope_reuse = False
-
-                    # TODO: pass the env class here, AND make a function
-                    # batch_size x obs_dims , batch_size x act_dims
-                    print("act in thr loop", self.atT[0, time_idx, :])
-                    ot_real = self._env.step(self.atT[0, time_idx, :])
-
-                    xt_real = self._encode_conv(ot_real,
-                                                self.conv_params,
-                                                scope='obs_conv_encoding',
-                                                layer_norm=True,
-                                                nonlinearity='swish',
-                                                spatial_softmax=self.spatial_softmax,
-                                                reuse=False)
-
-                    xt_real = self._encode_fc(xt_real,
-                                              n_hidden=self.n_hidden,
-                                              scope='obs_fc_encoding',
-                                              layer_norm=True,
-                                              latent_dim=obs_latent_dim,
-                                              nonlinearity=nonlinearity,
-                                              reuse=False)
-
-                    xt_reals.append(xt_real)
-
-                    xt_pred = self._fully_connected(tf.concat([xt_real, utT[:, time_idx, :]], axis=1),
-                                                    out_dim=obs_latent_dim,
-                                                    scope='dynamics',
-                                                    nonlinearity=nonlinearity,
-                                                    reuse=dynamics_scope_reuse)
-
-                    xt_preds.append(xt_pred)
 
                     # Computational graph for the gradient
                     xg_pred = self._fully_connected(tf.concat([xg_pred, utT[:, time_idx, :]], axis=1),
@@ -275,13 +323,25 @@ class IMP(object):
                 else:
                     self.atT = self.atT - il_lr * atT_grad
 
+                # print('update', update_idx)
+
             self.xg_preds = xg_preds  # batch_size x horizon x obs_latent_dim
 
-            # TODO: connect to the env
-            xg_reals = None
-
-            xg_reals = tf.convert_to_tensor(xg_reals)  # horizon x batch_size x obs_latent_dim
-            self.xg_reals = tf.reshape(xg_preds, [-1, tf.shape(xg_reals)[2]])  # batch_size * horizon x obs_latent_dim
+    def get_plan(self, o0, og, eff_horizons, atT_original, il_lr_0, il_lr, sess):
+        print('plan loss', sess.run(self.plan_loss,
+                                    feed_dict={self.o0: o0,
+                                               self.og: og,
+                                               self.eff_horizons: eff_horizons,
+                                               self.atT_original: atT_original,
+                                               self.il_lr_0: il_lr_0,
+                                               self.il_lr: il_lr}))
+        return sess.run(self.atT,
+                        feed_dict={self.o0: o0,
+                                   self.og: og,
+                                   self.eff_horizons: eff_horizons,
+                                   self.atT_original: atT_original,
+                                   self.il_lr_0: il_lr_0,
+                                   self.il_lr: il_lr})
 
     def _encode_conv(self,
                      x,
@@ -432,38 +492,21 @@ class IMP(object):
         # weights = dict(zip([var.name for var in weights], weights))
         return weights
 
-    def train(self,
-              o0,
-              og,
-              eff_horizons,
-              atT_original,
-              il_lr_0,
-              il_lr,
-              ol_lr,
-              sess):
+    def train(self, labels, inputs, actions, eff_horizons, il_lr_0, il_lr, ol_lr, sess):
 
         sess.run(self.train_op,
-                 feed_dict={self.o0: o0,
-                            self.og: og,
+                 feed_dict={self.o0: inputs,
+                            self.og: labels,
                             self.eff_horizons: eff_horizons,
-                            self.atT_original: atT_original,
+                            self.atT_original: actions,
                             self.il_lr_0: il_lr_0,
                             self.il_lr: il_lr,
                             self.ol_lr: ol_lr})
 
-    def stats(self,
-              o0,
-              og,
-              eff_horizons,
-              atT_original,
-              atT_target,
-              plan_loss_mask,
-              il_lr_0,
-              il_lr,
-              sess):
+    def stats(self, o0, og, eff_horizons, atT_original, il_lr_0, il_lr, sess):
 
-        bc_loss, plan_loss, xg_pred, xg, bc_loss_first_step = sess.run(
-            [self.get_outer_loss_op, self.get_inner_loss_op, self.xg_preds, self.get_xg],
+        bc_loss, xg_pred, xg = sess.run(
+            [self.get_outer_loss_op, self.get_xt, self.get_xg],
             feed_dict={self.o0: o0,
                        self.og: og,
                        self.eff_horizons: eff_horizons,
@@ -471,16 +514,9 @@ class IMP(object):
                        self.il_lr_0: il_lr_0,
                        self.il_lr: il_lr})
 
-        return np.sqrt(bc_loss), np.sqrt(plan_loss), xg_pred, xg, np.sqrt(bc_loss_first_step)
+        return np.sqrt(bc_loss), xg_pred, xg
 
-    def plan(self,
-             o0,
-             og,
-             eff_horizons,
-             atT_original,
-             il_lr_0,
-             il_lr,
-             sess):
+    def plan(self, o0, og, eff_horizons, atT_original, il_lr_0, il_lr, sess):
 
         plan = sess.run(self.get_plan_op,
                         feed_dict={self.o0: o0,
