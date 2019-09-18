@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import h5py
 import tensorflow as tf
 import tensorflow_io as tfio
+import boto3
 print(tf.__version__)
 
 
@@ -107,6 +108,7 @@ def compute_loss_de_en(model, x):
 
     epoch_loss(loss)
     epoch_error(tf.reshape(x, [x_shape, -1]), x_logit)
+
     return loss
 
 
@@ -179,12 +181,21 @@ def train_decoder(model, epochs, path_tr, path_val):
     test_dataset = tfio.IOTensor.from_hdf5(path_val)
     test_dataset = test_dataset('/states').to_dataset().batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
+    # new distribute part
+    train_dataset = strategy.experimental_distribute_dataset(train_dataset)
+    test_dataset = strategy.experimental_distribute_dataset(test_dataset)
+
     for epoch in range(1, epochs + 1):
         train_loss, train_error = train_decoder_one_step(model, train_dataset, test_dataset)
         print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'error:', train_error.numpy() * 100,
           'test loss:', epoch_loss.result().numpy(), 'error:', epoch_error.result().numpy() * 100, '\r')
 
-        model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-{}.ckpt'.format(epoch))
+        if CLOUD:
+            model.save_weights('/tmp/weights/cp-de-{}.ckpt'.format(epoch))
+        else:
+            model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-{}.ckpt'.format(epoch))
+
+        # s3.meta.client.upload_file('/tmp/weights/cp-de-{}.ckpt'.format(epoch), BUCKET, '/weights/cp-de-{}.ckpt'.format(epoch))
 
         epoch_loss.reset_states()
         epoch_error.reset_states()
@@ -226,13 +237,20 @@ def train_env(model, epochs, path_tr, path_val):
     test_dataset = test_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE)
     del dataset, ds_states, ds_actions, ds_labels
 
+    # new distribute part
+    train_dataset = strategy.experimental_distribute_dataset(train_dataset)
+    test_dataset = strategy.experimental_distribute_dataset(test_dataset)
+
     for epoch in range(1, epochs + 1):
         train_loss, train_error = train_env_one_step(model, train_dataset, test_dataset)
 
         print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'error:', train_error.numpy() * 100,
               'test loss:', epoch_loss.result().numpy(), 'error:', epoch_error.result().numpy() * 100)
 
-        model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-{}.ckpt'.format(epoch))
+        if CLOUD:
+            model.save_weights('/tmp/weights/cp-de-{}.ckpt'.format(epoch))
+        else:
+            model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-{}.ckpt'.format(epoch))
 
         epoch_loss.reset_states()
         epoch_error.reset_states()
@@ -240,12 +258,37 @@ def train_env(model, epochs, path_tr, path_val):
 
 if __name__ == "__main__":
 
-    path_tr = '/Users/dgrebenyuk/Research/dataset/training1.h5'
-    path_val = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
-    epochs = 5
+    # train in the cloud
+    CLOUD = False
+
+    epochs = 2
     TRAIN_BUF = 1000
     BATCH_SIZE = 100
     TEST_BUF = 1000
+
+    if CLOUD:
+        BUCKET = 'kuka-training-dataset'
+        path_tr = '/tmp/training.h5'
+        path_val = '/tmp/validation.h5'
+
+        # upload files from the bucket
+        s3 = boto3.resource('s3',
+                            aws_access_key_id='AKIAZQDMP4R6P745OMOT',
+                            aws_secret_access_key='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')
+        s3.meta.client.download_file(BUCKET, 'training.h5', path_tr)
+        s3.meta.client.download_file(BUCKET, 'validation.h5', path_val)
+
+    else:
+        path_tr = '/Users/dgrebenyuk/Research/dataset/training1.h5'
+        path_val = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
+
+    # testing distributed training
+    strategy = tf.distribute.MirroredStrategy()
+    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    print(tf.config.experimental.list_physical_devices())
+
+    # BATCH_SIZE_PER_REPLICA = 64
+    # GLOBAL_BATCH_SIZE = BATCH_SIZE_PER_REPLICA * strategy.num_replicas_in_sync
 
     optimizer = tf.keras.optimizers.Adam(1e-4)
     model = AE()
@@ -256,7 +299,11 @@ if __name__ == "__main__":
     # print('\n', model.generative_net.summary())
     # print('\n', model.env_net.summary())
 
-    latest = tf.train.latest_checkpoint('/Users/dgrebenyuk/Research/dataset/weights')
+    if CLOUD:
+        latest = tf.train.latest_checkpoint('/tmp/weights')
+    else:
+        latest = tf.train.latest_checkpoint('/Users/dgrebenyuk/Research/dataset/weights')
+
     model.load_weights(latest)
     print('Latest checkpoint:', latest)
 
