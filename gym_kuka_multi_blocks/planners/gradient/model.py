@@ -78,6 +78,7 @@ def roll_out_plan(model, x0, actions):
     for i in tf.range(actions.shape[0]):
         x_pred = model.forward(x_pred, actions[i, ...])
         all_preds.write(i, model.decode(x_pred))
+        # all_preds.append(model.decode(x_pred))
 
     return x_pred, all_preds.stack()
 
@@ -85,33 +86,55 @@ def roll_out_plan(model, x0, actions):
 def plan(model, x0, xg, horizon, epochs):
     actions = tf.convert_to_tensor(np.random.randn(horizon, 4).astype(np.float32))
 
-    for _ in range(epochs):
+    for i in range(epochs):
         with tf.GradientTape(watch_accessed_variables=False) as tape:
             tape.watch(actions)
-            x_pred, _ = roll_out_plan(model, x0, actions)
+            x_pred, all_x = roll_out_plan(model, x0, actions)
             zg = model.encode(xg[np.newaxis, ...])
             loss = tf.reduce_sum(tf.losses.mean_squared_error(zg, x_pred))
 
         gradients = tape.gradient(loss, actions)
+
         # print(gradients)
-        actions = actions - 0.01 * gradients
-    return actions
+        if i < 500:
+            actions -= 0.5 * gradients
+        elif i < 2000:
+            actions -= 0.1 * gradients
+        else:
+            actions -= 0.01 * gradients
+
+        actions = tf.clip_by_value(actions, -1., 1.)
+
+        if i % 200 == 0:
+            print(i)
+        # print(np.abs(new_action - actions) / actions)
+        # if tf.math.reduce_max(np.abs(new_action - actions) / actions) > 0.0001:
+        #     actions = new_action
+        # else:
+        #     break
+    return actions, all_x
 
 
 def compute_loss_de_en(model, x):
     z = model.encode(x)
     x_logit = model.decode(z)
+
     x_shape = tf.shape(x_logit)[0]
+
     x_logit = tf.reshape(x_logit, [x_shape, -1])
+    x = tf.reshape(x, [x_shape, -1])
 
-    loss = tf.reduce_sum(tf.losses.mean_squared_error(tf.reshape(x, [x_shape, -1]), x_logit))
+    loss = tf.reduce_mean(tf.reduce_sum(tf.math.squared_difference(x, x_logit), axis=-1))
 
-    epoch_loss(loss)
-    epoch_error(tf.reshape(x, [x_shape, -1]), x_logit)
+    # loss = tf.nn.compute_average_loss(loss, global_batch_size=BATCH_SIZE)
+
+    epoch_loss.update_state(loss)
+    epoch_error.update_state(x, x_logit)
 
     return loss
 
 
+@tf.function
 def compute_apply_gradients_enc_dec(model, x, optimizer):
     model.env_net.trainable = False
 
@@ -124,13 +147,16 @@ def compute_apply_gradients_enc_dec(model, x, optimizer):
 def compute_loss_env(model, x, a, y):
     x_pred, label = model.predict(x, a, y)
 
-    loss = tf.reduce_sum(tf.losses.mean_squared_error(label, x_pred))
+    loss = tf.reduce_mean(tf.reduce_sum(tf.math.squared_difference(label, x_pred), axis=-1))
 
-    epoch_loss(loss)
-    epoch_error(label, x_pred)
+    # loss = tf.nn.compute_average_loss(loss, global_batch_size=BATCH_SIZE)
+
+    epoch_loss.update_state(loss)
+    epoch_error.update_state(label, x_pred)
     return loss
 
 
+@tf.function
 def compute_apply_gradients_env(model, x, a, y, optimizer):
     model.inference_net.trainable = False
     model.generative_net.trainable = False
@@ -159,31 +185,48 @@ def compute_apply_gradients_env(model, x, a, y, optimizer):
 
 
 def train_decoder(model, epochs, path_tr, path_val):
-    @tf.function
+    class generator:
+        def __init__(self, filename):
+            self.filename = filename
+
+        def __call__(self):
+            with h5py.File(self.filename, 'r') as hf:
+                for im in hf['states'][:]:
+                    yield im
+
     def train_decoder_one_step(model, train_dataset, test_dataset):
-        for train_X in train_dataset:
+        for i, train_X in enumerate(train_dataset):
             compute_apply_gradients_enc_dec(model, train_X, optimizer)
+            # strategy.experimental_run_v2(compute_apply_gradients_enc_dec, args=(model, train_X, optimizer))
+            # loss = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
+            if i % 50 == 0:
+                print(i*BATCH_SIZE, epoch_loss.result().numpy())
 
         train_loss = epoch_loss.result()
         train_error = epoch_error.result()
         epoch_loss.reset_states()
         epoch_error.reset_states()
 
-        for test_X in test_dataset.take(3):
+        for test_X in test_dataset:
             compute_loss_de_en(model, test_X)
+            # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
 
         return train_loss, train_error
 
     # read datasets from hdf5
-    train_dataset = tfio.IOTensor.from_hdf5(path_tr)
-    train_dataset = train_dataset('/states').to_dataset().shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    # train_dataset = tfio.IOTensor.from_hdf5(path_tr)
+    # train_dataset = train_dataset('/states').to_dataset().shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    train_dataset = tf.data.Dataset.from_generator(generator(path_tr), tf.float32, tf.TensorShape([84, 84, 3]))
+    train_dataset = train_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
-    test_dataset = tfio.IOTensor.from_hdf5(path_val)
-    test_dataset = test_dataset('/states').to_dataset().batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    # test_dataset = tfio.IOTensor.from_hdf5(path_val)
+    # test_dataset = test_dataset('/states').to_dataset().batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    test_dataset = tf.data.Dataset.from_generator(generator(path_val), tf.float32, tf.TensorShape([84, 84, 3]))
+    test_dataset = test_dataset.batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
     # new distribute part
-    train_dataset = strategy.experimental_distribute_dataset(train_dataset)
-    test_dataset = strategy.experimental_distribute_dataset(test_dataset)
+    # train_dataset = strategy.experimental_distribute_dataset(train_dataset)
+    # test_dataset = strategy.experimental_distribute_dataset(test_dataset)
 
     for epoch in range(1, epochs + 1):
         train_loss, train_error = train_decoder_one_step(model, train_dataset, test_dataset)
@@ -202,10 +245,20 @@ def train_decoder(model, epochs, path_tr, path_val):
 
 
 def train_env(model, epochs, path_tr, path_val):
-    @tf.function
+    class generator:
+        def __init__(self, filename):
+            self.filename = filename
+
+        def __call__(self):
+            with h5py.File(self.filename, 'r') as hf:
+                for im in zip(hf['states'][:], hf['actions'][:], hf['labels'][:]):
+                    yield im
+
     def train_env_one_step(model, train_dataset, test_dataset):
-        for train_X, train_A, train_Y in train_dataset:
+        for i, (train_X, train_A, train_Y) in enumerate(train_dataset):
             compute_apply_gradients_env(model, train_X, train_A, train_Y, optimizer)
+            if i % 50 == 0:
+                print(i*BATCH_SIZE, epoch_loss.result().numpy())
 
         train_loss = epoch_loss.result()
         train_error = epoch_error.result()
@@ -218,28 +271,33 @@ def train_env(model, epochs, path_tr, path_val):
         return train_loss, train_error
 
     # read train datasets from hdf5
-    dataset = tfio.IOTensor.from_hdf5(path_tr)
-    ds_states = dataset('/states').to_dataset()
-    ds_actions = dataset('/actions').to_dataset()
-    ds_labels = dataset('/labels').to_dataset()
+    # dataset = tfio.IOTensor.from_hdf5(path_tr)
+    # ds_states = dataset('/states').to_dataset()
+    # ds_actions = dataset('/actions').to_dataset()
+    # ds_labels = dataset('/labels').to_dataset()
 
-    train_dataset = tf.data.Dataset.zip((ds_states, ds_actions, ds_labels))
+    # train_dataset = tf.data.Dataset.zip((ds_states, ds_actions, ds_labels))
+    # train_dataset = train_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE)
+    # del dataset, ds_states, ds_actions, ds_labels
+    train_dataset = tf.data.Dataset.from_generator(generator(path_tr), (tf.float32, tf.float32, tf.float32), (tf.TensorShape([84, 84, 3]), tf.TensorShape([4,]), tf.TensorShape([84, 84, 3])))
     train_dataset = train_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE)
-    del dataset, ds_states, ds_actions, ds_labels
 
     # read validation datasets from hdf5
-    dataset = tfio.IOTensor.from_hdf5(path_val)
-    ds_states = dataset('/states').to_dataset()
-    ds_actions = dataset('/actions').to_dataset()
-    ds_labels = dataset('/labels').to_dataset()
+    # dataset = tfio.IOTensor.from_hdf5(path_val)
+    # ds_states = dataset('/states').to_dataset()
+    # ds_actions = dataset('/actions').to_dataset()
+    # ds_labels = dataset('/labels').to_dataset()
 
-    test_dataset = tf.data.Dataset.zip((ds_states, ds_actions, ds_labels))
+    # test_dataset = tf.data.Dataset.zip((ds_states, ds_actions, ds_labels))
+    # test_dataset = test_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE)
+    # del dataset, ds_states, ds_actions, ds_labels
+    test_dataset = tf.data.Dataset.from_generator(generator(path_val), (tf.float32, tf.float32, tf.float32), (tf.TensorShape([84, 84, 3]), tf.TensorShape([4,]), tf.TensorShape([84, 84, 3])))
     test_dataset = test_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE)
-    del dataset, ds_states, ds_actions, ds_labels
+
 
     # new distribute part
-    train_dataset = strategy.experimental_distribute_dataset(train_dataset)
-    test_dataset = strategy.experimental_distribute_dataset(test_dataset)
+    # train_dataset = strategy.experimental_distribute_dataset(train_dataset)
+    # test_dataset = strategy.experimental_distribute_dataset(test_dataset)
 
     for epoch in range(1, epochs + 1):
         train_loss, train_error = train_env_one_step(model, train_dataset, test_dataset)
@@ -250,7 +308,7 @@ def train_env(model, epochs, path_tr, path_val):
         if CLOUD:
             model.save_weights('/tmp/weights/cp-de-{}.ckpt'.format(epoch))
         else:
-            model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-{}.ckpt'.format(epoch))
+            model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-1-{}.ckpt'.format(epoch))
 
         epoch_loss.reset_states()
         epoch_error.reset_states()
@@ -262,9 +320,9 @@ if __name__ == "__main__":
     CLOUD = False
 
     epochs = 2
-    TRAIN_BUF = 1000
-    BATCH_SIZE = 100
-    TEST_BUF = 1000
+    TRAIN_BUF = 1024
+    BATCH_SIZE = 128
+    TEST_BUF = 1024
 
     if CLOUD:
         BUCKET = 'kuka-training-dataset'
@@ -279,19 +337,21 @@ if __name__ == "__main__":
         s3.meta.client.download_file(BUCKET, 'validation.h5', path_val)
 
     else:
-        path_tr = '/Users/dgrebenyuk/Research/dataset/training1.h5'
-        path_val = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
+        path_tr = '/Users/dgrebenyuk/Research/dataset/training.h5'
+        path_val = '/Users/dgrebenyuk/Research/dataset/validation.h5'
 
     # testing distributed training
-    strategy = tf.distribute.MirroredStrategy()
-    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    # strategy = tf.distribute.MirroredStrategy()
+    # print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
     print(tf.config.experimental.list_physical_devices())
 
-    # BATCH_SIZE_PER_REPLICA = 64
-    # GLOBAL_BATCH_SIZE = BATCH_SIZE_PER_REPLICA * strategy.num_replicas_in_sync
+    # BATCH_SIZE_PER_REPLICA = 128
+    # BATCH_SIZE = BATCH_SIZE_PER_REPLICA * strategy.num_replicas_in_sync
 
+    # with strategy.scope():
     optimizer = tf.keras.optimizers.Adam(1e-4)
     model = AE()
+    checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
     epoch_error = tf.keras.metrics.MeanAbsoluteError(name='epoch_abs_error')
 
@@ -299,6 +359,7 @@ if __name__ == "__main__":
     # print('\n', model.generative_net.summary())
     # print('\n', model.env_net.summary())
 
+    # with strategy.scope():
     if CLOUD:
         latest = tf.train.latest_checkpoint('/tmp/weights')
     else:
@@ -307,15 +368,15 @@ if __name__ == "__main__":
     model.load_weights(latest)
     print('Latest checkpoint:', latest)
 
-    train_decoder(model, epochs, path_tr, path_val)
-    # train_env(model, epochs, path_tr, path_val)
+    # train_decoder(model, epochs, path_tr, path_val)
+    train_env(model, epochs, path_tr, path_val)
 
     # model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp4_1.ckpt')
 
-    number = 596
-    mode = 'encode'
+    number = 561
+    # mode = 'encode'
     # mode = 'forward'
-    # mode = 'rollout'
+    mode = 'rollout'
     # mode = 'plan'
 
     with h5py.File(path_val, 'r') as f:
