@@ -28,9 +28,9 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
                  renders=False,
                  maxSteps=40,
                  dv=0.06,
-                 blockRandom=0.5,
-                 width=84,
-                 height=84,
+                 blockRandom=0.3,
+                 width=128,
+                 height=128,
                  numObjects=3,
                  isTest=0,
                  operation="place"
@@ -96,7 +96,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
                                        dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
         # camera images
-        self.observation_space = spaces.Box(0, 255, [self._height, self._width, 3], dtype=np.uint8)
+        self.observation_space = spaces.Box(0, 255, [self._height, self._width, 6], dtype=np.uint8)
 
         self._set_camera_settings()
 
@@ -128,7 +128,11 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         p.stepSimulation()
 
         # Generate the blocks
-        self._objectUids = self._randomly_place_objects(self._numObjects, table)
+        if self._isTest == 1:
+            num_objects = random.randint(1, self._numObjects)
+            self._objectUids = self._randomly_place_objects(num_objects, table)
+        else:
+            self._objectUids = self._randomly_place_objects(self._numObjects, table)
 
         if self._isTest != 13:
             for _ in range(100):
@@ -138,40 +142,32 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         self._goal = 0  # self._get_goal()
 
         # set observations
-        self._observation = self._get_observation()
+        self._observation = self.get_observation()
 
         # return observations
         return self._observation
 
-    def _randomly_place_objects(self, urdfList, table):
+    def _randomly_place_objects(self, num_objects, table):
         """Randomly places the objects in the bin.
 
         Args:
-          urdfList: The list of urdf files to place in the bin.
+          num_objects: The list of urdf files to place in the bin.
 
         Returns:
           The list of object unique ID's.
         """
 
-        # Randomize positions of each object urdf.
+        # Randomize positions of each object.
         objectUids = []
 
-        for i in range(urdfList):
+        for i in range(num_objects):
             if self._isTest == 1:
 
-                if i != 1:
-                    xpos = 0.4 + self._blockRandom * random.random()
-                    ypos = self._blockRandom * (random.random() - .5)
-                    zpos = 0.1
-                    angle = np.pi / 2
-                    orn = p.getQuaternionFromEuler([0, 0, angle])
-
-                elif i == 1:
-
-                    xpos = xpos + 0.1 + self._blockRandom * random.random()
-                    ypos = self._blockRandom * (random.random() - .5)
-                    angle = np.pi / 2 + self._blockRandom * np.pi * random.random()
-                    orn = p.getQuaternionFromEuler([0, 0, angle])
+                xpos = 0.4 + self._blockRandom * random.random()
+                ypos = self._blockRandom * (random.random() - .5)
+                zpos = 0.1
+                angle = np.pi / 2
+                orn = p.getQuaternionFromEuler([0, 0, angle])
 
             elif self._isTest == 2:
 
@@ -551,36 +547,43 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
 
         return objectUids
 
-    def _get_observation(self):
+    def get_observation(self):
         """Return the observation as an image.
         """
+        np_img_arr = np.zeros((self._height, self._width, 6))
+
+        for i in range(2):
+            img_arr = p.getCameraImage(width=self._width,
+                                       height=self._height,
+                                       viewMatrix=self._view_matrix[:, i],
+                                       projectionMatrix=self._proj_matrix)
+
+            rgb = img_arr[2]  # RGB image
+            np_img_arr[:, :, 3*i:3+3*i] = rgb[..., :-1]
+            # depth = img_arr[3]  # depth
+            # np_img_arr[:, :, 9 + i] = depth / 255.
+
         # import matplotlib.pyplot as plt
-        # np_img_arr = np.zeros((self._height, self._width, 3), dtype=np.uint8)
-
-        # for i in range(3):
-        img_arr = p.getCameraImage(width=self._width,
-                                   height=self._height,
-                                   viewMatrix=self._view_matrix[:, 1],
-                                   projectionMatrix=self._proj_matrix)
-        rgb = img_arr[2]
-        rgb = np.reshape(rgb, (self._height, self._width, 4))
-        np_img_arr = rgb[:, :, :-1]
-        # np_img_arr[:, :, 3*i:3+3*i] = rgb[:, :, :-1]
-
-        # plt.imshow(np_img_arr[:, :, 0:3])
+        # plt.imshow(np_img_arr[:, :, :3])
+        # plt.show()
+        # plt.imshow(np_img_arr[:, :, 9])
         # plt.show()
         # plt.imshow(np_img_arr[:, :, 3:6])
         # plt.show()
+        # plt.imshow(np_img_arr[:, :, 10])
+        # plt.show()
         # plt.imshow(np_img_arr[:, :, 6:9])
         # plt.show()
+        # plt.imshow(np_img_arr[:, :, 11])
+        # plt.show()
 
-        assert np_img_arr.shape == (self._width, self._height, 3)
-        assert np_img_arr.dtype.char in np.typecodes['AllInteger']
+        assert np_img_arr.shape == (self._width, self._height, 6)
 
-        return np_img_arr
+        return np_img_arr.astype('uint8')
 
     def _step(self, action):
-        """Environment step.
+        """
+        Environment step.
 
         Args:
           action: 5-vector parameterizing XYZ offset, vertical angle offset
@@ -683,7 +686,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
             # FIXME: here
             self.distance = 0  # self._get_distance_to_goal()
 
-        observation = self._get_observation()
+        observation = self.get_observation()
         reward = self._reward()
         done = self._termination()
 
@@ -717,16 +720,14 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         return observation, reward, done, debug
 
     def _reward(self):
-        """Calculates the reward for the episode.
-
-        The reward is 1 if one of the objects is above height .2 at the end of the
-        episode.
+        """No reward in the environment
         """
 
         return 0
 
     def _termination(self):
-        """Terminates the episode if we have tried to grasp or if we are above
+        """
+        Terminates the episode if we have tried to grasp or if we are above
         maxSteps steps.
         """
         if self._operation == "move_pick":
@@ -734,40 +735,11 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         else:
             return self._done or self._env_step >= self._maxSteps
 
-    def _get_random_object(self, num_objects, test):
-        """Randomly choose an object urdf from the random_urdfs directory.
-
-        Args:
-          num_objects:
-            Number of graspable objects.
-
-        Returns:
-          A list of urdf filenames.
-        """
-        if test:
-            urdf_pattern = os.path.join(self._urdfRoot, 'random_urdfs/*0/*.urdf')
-        else:
-            urdf_pattern = os.path.join(self._urdfRoot, 'random_urdfs/*[^0]/*.urdf')
-        found_object_directories = glob.glob(urdf_pattern)
-        total_num_objects = len(found_object_directories)
-        selected_objects = np.random.choice(np.arange(total_num_objects),
-                                            num_objects)
-        selected_objects_filenames = []
-        for object_index in selected_objects:
-            selected_objects_filenames += [found_object_directories[object_index]]
-        return selected_objects_filenames
-
-    if parse_version(gym.__version__) >= parse_version('0.9.6'):
-        reset = _reset
-
-        step = _step
-
     def _get_distance_to_goal(self):
         """
-        To get the distance from the effector to the goal
-        :return: list of floats
+        No
         """
-        pass  # do nothing
+        pass
 
     def _set_camera_settings(self):
         """
@@ -775,28 +747,17 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         :return: None
         """
 
-        # a view from z
-        look = [0.4, 0.0, 0.54]  # [0.23, 0.2, 0.54]
-        distance = 1.3  # 1.
-        yaw = 180  # 245
-        pitch = -90  # -56
-        roll = 0
-
-        self._view_matrix = np.array(p.computeViewMatrixFromYawPitchRoll(
-            look, distance, yaw, pitch, roll, 2))
-
-        # from y
+        # x-z projection
         look = [0.4, 0.0, 0.2]
         distance = 2.0
         yaw = 180
         pitch = 0
         roll = 0
 
-        self._view_matrix = np.append(self._view_matrix,
-                                      p.computeViewMatrixFromYawPitchRoll(
-                                          look, distance, yaw, pitch, roll, 2))
+        self._view_matrix = np.array(p.computeViewMatrixFromYawPitchRoll(
+            look, distance, yaw, pitch, roll, 2))
 
-        # from x
+        # y-z projection
         look = [0.4, 0.0, 0.2]
         distance = 2.0
         yaw = 90
@@ -807,11 +768,27 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
                                       p.computeViewMatrixFromYawPitchRoll(
                                           look, distance, yaw, pitch, roll, 2))
 
+        # x-y projection
+        look = [0.4, 0.0, 0.54]  # [0.23, 0.2, 0.54]
+        distance = 1.3  # 1.
+        yaw = 180  # 245
+        pitch = -90  # -56
+        roll = 0
+
+        self._view_matrix = np.append(self._view_matrix,
+                                      p.computeViewMatrixFromYawPitchRoll(
+                                          look, distance, yaw, pitch, roll, 2))
+
         self._view_matrix = self._view_matrix.reshape([3, 16]).T
 
-        fov = 20.
+        fov = 25.
         aspect = self._width / self._height
         near = 0.01
         far = 10
 
         self._proj_matrix = p.computeProjectionMatrixFOV(fov, aspect, near, far)
+
+    if parse_version(gym.__version__) >= parse_version('0.9.6'):
+        reset = _reset
+
+        step = _step

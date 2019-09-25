@@ -2,47 +2,116 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 import tensorflow as tf
-import tensorflow_io as tfio
+# import tensorflow_io as tfio
 import boto3
-print(tf.__version__)
 
 
 class AE(tf.keras.Model):
-    def __init__(self, latent_dim=128):
+    def __init__(self, latent_dim=256):
         super(AE, self).__init__()
         self.latent_dim = latent_dim
 
         self.inference_net = tf.keras.Sequential(
             [
-                tf.keras.layers.InputLayer(input_shape=(84, 84, 3)),
+                tf.keras.layers.InputLayer(input_shape=(128, 128, 6)),
                 tf.keras.layers.Conv2D(
-                    filters=32, kernel_size=3, strides=(2, 2), activation='relu'),
+                    filters=32, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
                 tf.keras.layers.Conv2D(
-                    filters=64, kernel_size=3, strides=(2, 2), activation='relu'),
+                    filters=32, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2D(
+                    filters=64, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2D(
+                    filters=64, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2D(
+                    filters=128, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2D(
+                    filters=128, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2D(
+                    filters=256, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2D(
+                    filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2D(
+                    filters=512, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2D(
+                    filters=512, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
                 tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(latent_dim, activation='tanh'),
+                tf.keras.layers.Dense(512, activation='tanh',
+                                      kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
+                tf.keras.layers.Dense(latent_dim, activation='tanh',
+                                      kernel_initializer=tf.keras.initializers.glorot_normal(seed=None))
             ]
         )
 
         self.generative_net = tf.keras.Sequential(
             [
                 tf.keras.layers.InputLayer(input_shape=(latent_dim,)),
-                tf.keras.layers.Dense(units=20 * 20 * 64, activation='relu'),
-                tf.keras.layers.Reshape(target_shape=(20, 20, 64)),
+                tf.keras.layers.Dense(512, activation='relu',
+                                      kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Dense(8192, activation='relu',
+                                      kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Reshape(target_shape=(4, 4, 512)),
                 tf.keras.layers.Conv2DTranspose(
-                    filters=32, kernel_size=3, strides=(2, 2), activation='relu'),
+                    filters=512, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
                 tf.keras.layers.Conv2DTranspose(
-                    filters=3, kernel_size=4, strides=(2, 2), activation='sigmoid'),
+                    filters=256, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2DTranspose(
+                    filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2DTranspose(
+                    filters=128, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2DTranspose(
+                    filters=128, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2DTranspose(
+                    filters=64, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2DTranspose(
+                    filters=64, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2DTranspose(
+                    filters=32, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2DTranspose(
+                    filters=32, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Conv2DTranspose(
+                    filters=6, kernel_size=4, strides=(1, 1), activation='sigmoid', padding='SAME',
+                    kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
             ]
         )
         self.env_net = tf.keras.Sequential(
             [
                 tf.keras.layers.InputLayer(input_shape=(latent_dim + 4)),
-                tf.keras.layers.Dense(2 * latent_dim, activation='relu'),
-                tf.keras.layers.Dense(2 * latent_dim, activation='relu'),
-                tf.keras.layers.Dense(2 * latent_dim, activation='relu'),   # new layer
-                tf.keras.layers.Dense(2 * latent_dim, activation='relu'),   # new layer
-                tf.keras.layers.Dense(latent_dim, activation='tanh'),
+                tf.keras.layers.Dense(2 * latent_dim, activation='relu',
+                                      kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Dense(2 * latent_dim, activation='relu',
+                                      kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Dropout(0.2),
+                tf.keras.layers.Dense(2 * latent_dim, activation='relu',
+                                      kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Dense(2 * latent_dim, activation='relu',
+                                      kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Dropout(0.2),
+                tf.keras.layers.Dense(2 * latent_dim, activation='relu',
+                                      kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Dense(2 * latent_dim, activation='relu',
+                                      kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+                tf.keras.layers.Dropout(0.2),
+                tf.keras.layers.Dense(latent_dim, activation='tanh',
+                                      kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
             ]
 
         )
@@ -78,7 +147,6 @@ def roll_out_plan(model, x0, actions):
     for i in tf.range(actions.shape[0]):
         x_pred = model.forward(x_pred, actions[i, ...])
         all_preds.write(i, model.decode(x_pred))
-        # all_preds.append(model.decode(x_pred))
 
     return x_pred, all_preds.stack()
 
@@ -97,7 +165,7 @@ def plan(model, x0, xg, horizon, epochs):
 
         # print(gradients)
         if i < 500:
-            actions -= 0.5 * gradients
+            actions -= 0.2 * gradients
         elif i < 2000:
             actions -= 0.1 * gradients
         else:
@@ -129,8 +197,6 @@ def compute_loss_de_en(model, x):
     # loss = tf.nn.compute_average_loss(loss, global_batch_size=BATCH_SIZE)
 
     epoch_loss.update_state(loss)
-    epoch_error.update_state(x, x_logit)
-
     return loss
 
 
@@ -152,7 +218,6 @@ def compute_loss_env(model, x, a, y):
     # loss = tf.nn.compute_average_loss(loss, global_batch_size=BATCH_SIZE)
 
     epoch_loss.update_state(loss)
-    epoch_error.update_state(label, x_pred)
     return loss
 
 
@@ -194,6 +259,23 @@ def train_decoder(model, epochs, path_tr, path_val):
                 for im in hf['states'][:]:
                     yield im
 
+    image_feature_description = {
+        'image_x': tf.io.FixedLenFeature([], tf.string),
+        'image_y': tf.io.FixedLenFeature([], tf.string),
+        'label_x': tf.io.FixedLenFeature([], tf.string),
+        'label_y': tf.io.FixedLenFeature([], tf.string),
+        'action': tf.io.FixedLenFeature([], tf.string),
+    }
+
+    def _parse_image_function(example_proto):
+        return tf.io.parse_single_example(example_proto, image_feature_description)
+
+    def _decode_image_function(record):
+        for key in ['image_x', 'image_y']:
+            record[key] = tf.cast(tf.image.decode_image(record[key]), tf.float32) / 255.
+
+        return tf.concat((record['image_x'], record['image_y']), axis=-1)
+
     def train_decoder_one_step(model, train_dataset, test_dataset):
         for i, train_X in enumerate(train_dataset):
             compute_apply_gradients_enc_dec(model, train_X, optimizer)
@@ -203,25 +285,22 @@ def train_decoder(model, epochs, path_tr, path_val):
                 print(i*BATCH_SIZE, epoch_loss.result().numpy())
 
         train_loss = epoch_loss.result()
-        train_error = epoch_error.result()
         epoch_loss.reset_states()
-        epoch_error.reset_states()
 
         for test_X in test_dataset:
             compute_loss_de_en(model, test_X)
             # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
 
-        return train_loss, train_error
+        return train_loss
 
-    # read datasets from hdf5
-    # train_dataset = tfio.IOTensor.from_hdf5(path_tr)
-    # train_dataset = train_dataset('/states').to_dataset().shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-    train_dataset = tf.data.Dataset.from_generator(generator(path_tr), tf.float32, tf.TensorShape([84, 84, 3]))
-    train_dataset = train_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    # train_dataset = tf.data.Dataset.from_generator(generator(path_tr), tf.float32, tf.TensorShape([128, 128, 6]))
+    train_dataset = tf.data.TFRecordDataset(path_tr)
+    train_dataset = train_dataset.map(_parse_image_function).map(_decode_image_function)
+    train_dataset = train_dataset.repeat(10).shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
-    # test_dataset = tfio.IOTensor.from_hdf5(path_val)
-    # test_dataset = test_dataset('/states').to_dataset().batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-    test_dataset = tf.data.Dataset.from_generator(generator(path_val), tf.float32, tf.TensorShape([84, 84, 3]))
+    # test_dataset = tf.data.Dataset.from_generator(generator(path_val), tf.float32, tf.TensorShape([128, 128, 6]))
+    test_dataset = tf.data.TFRecordDataset(path_val)
+    test_dataset = test_dataset.map(_parse_image_function).map(_decode_image_function)
     test_dataset = test_dataset.batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
     # new distribute part
@@ -229,9 +308,8 @@ def train_decoder(model, epochs, path_tr, path_val):
     # test_dataset = strategy.experimental_distribute_dataset(test_dataset)
 
     for epoch in range(1, epochs + 1):
-        train_loss, train_error = train_decoder_one_step(model, train_dataset, test_dataset)
-        print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'error:', train_error.numpy() * 100,
-          'test loss:', epoch_loss.result().numpy(), 'error:', epoch_error.result().numpy() * 100, '\r')
+        train_loss = train_decoder_one_step(model, train_dataset, test_dataset)
+        print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'validation loss:', epoch_loss.result().numpy(), '\r')
 
         if CLOUD:
             model.save_weights('/tmp/weights/cp-de-{}.ckpt'.format(epoch))
@@ -241,7 +319,6 @@ def train_decoder(model, epochs, path_tr, path_val):
         # s3.meta.client.upload_file('/tmp/weights/cp-de-{}.ckpt'.format(epoch), BUCKET, '/weights/cp-de-{}.ckpt'.format(epoch))
 
         epoch_loss.reset_states()
-        epoch_error.reset_states()
 
 
 def train_env(model, epochs, path_tr, path_val):
@@ -254,6 +331,25 @@ def train_env(model, epochs, path_tr, path_val):
                 for im in zip(hf['states'][:], hf['actions'][:], hf['labels'][:]):
                     yield im
 
+    image_feature_description = {
+        'image_x': tf.io.FixedLenFeature([], tf.string),
+        'image_y': tf.io.FixedLenFeature([], tf.string),
+        'label_x': tf.io.FixedLenFeature([], tf.string),
+        'label_y': tf.io.FixedLenFeature([], tf.string),
+        'action': tf.io.FixedLenFeature([], tf.string),
+    }
+
+    def _parse_image_function(example_proto):
+        return tf.io.parse_single_example(example_proto, image_feature_description)
+
+    def _decode_image_function(record):
+        for key in ['image_x', 'image_y', 'label_x', 'label_y']:
+            record[key] = tf.cast(tf.image.decode_image(record[key]), tf.float32) / 255.
+
+        record['action'] = tf.io.parse_tensor(record['action'], out_type=tf.float32)
+
+        return tf.concat((record['image_x'], record['image_y']), axis=-1), record['action'], tf.concat((record['label_x'], record['label_y']), axis=-1)
+
     def train_env_one_step(model, train_dataset, test_dataset):
         for i, (train_X, train_A, train_Y) in enumerate(train_dataset):
             compute_apply_gradients_env(model, train_X, train_A, train_Y, optimizer)
@@ -261,99 +357,84 @@ def train_env(model, epochs, path_tr, path_val):
                 print(i*BATCH_SIZE, epoch_loss.result().numpy())
 
         train_loss = epoch_loss.result()
-        train_error = epoch_error.result()
         epoch_loss.reset_states()
-        epoch_error.reset_states()
 
         for train_X, train_A, train_Y in test_dataset:
             compute_loss_env(model, train_X, train_A, train_Y)
 
-        return train_loss, train_error
+        return train_loss
 
-    # read train datasets from hdf5
-    # dataset = tfio.IOTensor.from_hdf5(path_tr)
-    # ds_states = dataset('/states').to_dataset()
-    # ds_actions = dataset('/actions').to_dataset()
-    # ds_labels = dataset('/labels').to_dataset()
+    # train_dataset = tf.data.Dataset.from_generator(generator(path_tr), (tf.float32, tf.float32, tf.float32), (tf.TensorShape([128, 128, 6]), tf.TensorShape([4,]), tf.TensorShape([128, 128, 6])))
+    train_dataset = tf.data.TFRecordDataset(path_tr)
+    train_dataset = train_dataset.map(_parse_image_function).map(_decode_image_function)
+    train_dataset = train_dataset.repeat(10).shuffle(TRAIN_BUF).batch(BATCH_SIZE)
 
-    # train_dataset = tf.data.Dataset.zip((ds_states, ds_actions, ds_labels))
-    # train_dataset = train_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE)
-    # del dataset, ds_states, ds_actions, ds_labels
-    train_dataset = tf.data.Dataset.from_generator(generator(path_tr), (tf.float32, tf.float32, tf.float32), (tf.TensorShape([84, 84, 3]), tf.TensorShape([4,]), tf.TensorShape([84, 84, 3])))
-    train_dataset = train_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE)
-
-    # read validation datasets from hdf5
-    # dataset = tfio.IOTensor.from_hdf5(path_val)
-    # ds_states = dataset('/states').to_dataset()
-    # ds_actions = dataset('/actions').to_dataset()
-    # ds_labels = dataset('/labels').to_dataset()
-
-    # test_dataset = tf.data.Dataset.zip((ds_states, ds_actions, ds_labels))
-    # test_dataset = test_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE)
-    # del dataset, ds_states, ds_actions, ds_labels
-    test_dataset = tf.data.Dataset.from_generator(generator(path_val), (tf.float32, tf.float32, tf.float32), (tf.TensorShape([84, 84, 3]), tf.TensorShape([4,]), tf.TensorShape([84, 84, 3])))
+    # test_dataset = tf.data.Dataset.from_generator(generator(path_val), (tf.float32, tf.float32, tf.float32), (tf.TensorShape([128, 128, 6]), tf.TensorShape([4,]), tf.TensorShape([128, 128, 6])))
+    test_dataset = tf.data.TFRecordDataset(path_val)
+    test_dataset = test_dataset.map(_parse_image_function).map(_decode_image_function)
     test_dataset = test_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE)
-
 
     # new distribute part
     # train_dataset = strategy.experimental_distribute_dataset(train_dataset)
     # test_dataset = strategy.experimental_distribute_dataset(test_dataset)
 
     for epoch in range(1, epochs + 1):
-        train_loss, train_error = train_env_one_step(model, train_dataset, test_dataset)
+        train_loss = train_env_one_step(model, train_dataset, test_dataset)
 
-        print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'error:', train_error.numpy() * 100,
-              'test loss:', epoch_loss.result().numpy(), 'error:', epoch_error.result().numpy() * 100)
+        print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'validation loss:', epoch_loss.result().numpy())
 
         if CLOUD:
             model.save_weights('/tmp/weights/cp-de-{}.ckpt'.format(epoch))
         else:
-            model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-1-{}.ckpt'.format(epoch))
+            model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-2-{}.ckpt'.format(epoch))
 
         epoch_loss.reset_states()
-        epoch_error.reset_states()
 
 
 if __name__ == "__main__":
 
+    print(tf.__version__)
     # train in the cloud
-    CLOUD = False
+    CLOUD = True
 
-    epochs = 2
+    epochs = 100
     TRAIN_BUF = 1024
     BATCH_SIZE = 128
     TEST_BUF = 1024
 
     if CLOUD:
         BUCKET = 'kuka-training-dataset'
-        path_tr = '/tmp/training.h5'
-        path_val = '/tmp/validation.h5'
+        # path_tr = '/tmp/training1.h5'
+        # path_val = '/tmp/validation1.h5'
+        path_tr = '/tmp/training.tfrecord'
+        path_val = '/tmp/validation.tfrecord'
 
         # upload files from the bucket
         s3 = boto3.resource('s3',
                             aws_access_key_id='AKIAZQDMP4R6P745OMOT',
                             aws_secret_access_key='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')
-        s3.meta.client.download_file(BUCKET, 'training.h5', path_tr)
-        s3.meta.client.download_file(BUCKET, 'validation.h5', path_val)
+        s3.meta.client.download_file(BUCKET, 'training.tfrecord', path_tr)
+        s3.meta.client.download_file(BUCKET, 'validation.tfrecord', path_val)
 
     else:
-        path_tr = '/Users/dgrebenyuk/Research/dataset/training.h5'
-        path_val = '/Users/dgrebenyuk/Research/dataset/validation.h5'
+        path_tr = '/Users/dgrebenyuk/Research/dataset/training1.h5'
+        path_val = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
+        # path_tr = '/Users/dgrebenyuk/Research/dataset/training.tfrecord'
+        # path_val = '/Users/dgrebenyuk/Research/dataset/validation.tfrecord'
 
     # testing distributed training
     # strategy = tf.distribute.MirroredStrategy()
     # print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
-    print(tf.config.experimental.list_physical_devices())
-
     # BATCH_SIZE_PER_REPLICA = 128
     # BATCH_SIZE = BATCH_SIZE_PER_REPLICA * strategy.num_replicas_in_sync
+
+    print(tf.config.experimental.list_physical_devices())
 
     # with strategy.scope():
     optimizer = tf.keras.optimizers.Adam(1e-4)
     model = AE()
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
-    epoch_error = tf.keras.metrics.MeanAbsoluteError(name='epoch_abs_error')
 
     # print(model.inference_net.summary())
     # print('\n', model.generative_net.summary())
@@ -365,18 +446,18 @@ if __name__ == "__main__":
     else:
         latest = tf.train.latest_checkpoint('/Users/dgrebenyuk/Research/dataset/weights')
 
-    model.load_weights(latest)
-    print('Latest checkpoint:', latest)
+    # model.load_weights(latest)
+    # print('Latest checkpoint:', latest)
 
-    # train_decoder(model, epochs, path_tr, path_val)
-    train_env(model, epochs, path_tr, path_val)
+    train_decoder(model, epochs, path_tr, path_val)
+    # train_env(model, epochs, path_tr, path_val)
 
     # model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp4_1.ckpt')
 
     number = 561
-    # mode = 'encode'
+    mode = 'encode'
     # mode = 'forward'
-    mode = 'rollout'
+    # mode = 'rollout'
     # mode = 'plan'
 
     with h5py.File(path_val, 'r') as f:
@@ -413,11 +494,11 @@ if __name__ == "__main__":
             z = model.encode(states[np.newaxis, ...])
             x_pred = model.decode(z)
 
-            plt.imshow(states[:, :, :])
+            plt.imshow(states[:, :, :3])
             plt.title('State')
             plt.axis('off')
             plt.show()
-            plt.imshow(x_pred[0, :, :, :])
+            plt.imshow(x_pred[0, :, :, 0:3])
             plt.title('Encoded-Decoded State')
             plt.axis('off')
             plt.show()
