@@ -312,9 +312,9 @@ def train_decoder(model, epochs, path_tr, path_val):
         print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'validation loss:', epoch_loss.result().numpy(), '\r')
 
         if CLOUD:
-            model.save_weights('/tmp/weights/cp-de-{}.ckpt'.format(epoch))
+            model.save_weights('/tmp/weights/cp-de-{}.ckpt'.format(epoch % 3))
         else:
-            model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-{}.ckpt'.format(epoch))
+            model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-{}.ckpt'.format(epoch % 3))
 
         # s3.meta.client.upload_file('/tmp/weights/cp-de-{}.ckpt'.format(epoch), BUCKET, '/weights/cp-de-{}.ckpt'.format(epoch))
 
@@ -384,23 +384,46 @@ def train_env(model, epochs, path_tr, path_val):
         print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'validation loss:', epoch_loss.result().numpy())
 
         if CLOUD:
-            model.save_weights('/tmp/weights/cp-de-{}.ckpt'.format(epoch))
+            model.save_weights('/tmp/weights/cp-de-{}.ckpt'.format(epoch % 3))
         else:
-            model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-2-{}.ckpt'.format(epoch))
+            model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp-de-2-{}.ckpt'.format(epoch % 3))
 
         epoch_loss.reset_states()
+
+def get_dataset(filename):
+    image_feature_description = {
+        'image_x': tf.io.FixedLenFeature([], tf.string),
+        'image_y': tf.io.FixedLenFeature([], tf.string),
+        'label_x': tf.io.FixedLenFeature([], tf.string),
+        'label_y': tf.io.FixedLenFeature([], tf.string),
+        'action': tf.io.FixedLenFeature([], tf.string),
+    }
+
+    def _parse_image_function(example_proto):
+        return tf.io.parse_single_example(example_proto, image_feature_description)
+
+    def _decode_image_function(record):
+        for key in ['image_x', 'image_y', 'label_x', 'label_y']:
+            record[key] = tf.cast(tf.image.decode_image(record[key]), tf.float32) / 255.
+
+        record['action'] = tf.io.parse_tensor(record['action'], out_type=tf.float32)
+
+        return tf.concat((record['image_x'], record['image_y']), axis=-1), record['action'], tf.concat((record['label_x'], record['label_y']), axis=-1)
+
+    dataset = tf.data.TFRecordDataset(filename)
+    return dataset.map(_parse_image_function).map(_decode_image_function)
 
 
 if __name__ == "__main__":
 
     print(tf.__version__)
     # train in the cloud
-    CLOUD = True
+    CLOUD = False
 
     epochs = 100
-    TRAIN_BUF = 1024
-    BATCH_SIZE = 128
-    TEST_BUF = 1024
+    TRAIN_BUF = 2048 * 2
+    BATCH_SIZE = 128 * 2
+    TEST_BUF = 2048 * 2
 
     if CLOUD:
         BUCKET = 'kuka-training-dataset'
@@ -417,10 +440,10 @@ if __name__ == "__main__":
         s3.meta.client.download_file(BUCKET, 'validation.tfrecord', path_val)
 
     else:
-        path_tr = '/Users/dgrebenyuk/Research/dataset/training1.h5'
-        path_val = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
-        # path_tr = '/Users/dgrebenyuk/Research/dataset/training.tfrecord'
-        # path_val = '/Users/dgrebenyuk/Research/dataset/validation.tfrecord'
+        # path_tr = '/Users/dgrebenyuk/Research/dataset/training1.h5'
+        # path_val = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
+        path_tr = '/Users/dgrebenyuk/Research/dataset/training.tfrecord'
+        path_val = '/Users/dgrebenyuk/Research/dataset/validation.tfrecord'
 
     # testing distributed training
     # strategy = tf.distribute.MirroredStrategy()
@@ -446,72 +469,84 @@ if __name__ == "__main__":
     else:
         latest = tf.train.latest_checkpoint('/Users/dgrebenyuk/Research/dataset/weights')
 
-    # model.load_weights(latest)
-    # print('Latest checkpoint:', latest)
+    model.load_weights(latest)
+    print('Latest checkpoint:', latest)
 
-    train_decoder(model, epochs, path_tr, path_val)
+    # train_decoder(model, epochs, path_tr, path_val)
     # train_env(model, epochs, path_tr, path_val)
 
     # model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp4_1.ckpt')
 
-    number = 561
+    number = 501
     mode = 'encode'
     # mode = 'forward'
     # mode = 'rollout'
     # mode = 'plan'
 
-    with h5py.File(path_val, 'r') as f:
-        states = f['states'][number, :, :, :]
-        actions = f['actions'][number, :]
-        labels = f['labels'][number+4, :, :, :]
-        print('label act', actions)
+    # with h5py.File(path_val, 'r') as f:
+    #     states = f['states'][number, :, :, :]
+    #     actions = f['actions'][number, :]
+    #     labels = f['labels'][number+4, :, :, :]
+    #     print('label act', actions)
 
-        if mode == 'plan':
-            # actions = np.array([[0, 0, -1, 0], [0, 0, -1, 0], [0, 0, -1, 0], [0, 0, -1, 0]]).astype(np.float32)
-            plt.imshow(states)
-            plt.show()
-            plt.imshow(labels)
-            plt.show()
-            actions = plan(model, x0=states, xg=labels, horizon=4, epochs=10)
-            _, x_pred = roll_out_plan(model, states, actions)
-            for x_pr in x_pred:
-                plt.imshow(x_pr[0, :, :, :])
-                plt.title('Decoded Predicted Transition State')
-                plt.axis('off')
-                plt.show()
-
-        if mode == 'rollout':
-            actions = np.array([[0, 0, -1, 0], [0, 0, -1, 0], [0, 0, -1, 0], [0, 0, -1, 0]]).astype(np.float32)
-            _, x_pred = roll_out_plan(model, states, actions)
-            # print(x_pred)
-            for x_pr in x_pred:
-                plt.imshow(x_pr[0, :, :, :])
-                plt.title('Decoded Predicted Transition State')
-                plt.axis('off')
-                plt.show()
-
-        if mode == 'encode':
-            z = model.encode(states[np.newaxis, ...])
-            x_pred = model.decode(z)
-
-            plt.imshow(states[:, :, :3])
-            plt.title('State')
-            plt.axis('off')
-            plt.show()
-            plt.imshow(x_pred[0, :, :, 0:3])
-            plt.title('Encoded-Decoded State')
-            plt.axis('off')
-            plt.show()
-
-        elif mode == 'forward':
-            z, _ = model.predict(states[np.newaxis, ...], actions[np.newaxis, ...], labels[np.newaxis, ...])
-            x_pred = model.decode(z)
-
-            plt.imshow(labels[:, :, :])
-            plt.title('Transition State Label')
-            plt.axis('off')
-            plt.show()
-            plt.imshow(x_pred[0, :, :, :])
+    if mode == 'plan':
+        # actions = np.array([[0, 0, -1, 0], [0, 0, -1, 0], [0, 0, -1, 0], [0, 0, -1, 0]]).astype(np.float32)
+        plt.imshow(states)
+        plt.show()
+        plt.imshow(labels)
+        plt.show()
+        actions = plan(model, x0=states, xg=labels, horizon=4, epochs=10)
+        _, x_pred = roll_out_plan(model, states, actions)
+        for x_pr in x_pred:
+            plt.imshow(x_pr[0, :, :, :])
             plt.title('Decoded Predicted Transition State')
             plt.axis('off')
             plt.show()
+
+    if mode == 'rollout':
+        actions = np.array([[0, 0, -1, 0], [0, 0, -1, 0], [0, 0, -1, 0], [0, 0, -1, 0]]).astype(np.float32)
+        _, x_pred = roll_out_plan(model, states, actions)
+        # print(x_pred)
+        for x_pr in x_pred:
+            plt.imshow(x_pr[0, :, :, :])
+            plt.title('Decoded Predicted Transition State')
+            plt.axis('off')
+            plt.show()
+
+    if mode == 'encode':
+        data = get_dataset(path_tr)
+
+        for i, (states, actions, labels) in enumerate(data.take(number)):
+            if i == (number - 1):
+                z = model.encode(states[np.newaxis, ...])
+                x_pred = model.decode(z)
+
+                plt.imshow(states[:, :, :3])
+                plt.title('State')
+                plt.axis('off')
+                plt.show()
+                plt.imshow(states[:, :, 3:6])
+                plt.title('State')
+                plt.axis('off')
+                plt.show()
+                plt.imshow(x_pred[0, :, :, 0:3])
+                plt.title('Encoded-Decoded State')
+                plt.axis('off')
+                plt.show()
+                plt.imshow(x_pred[0, :, :, 3:6])
+                plt.title('Encoded-Decoded State')
+                plt.axis('off')
+                plt.show()
+
+    elif mode == 'forward':
+        z, _ = model.predict(states[np.newaxis, ...], actions[np.newaxis, ...], labels[np.newaxis, ...])
+        x_pred = model.decode(z)
+
+        plt.imshow(labels[:, :, :])
+        plt.title('Transition State Label')
+        plt.axis('off')
+        plt.show()
+        plt.imshow(x_pred[0, :, :, :])
+        plt.title('Decoded Predicted Transition State')
+        plt.axis('off')
+        plt.show()

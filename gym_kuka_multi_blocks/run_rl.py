@@ -13,7 +13,7 @@ from ray.rllib.agents import ppo
 def env_creator_kuka_gym(renders=True):
     import gym
     import gym_kuka_multi_blocks
-    return gym.make("KukaMultiBlocks-v0")
+    return gym.make("KukaCam-v0")
 
 def init_ddpg(render):
 
