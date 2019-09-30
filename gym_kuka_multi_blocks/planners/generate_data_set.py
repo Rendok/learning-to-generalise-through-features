@@ -6,18 +6,10 @@ from PIL import Image
 import tensorflow as tf
 
 
-def generate_random_data(length):
-    assert type(length) is int
-    states = np.random.randn(length, 256, 256, CHANNELS)  # (W, H, C)
-    actions = np.random.randn(length, 4, 1)
-    labels = np.random.randn(length, 256, 256, CHANNELS)  # (W, H, C)
-    return states, actions, labels
-
-
 def env_creator_kuka_cam(renders=False):
     env = e.KukaCamMultiBlocksEnv(renders=renders,
                                   numObjects=5,
-                                  isTest=1,
+                                  isTest=1,  # 1 and 4
                                   operation='move_pick',
                                   )
     return env
@@ -60,11 +52,6 @@ def generate_data(batch_size, planning_horizon):
 def generate_h5(n_batches, batch_size, planning_horizon, path):
     """
     Data set generator
-    :param n_batches:
-    :param batch_size:
-    :param planning_horizon:
-    :param path:
-    :return:
     """
 
     data_size = n_batches * batch_size * planning_horizon
@@ -97,6 +84,7 @@ def generate_tfr(n_batches, batch_size, planning_horizon, filename):
 
         image_x = tf.image.encode_png(image[..., :3])
         image_y = tf.image.encode_png(image[..., 3:6])
+
         label_x = tf.image.encode_png(label[..., :3])
         label_y = tf.image.encode_png(label[..., 3:6])
 
@@ -133,15 +121,15 @@ if __name__ == "__main__":
     path_tr_h5 = '/Users/dgrebenyuk/Research/dataset/training1.h5'
     path_val_h5 = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
     # tf record
-    path_tr_tfr = '/Users/dgrebenyuk/Research/dataset/training1.tfrecord'
-    path_val_tfr = '/Users/dgrebenyuk/Research/dataset/validation1.tfrecord'
+    path_tr_tfr = '/Users/dgrebenyuk/Research/dataset/training.tfrecord'
+    path_val_tfr = '/Users/dgrebenyuk/Research/dataset/validation.tfrecord'
 
     DEBUG = True
 
     # generate_h5(n_batches=24, batch_size=16, planning_horizon=20, path=path_tr_h5)
     # generate_h5(n_batches=8, batch_size=16, planning_horizon=20, path=path_val_h5)
-    generate_tfr(n_batches=313, batch_size=16, planning_horizon=20, filename=path_tr_tfr)
-    generate_tfr(n_batches=31, batch_size=16, planning_horizon=20, filename=path_val_tfr)
+    generate_tfr(n_batches=31, batch_size=16, planning_horizon=20, filename=path_tr_tfr)  # 310
+    generate_tfr(n_batches=3, batch_size=16, planning_horizon=20, filename=path_val_tfr)  # 31
 
     if DEBUG:
         if TYPE == 'h5':

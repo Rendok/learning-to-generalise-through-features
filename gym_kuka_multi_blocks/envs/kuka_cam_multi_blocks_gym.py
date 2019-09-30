@@ -78,6 +78,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         self._numObjects = numObjects
         self._isTest = isTest
         self._operation = operation
+        self._channels = 6
 
         if self._renders:
             self.cid = p.connect(p.SHARED_MEMORY)
@@ -96,7 +97,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
                                        dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
         # camera images
-        self.observation_space = spaces.Box(0, 255, [self._height, self._width, 6], dtype=np.uint8)
+        self.observation_space = spaces.Box(0, 255, [self._height, self._width, self._channels], dtype=np.uint8)
 
         self._set_camera_settings()
 
@@ -124,6 +125,11 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
 
         # load a kuka arm
         self._kuka = kuka.Kuka(urdfRootPath=self._urdfRoot, timeStep=self._timeStep)
+
+        # paint the arm
+        for i in range(6, 14):
+            p.changeVisualShape(self._kuka.kukaUid, i, rgbaColor=[0.1, 1, 0, 1])
+
         self._envStepCounter = 0
         p.stepSimulation()
 
@@ -161,6 +167,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         objectUids = []
 
         for i in range(num_objects):
+            # random blocks USED
             if self._isTest == 1:
 
                 xpos = 0.4 + self._blockRandom * random.random()
@@ -211,6 +218,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
                     angle = np.pi / 2  # + self._blockRandom * np.pi * random.random()
                     orn = p.getQuaternionFromEuler([0, 0, angle])
 
+            # all in a row USED
             elif self._isTest == 4:
 
                 if self._numObjects < 2:
@@ -543,6 +551,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
             urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")
             uid = p.loadURDF(urdf_path, [xpos, ypos, zpos],
                              [orn[0], orn[1], orn[2], orn[3]])
+            p.changeVisualShape(uid, -1, rgbaColor=[0, 0.1, 1, 1])
             objectUids.append(uid)
 
         return objectUids
@@ -550,7 +559,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
     def get_observation(self):
         """Return the observation as an image.
         """
-        np_img_arr = np.zeros((self._height, self._width, 6))
+        np_img_arr = np.zeros((self._height, self._width, self._channels))
 
         for i in range(2):
             img_arr = p.getCameraImage(width=self._width,
@@ -561,23 +570,25 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
             rgb = img_arr[2]  # RGB image
             np_img_arr[:, :, 3*i:3+3*i] = rgb[..., :-1]
             # depth = img_arr[3]  # depth
-            # np_img_arr[:, :, 9 + i] = depth / 255.
+            # np_img_arr[:, :, 6 + i] = depth * 255
+            # segment = img_arr[4]  # segmentation
+            # np_img_arr[:, :, 6 + i] = segment
 
         # import matplotlib.pyplot as plt
         # plt.imshow(np_img_arr[:, :, :3])
         # plt.show()
-        # plt.imshow(np_img_arr[:, :, 9])
+        # plt.imshow(np_img_arr[:, :, 6])
         # plt.show()
         # plt.imshow(np_img_arr[:, :, 3:6])
         # plt.show()
-        # plt.imshow(np_img_arr[:, :, 10])
+        # plt.imshow(np_img_arr[:, :, 7])
         # plt.show()
         # plt.imshow(np_img_arr[:, :, 6:9])
         # plt.show()
         # plt.imshow(np_img_arr[:, :, 11])
         # plt.show()
 
-        assert np_img_arr.shape == (self._width, self._height, 6)
+        assert np_img_arr.shape == (self._width, self._height, self._channels)
 
         return np_img_arr.astype('uint8')
 

@@ -231,34 +231,7 @@ def compute_apply_gradients_env(model, x, a, y, optimizer):
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
 
-# def get_datasets(path_tr, path_val):
-#     with h5py.File(path_tr, 'r') as f:
-#         states = f['states'][:1000]
-#
-#     # dataset = io.HDF5Dataset(path_tr, '/states')  # .shuffle(TRAIN_BUF).batch(BATCH_SIZE)
-#     train_dataset = tf.data.Dataset.from_tensor_slices(states).shuffle(TRAIN_BUF).batch(BATCH_SIZE)
-#     del states
-#
-#     with h5py.File(path_val, 'r') as f:
-#         states = f['states'][:1000]
-#
-#     # test_dataset = io.HDF5Dataset(path_val, '/states')
-#     test_dataset = tf.data.Dataset.from_tensor_slices(states).batch(BATCH_SIZE)
-#     del states
-#     print(train_dataset.element_spec)
-#     return train_dataset, test_dataset
-
-
-def train_decoder(model, epochs, path_tr, path_val):
-    class generator:
-        def __init__(self, filename):
-            self.filename = filename
-
-        def __call__(self):
-            with h5py.File(self.filename, 'r') as hf:
-                for im in hf['states'][:]:
-                    yield im
-
+def get_dataset(filename, demonstration=False):
     image_feature_description = {
         'image_x': tf.io.FixedLenFeature([], tf.string),
         'image_y': tf.io.FixedLenFeature([], tf.string),
@@ -269,6 +242,12 @@ def train_decoder(model, epochs, path_tr, path_val):
 
     def _parse_image_function(example_proto):
         return tf.io.parse_single_example(example_proto, image_feature_description)
+
+    dataset = tf.data.TFRecordDataset(filename)
+    dataset = dataset.map(_parse_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    return dataset
+
+def train_decoder(model, epochs, path_tr, path_val):
 
     def _decode_image_function(record):
         for key in ['image_x', 'image_y']:
@@ -293,14 +272,12 @@ def train_decoder(model, epochs, path_tr, path_val):
 
         return train_loss
 
-    # train_dataset = tf.data.Dataset.from_generator(generator(path_tr), tf.float32, tf.TensorShape([128, 128, 6]))
-    train_dataset = tf.data.TFRecordDataset(path_tr)
-    train_dataset = train_dataset.map(_parse_image_function).map(_decode_image_function)
-    train_dataset = train_dataset.repeat(10).shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    train_dataset = get_dataset(path_tr)
+    train_dataset = train_dataset.map(_decode_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    train_dataset = train_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
-    # test_dataset = tf.data.Dataset.from_generator(generator(path_val), tf.float32, tf.TensorShape([128, 128, 6]))
-    test_dataset = tf.data.TFRecordDataset(path_val)
-    test_dataset = test_dataset.map(_parse_image_function).map(_decode_image_function)
+    test_dataset = get_dataset(path_val)
+    test_dataset = test_dataset.map(_decode_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     test_dataset = test_dataset.batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
     # new distribute part
@@ -322,25 +299,6 @@ def train_decoder(model, epochs, path_tr, path_val):
 
 
 def train_env(model, epochs, path_tr, path_val):
-    class generator:
-        def __init__(self, filename):
-            self.filename = filename
-
-        def __call__(self):
-            with h5py.File(self.filename, 'r') as hf:
-                for im in zip(hf['states'][:], hf['actions'][:], hf['labels'][:]):
-                    yield im
-
-    image_feature_description = {
-        'image_x': tf.io.FixedLenFeature([], tf.string),
-        'image_y': tf.io.FixedLenFeature([], tf.string),
-        'label_x': tf.io.FixedLenFeature([], tf.string),
-        'label_y': tf.io.FixedLenFeature([], tf.string),
-        'action': tf.io.FixedLenFeature([], tf.string),
-    }
-
-    def _parse_image_function(example_proto):
-        return tf.io.parse_single_example(example_proto, image_feature_description)
 
     def _decode_image_function(record):
         for key in ['image_x', 'image_y', 'label_x', 'label_y']:
@@ -364,15 +322,13 @@ def train_env(model, epochs, path_tr, path_val):
 
         return train_loss
 
-    # train_dataset = tf.data.Dataset.from_generator(generator(path_tr), (tf.float32, tf.float32, tf.float32), (tf.TensorShape([128, 128, 6]), tf.TensorShape([4,]), tf.TensorShape([128, 128, 6])))
-    train_dataset = tf.data.TFRecordDataset(path_tr)
-    train_dataset = train_dataset.map(_parse_image_function).map(_decode_image_function)
-    train_dataset = train_dataset.repeat(10).shuffle(TRAIN_BUF).batch(BATCH_SIZE)
+    train_dataset = get_dataset(path_tr)
+    train_dataset = train_dataset.map(_decode_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    train_dataset = train_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
-    # test_dataset = tf.data.Dataset.from_generator(generator(path_val), (tf.float32, tf.float32, tf.float32), (tf.TensorShape([128, 128, 6]), tf.TensorShape([4,]), tf.TensorShape([128, 128, 6])))
-    test_dataset = tf.data.TFRecordDataset(path_val)
-    test_dataset = test_dataset.map(_parse_image_function).map(_decode_image_function)
-    test_dataset = test_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE)
+    test_dataset = get_dataset(path_val)
+    test_dataset = test_dataset.map(_decode_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    test_dataset = test_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
     # new distribute part
     # train_dataset = strategy.experimental_distribute_dataset(train_dataset)
@@ -390,29 +346,6 @@ def train_env(model, epochs, path_tr, path_val):
 
         epoch_loss.reset_states()
 
-def get_dataset(filename):
-    image_feature_description = {
-        'image_x': tf.io.FixedLenFeature([], tf.string),
-        'image_y': tf.io.FixedLenFeature([], tf.string),
-        'label_x': tf.io.FixedLenFeature([], tf.string),
-        'label_y': tf.io.FixedLenFeature([], tf.string),
-        'action': tf.io.FixedLenFeature([], tf.string),
-    }
-
-    def _parse_image_function(example_proto):
-        return tf.io.parse_single_example(example_proto, image_feature_description)
-
-    def _decode_image_function(record):
-        for key in ['image_x', 'image_y', 'label_x', 'label_y']:
-            record[key] = tf.cast(tf.image.decode_image(record[key]), tf.float32) / 255.
-
-        record['action'] = tf.io.parse_tensor(record['action'], out_type=tf.float32)
-
-        return tf.concat((record['image_x'], record['image_y']), axis=-1), record['action'], tf.concat((record['label_x'], record['label_y']), axis=-1)
-
-    dataset = tf.data.TFRecordDataset(filename)
-    return dataset.map(_parse_image_function).map(_decode_image_function)
-
 
 if __name__ == "__main__":
 
@@ -421,9 +354,9 @@ if __name__ == "__main__":
     CLOUD = False
 
     epochs = 100
-    TRAIN_BUF = 2048 * 2
+    TRAIN_BUF = 2048 * 3
     BATCH_SIZE = 128 * 2
-    TEST_BUF = 2048 * 2
+    TEST_BUF = 2048 * 3
 
     if CLOUD:
         BUCKET = 'kuka-training-dataset'
@@ -475,19 +408,19 @@ if __name__ == "__main__":
     # train_decoder(model, epochs, path_tr, path_val)
     # train_env(model, epochs, path_tr, path_val)
 
-    # model.save_weights('/Users/dgrebenyuk/Research/dataset/weights/cp4_1.ckpt')
-
     number = 501
     mode = 'encode'
     # mode = 'forward'
     # mode = 'rollout'
     # mode = 'plan'
 
-    # with h5py.File(path_val, 'r') as f:
-    #     states = f['states'][number, :, :, :]
-    #     actions = f['actions'][number, :]
-    #     labels = f['labels'][number+4, :, :, :]
-    #     print('label act', actions)
+    def _decode_image_function(record):
+        for key in ['image_x', 'image_y', 'label_x', 'label_y']:
+            record[key] = tf.cast(tf.image.decode_image(record[key]), tf.float32) / 255.
+
+        record['action'] = tf.io.parse_tensor(record['action'], out_type=tf.float32)
+
+        return tf.concat((record['image_x'], record['image_y']), axis=-1), record['action'], tf.concat((record['label_x'], record['label_y']), axis=-1)
 
     if mode == 'plan':
         # actions = np.array([[0, 0, -1, 0], [0, 0, -1, 0], [0, 0, -1, 0], [0, 0, -1, 0]]).astype(np.float32)
@@ -514,7 +447,8 @@ if __name__ == "__main__":
             plt.show()
 
     if mode == 'encode':
-        data = get_dataset(path_tr)
+        data = get_dataset(path_val)
+        data = data.map(_decode_image_function)
 
         for i, (states, actions, labels) in enumerate(data.take(number)):
             if i == (number - 1):
