@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym as e
 import tensorflow as tf
+from models.model_train import get_dataset
 
 
 def env_creator_kuka_cam(renders=False):
@@ -110,34 +111,6 @@ def generate_tfr(n_batches, batch_size, planning_horizon, filename):
                 writer.write(example)
 
             print('Batch {} of {}'.format(i + 1, n_batches))
-
-
-######## GET DATASET ######
-def parse_image_function(example_proto):
-    image_feature_description = {
-        'image_x': tf.io.FixedLenFeature([], tf.string),
-        'image_y': tf.io.FixedLenFeature([], tf.string),
-        'label_x': tf.io.FixedLenFeature([], tf.string),
-        'label_y': tf.io.FixedLenFeature([], tf.string),
-        'action': tf.io.FixedLenFeature([], tf.string),
-    }
-    return tf.io.parse_single_example(example_proto, image_feature_description)
-
-
-def decode_image_function(record):
-    for key in ['image_x', 'image_y', 'label_x', 'label_y']:
-        record[key] = tf.cast(tf.image.decode_image(record[key]), tf.float32) / 255.
-
-    record['action'] = tf.io.parse_tensor(record['action'], out_type=tf.float32)
-
-    return tf.concat((record['image_x'], record['image_y']), axis=-1), record['action'], tf.concat((record['label_x'], record['label_y']), axis=-1)
-
-
-def get_dataset(filename):
-    dataset = tf.data.TFRecordDataset(filename)
-    dataset = dataset.map(parse_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    dataset = dataset.map(decode_image_function)
-    return dataset
 
 
 if __name__ == "__main__":

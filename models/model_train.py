@@ -1,12 +1,37 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import h5py
 import tensorflow as tf
-# import tensorflow_io as tfio
 import boto3
-from gym_kuka_multi_blocks.datasets.generate_data_set import get_dataset
 from models.autoencoder_env_model import AutoEncoderEnvironment
 
+######## GET DATASET ######
+def parse_image_function(example_proto):
+    image_feature_description = {
+        'image_x': tf.io.FixedLenFeature([], tf.string),
+        'image_y': tf.io.FixedLenFeature([], tf.string),
+        'label_x': tf.io.FixedLenFeature([], tf.string),
+        'label_y': tf.io.FixedLenFeature([], tf.string),
+        'action': tf.io.FixedLenFeature([], tf.string),
+    }
+    return tf.io.parse_single_example(example_proto, image_feature_description)
+
+
+def decode_image_function(record):
+    for key in ['image_x', 'image_y', 'label_x', 'label_y']:
+        record[key] = tf.cast(tf.image.decode_image(record[key]), tf.float32) / 255.
+
+    record['action'] = tf.io.parse_tensor(record['action'], out_type=tf.float32)
+
+    return tf.concat((record['image_x'], record['image_y']), axis=-1), record['action'], tf.concat((record['label_x'], record['label_y']), axis=-1)
+
+
+def get_dataset(filename):
+    dataset = tf.data.TFRecordDataset(filename)
+    dataset = dataset.map(parse_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    dataset = dataset.map(decode_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    return dataset
+
+### TRAIN ###
 @tf.function
 def compute_loss_de_en(model, x):
     z = model.encode(x)
@@ -62,7 +87,7 @@ def compute_apply_gradients_env(model, x, a, y, optimizer):
 
 def train(model, epochs, path_tr, path_val, mode):
     def train_one_step(model, train_dataset, test_dataset, mode):
-        for i, (train_X, train_A, train_Y) in train_dataset.take(1).enumerate():
+        for i, (train_X, train_A, train_Y) in train_dataset.enumerate():
             if mode == 'ed':
                 loss = compute_apply_gradients_enc_dec(model, train_X, optimizer)
                 # strategy.experimental_run_v2(compute_apply_gradients_enc_dec, args=(model, train_X, optimizer))
@@ -81,7 +106,7 @@ def train(model, epochs, path_tr, path_val, mode):
         train_loss = epoch_loss.result()
         epoch_loss.reset_states()
 
-        for test_X, test_A, test_Y in test_dataset.take(1):
+        for test_X, test_A, test_Y in test_dataset:
             if mode == 'ed':
                 loss = compute_loss_de_en(model, test_X)
             # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
@@ -171,9 +196,8 @@ if __name__ == "__main__":
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 
-    # print(model.inference_net.summary())
-    # print('\n', model.generative_net.summary())
-    # print('\n', model.env_net.summary())
+    # print(model.inference_net.summary(), '\n', model.generative_net.summary())
+    # print('\n', model.lat_env_net.summary())
 
     # with strategy.scope():
     if CLOUD:
@@ -182,7 +206,8 @@ if __name__ == "__main__":
         path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
-    model.load_weights(['en', 'de'], path_weights)
-    # print('Latest checkpoints:', path_weights)
+    # model.load_weights(['en', 'de'], path_weights)
 
+    # 'ed' - encoder-decoder; 'le' - latent environment
     train(model, epochs, path_tr, path_val, 'ed')
+    # train(model, epochs, path_tr, path_val, 'le')
