@@ -2,7 +2,6 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym as e
-from PIL import Image
 import tensorflow as tf
 
 
@@ -113,6 +112,34 @@ def generate_tfr(n_batches, batch_size, planning_horizon, filename):
             print('Batch {} of {}'.format(i + 1, n_batches))
 
 
+######## GET DATASET ######
+def parse_image_function(example_proto):
+    image_feature_description = {
+        'image_x': tf.io.FixedLenFeature([], tf.string),
+        'image_y': tf.io.FixedLenFeature([], tf.string),
+        'label_x': tf.io.FixedLenFeature([], tf.string),
+        'label_y': tf.io.FixedLenFeature([], tf.string),
+        'action': tf.io.FixedLenFeature([], tf.string),
+    }
+    return tf.io.parse_single_example(example_proto, image_feature_description)
+
+
+def decode_image_function(record):
+    for key in ['image_x', 'image_y', 'label_x', 'label_y']:
+        record[key] = tf.cast(tf.image.decode_image(record[key]), tf.float32) / 255.
+
+    record['action'] = tf.io.parse_tensor(record['action'], out_type=tf.float32)
+
+    return tf.concat((record['image_x'], record['image_y']), axis=-1), record['action'], tf.concat((record['label_x'], record['label_y']), axis=-1)
+
+
+def get_dataset(filename):
+    dataset = tf.data.TFRecordDataset(filename)
+    dataset = dataset.map(parse_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    dataset = dataset.map(decode_image_function)
+    return dataset
+
+
 if __name__ == "__main__":
 
     CHANNELS = 6
@@ -128,8 +155,8 @@ if __name__ == "__main__":
 
     # generate_h5(n_batches=24, batch_size=16, planning_horizon=20, path=path_tr_h5)
     # generate_h5(n_batches=8, batch_size=16, planning_horizon=20, path=path_val_h5)
-    generate_tfr(n_batches=31, batch_size=16, planning_horizon=20, filename=path_tr_tfr)  # 310
-    generate_tfr(n_batches=3, batch_size=16, planning_horizon=20, filename=path_val_tfr)  # 31
+    # generate_tfr(n_batches=310, batch_size=16, planning_horizon=20, filename=path_tr_tfr)  # 310
+    # generate_tfr(n_batches=31, batch_size=16, planning_horizon=20, filename=path_val_tfr)  # 31
 
     if DEBUG:
         if TYPE == 'h5':
@@ -148,36 +175,17 @@ if __name__ == "__main__":
                 plt.show()
 
         if TYPE == 'tfr':
-            image_feature_description = {
-                'image_x': tf.io.FixedLenFeature([], tf.string),
-                'image_y': tf.io.FixedLenFeature([], tf.string),
-                'label_x': tf.io.FixedLenFeature([], tf.string),
-                'label_y': tf.io.FixedLenFeature([], tf.string),
-                'action': tf.io.FixedLenFeature([], tf.string),
-            }
 
-            def _parse_image_function(example_proto):
-                return tf.io.parse_single_example(example_proto, image_feature_description)
+            dataset = get_dataset(path_tr_tfr)
 
-            def _decode_image_function(record):
-                for key in ['image_x', 'image_y', 'label_x', 'label_y']:
-                    record[key] = tf.image.decode_image(record[key])
-
-                record['action'] = tf.io.parse_tensor(record['action'], out_type=tf.float32)
-                return record
-
-            filenames = [path_tr_tfr]
-            raw_dataset = tf.data.TFRecordDataset(filenames)
-
-            parsed_image_dataset = raw_dataset.map(_parse_image_function).map(_decode_image_function)
             print('Read from file')
-            for i, record in enumerate(parsed_image_dataset.take(4)):
+            for i, (image, action, label) in dataset.take(4).enumerate():
 
                 if i == 2:
-                    print(record['action'].numpy())
-                    plt.imshow(record['label_y'].numpy())
+                    print("act at", i, action.numpy())
+                    plt.imshow(label[..., 3:6].numpy())
                     plt.show()
                 elif i == 3:
-                    plt.imshow(record['image_y'].numpy())
+                    plt.imshow(image[..., 3:6].numpy())
                     plt.show()
 

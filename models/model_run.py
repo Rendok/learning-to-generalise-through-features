@@ -1,9 +1,7 @@
-import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from gym_kuka_multi_blocks.planners.gradient import model as gr
-from gym_kuka_multi_blocks.planners.generate_data_set import env_creator_kuka_cam
+from gym_kuka_multi_blocks.datasets.generate_data_set import env_creator_kuka_cam
 
 print(tf.__version__)
 env = env_creator_kuka_cam()
