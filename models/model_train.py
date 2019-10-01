@@ -59,6 +59,24 @@ def compute_loss_env(model, x, a, y):
 
     return loss
 
+@tf.function
+def compute_loss_all(model, x, a, y):
+
+    z = model.inference_net(x)
+    z = model.env_forward(z, a)
+    x_pred = model.generative_net(z)
+
+    x_shape = tf.shape(x_pred)[0]
+
+    x_pred = tf.reshape(x_pred, [x_shape, -1])
+    y = tf.reshape(y, [x_shape, -1])
+
+    loss = tf.reduce_mean(tf.reduce_sum(tf.math.squared_difference(y, x_pred), axis=-1))
+
+    # loss = tf.nn.compute_average_loss(loss, global_batch_size=BATCH_SIZE)
+
+    return loss
+
 
 @tf.function
 def compute_apply_gradients_enc_dec(model, x, optimizer):
@@ -85,6 +103,17 @@ def compute_apply_gradients_env(model, x, a, y, optimizer):
     return loss
 
 
+@tf.function
+def compute_apply_gradients_all(model, x, a, y, optimizer):
+
+    with tf.GradientTape() as tape:
+        loss = compute_loss_all(model, x, a, y)
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+    return loss
+
+
 def train(model, epochs, path_tr, path_val, mode):
     def train_one_step(model, train_dataset, test_dataset, mode):
         for i, (train_X, train_A, train_Y) in train_dataset.enumerate():
@@ -93,6 +122,8 @@ def train(model, epochs, path_tr, path_val, mode):
                 # strategy.experimental_run_v2(compute_apply_gradients_enc_dec, args=(model, train_X, optimizer))
             elif mode == 'le':
                 loss = compute_apply_gradients_env(model, train_X, train_A, train_Y, optimizer)
+            elif mode == 'all':
+                loss = compute_apply_gradients_all(model, train_X, train_A, train_Y, optimizer)
             else:
                 raise ValueError
 
@@ -112,6 +143,8 @@ def train(model, epochs, path_tr, path_val, mode):
             # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
             elif mode == 'le':
                 loss = compute_loss_env(model, test_X, test_A, test_Y)
+            elif mode == 'all':
+                loss = compute_loss_all(model, train_X, train_A, train_Y)
             else:
                 raise ValueError
 
@@ -158,9 +191,9 @@ if __name__ == "__main__":
     CLOUD = False
 
     epochs = 100
-    TRAIN_BUF = 2048 * 3
-    BATCH_SIZE = 128 * 2
-    TEST_BUF = 2048 * 3
+    TRAIN_BUF = 2048 * 4
+    BATCH_SIZE = 128 * 3
+    TEST_BUF = 2048 * 4
 
     if CLOUD:
         BUCKET = 'kuka-training-dataset'
@@ -206,8 +239,8 @@ if __name__ == "__main__":
         path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
-    # model.load_weights(['en', 'de'], path_weights)
+    model.load_weights(['en', 'de', 'le'], path_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment
-    train(model, epochs, path_tr, path_val, 'ed')
-    # train(model, epochs, path_tr, path_val, 'le')
+    # train(model, epochs, path_tr, path_val, 'ed')
+    train(model, epochs, path_tr, path_val, 'all')
