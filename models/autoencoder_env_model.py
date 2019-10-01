@@ -2,48 +2,139 @@ import tensorflow as tf
 import numpy as np
 
 
+def make_inference_net(latent_dim):
+    model = tf.keras.Sequential(
+        [
+            tf.keras.layers.InputLayer(input_shape=(128, 128, 6)),
+            tf.keras.layers.Conv2D(
+                filters=32, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2D(
+                filters=32, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2D(
+                filters=64, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2D(
+                filters=64, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2D(
+                filters=128, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2D(
+                filters=128, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2D(
+                filters=256, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2D(
+                filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2D(
+                filters=512, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2D(
+                filters=512, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(512, activation='relu',
+                                  kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Dense(latent_dim, activation='tanh',
+                                  kernel_initializer=tf.keras.initializers.glorot_normal(seed=None))
+        ]
+    )
+    return model
+
+def make_generative_net(latent_dim):
+    model = tf.keras.Sequential(
+        [
+            tf.keras.layers.InputLayer(input_shape=(latent_dim,)),
+            tf.keras.layers.Dense(512, activation='relu',
+                                  kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Dense(8192, activation='relu',
+                                  kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Reshape(target_shape=(4, 4, 512)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=512, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2DTranspose(
+                filters=256, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2DTranspose(
+                filters=128, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=128, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2DTranspose(
+                filters=64, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=64, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2DTranspose(
+                filters=32, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=32, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2DTranspose(
+                filters=6, kernel_size=4, strides=(1, 1), activation='sigmoid', padding='SAME',
+                kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
+        ]
+    )
+    return model
+#
+#
 # def make_inference_net(latent_dim):
 #     model = tf.keras.Sequential(
 #         [
 #             tf.keras.layers.InputLayer(input_shape=(128, 128, 6)),
 #             tf.keras.layers.Conv2D(
-#                 filters=32, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
-#                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Conv2D(
 #                 filters=32, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
 #                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Conv2D(
-#                 filters=64, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
-#                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+#             tf.keras.layers.Dropout(0.2),
 #             tf.keras.layers.Conv2D(
 #                 filters=64, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
 #                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Conv2D(
-#                 filters=128, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
-#                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+#             tf.keras.layers.Dropout(0.2),
 #             tf.keras.layers.Conv2D(
 #                 filters=128, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
 #                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Conv2D(
-#                 filters=256, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
-#                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+#             tf.keras.layers.Dropout(0.2),
 #             tf.keras.layers.Conv2D(
 #                 filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
 #                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+#             tf.keras.layers.Dropout(0.2),
 #             tf.keras.layers.Conv2D(
-#                 filters=512, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
+#                 filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
 #                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Conv2D(
-#                 filters=512, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
-#                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+#             tf.keras.layers.Dropout(0.2),
 #             tf.keras.layers.Flatten(),
-#             tf.keras.layers.Dense(512, activation='tanh',
+#             tf.keras.layers.Dense(512, activation='relu',
 #                                   kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
+#             tf.keras.layers.Dropout(0.2),
 #             tf.keras.layers.Dense(latent_dim, activation='tanh',
 #                                   kernel_initializer=tf.keras.initializers.glorot_normal(seed=None))
-#         ]
+#         ], name="encoder"
 #     )
 #     return model
+#
 #
 # def make_generative_net(latent_dim):
 #     model = tf.keras.Sequential(
@@ -51,110 +142,31 @@ import numpy as np
 #             tf.keras.layers.InputLayer(input_shape=(latent_dim,)),
 #             tf.keras.layers.Dense(512, activation='relu',
 #                                   kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Dense(8192, activation='relu',
+#             tf.keras.layers.Dense(4096, activation='relu',
 #                                   kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Reshape(target_shape=(4, 4, 512)),
-#             tf.keras.layers.Conv2DTranspose(
-#                 filters=512, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
-#                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Conv2DTranspose(
-#                 filters=256, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
-#                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+#             tf.keras.layers.Reshape(target_shape=(4, 4, 256)),
 #             tf.keras.layers.Conv2DTranspose(
 #                 filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
 #                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+#             tf.keras.layers.Dropout(0.2),
 #             tf.keras.layers.Conv2DTranspose(
-#                 filters=128, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+#                 filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
 #                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+#             tf.keras.layers.Dropout(0.2),
 #             tf.keras.layers.Conv2DTranspose(
 #                 filters=128, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
 #                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Conv2DTranspose(
-#                 filters=64, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
-#                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+#             tf.keras.layers.Dropout(0.2),
 #             tf.keras.layers.Conv2DTranspose(
 #                 filters=64, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
 #                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+#             tf.keras.layers.Dropout(0.2),
 #             tf.keras.layers.Conv2DTranspose(
-#                 filters=32, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+#                 filters=6, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
 #                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Conv2DTranspose(
-#                 filters=32, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
-#                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-#             tf.keras.layers.Conv2DTranspose(
-#                 filters=6, kernel_size=4, strides=(1, 1), activation='sigmoid', padding='SAME',
-#                 kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
-#         ]
+#         ], name="decoder"
 #     )
 #     return model
-#
-#
-def make_inference_net(latent_dim):
-    model = tf.keras.Sequential(
-        [
-            tf.keras.layers.InputLayer(input_shape=(128, 128, 6)),
-            tf.keras.layers.Conv2D(
-                filters=32, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Conv2D(
-                filters=64, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Conv2D(
-                filters=128, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Conv2D(
-                filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Conv2D(
-                filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(512, activation='tanh',
-                                  kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Dense(latent_dim, activation='tanh',
-                                  kernel_initializer=tf.keras.initializers.glorot_normal(seed=None))
-        ], name="encoder"
-    )
-    return model
-#
-#
-def make_generative_net(latent_dim):
-    model = tf.keras.Sequential(
-        [
-            tf.keras.layers.InputLayer(input_shape=(latent_dim,)),
-            tf.keras.layers.Dense(512, activation='relu',
-                                  kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dense(4096, activation='relu',
-                                  kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Reshape(target_shape=(4, 4, 256)),
-            tf.keras.layers.Conv2DTranspose(
-                filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Conv2DTranspose(
-                filters=256, kernel_size=2, strides=(2, 2), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Conv2DTranspose(
-                filters=128, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Conv2DTranspose(
-                filters=64, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Conv2DTranspose(
-                filters=6, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-        ], name="decoder"
-    )
-    return model
 
 
 def make_latent_env_net(latent_dim):
