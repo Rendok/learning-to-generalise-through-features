@@ -1,22 +1,26 @@
 from models.autoencoder_env_model import AutoEncoderEnvironment
+from models.vae_env_model import VAE
 from models.model_train import get_dataset
 import numpy as np
 import matplotlib.pyplot as plt
 
-number = 501
-model = AutoEncoderEnvironment()
+number = 561
+# model = AutoEncoderEnvironment()
+model = VAE(256)
 
 path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 path_val = '/Users/dgrebenyuk/Research/dataset/validation.tfrecord'
 
-model.load_weights(['en', 'de'], path_weights)
+model.load_weights(['en', 'de', 'le'], path_weights)
 
 data = get_dataset(path_val)
 
 for i, (states, actions, labels) in enumerate(data.take(number)):
     if i == (number - 1):
-        z = model.encode(states[np.newaxis, ...])
-        x_pred = model.decode(z)
+        # z = model.encode(states[np.newaxis, ...])
+        mean, logvar = model.encode(states[np.newaxis, ...])
+        z = model.reparameterize(mean, logvar)
+        x_pred = model.decode(z, apply_sigmoid=True)
 
         plt.imshow(states[:, :, :3])
         plt.title('State')

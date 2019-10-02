@@ -82,15 +82,16 @@ def log_normal_pdf(sample, mean, logvar, raxis=1):
 def compute_loss_vae(model, x, a, y):
     mean, logvar = model.encode(x)
     z = model.reparameterize(mean, logvar)
-    z_pred = model.env_step(z, a)
-    y_pred = model.decode(z_pred)
+    # z_pred = model.env_step(z, a)
+    y_pred = model.decode(z, apply_sigmoid=True)
 
     y = tf.keras.layers.Flatten()(y)
     y_pred = tf.keras.layers.Flatten()(y_pred)
 
-    log_px_z = tf.reduce_mean(tf.reduce_sum(tf.math.squared_difference(y, y_pred), axis=-1))
+    log_px_z = -tf.reduce_sum(tf.math.squared_difference(y, y_pred), axis=-1)
     log_pz = log_normal_pdf(z, 0., 0.)
     log_qz_x = log_normal_pdf(z, mean, logvar)
+    # print(log_px_z.shape, log_pz.shape, log_qz_x.shape)
 
     return -tf.reduce_mean(log_px_z + log_pz - log_qz_x)
 
@@ -132,6 +133,8 @@ def compute_apply_gradients_all(model, x, a, y, optimizer):
 
 @tf.function
 def compute_apply_gradients_vae(model, x, a, y, optimizer):
+    model.lat_env_net.trainable = False
+
     with tf.GradientTape() as tape:
         loss = compute_loss_vae(model, x, a, y)
     gradients = tape.gradient(loss, model.trainable_variables)
@@ -204,11 +207,19 @@ def train(model, epochs, path_tr, path_val, mode):
                 model.save_weights(['en', 'de'], '/tmp/weights', epoch % 3)
             elif mode == 'le':
                 model.save_weights(['le'], '/tmp/weights', epoch % 3)
+            elif mode == 'vae':
+                model.save_weights(['en', 'de', 'le'], '/tmp/weights', epoch % 3)
+            else:
+                raise ValueError
         else:
             if mode == 'ed':
                 model.save_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
             elif mode == 'le':
                 model.save_weights(['le'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
+            elif mode == 'vae':
+                model.save_weights(['en', 'de', 'le'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
+            else:
+                raise ValueError
 
         # s3.meta.client.upload_file('/tmp/weights/cp-de-{}.ckpt'.format(epoch), BUCKET, '/weights/cp-de-{}.ckpt'.format(epoch))
 
@@ -217,7 +228,7 @@ if __name__ == "__main__":
 
     print(tf.__version__)
     # train in the cloud
-    CLOUD = True
+    CLOUD = False
 
     epochs = 100
     TRAIN_BUF = 2048 * 4
@@ -259,7 +270,7 @@ if __name__ == "__main__":
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 
-    # print(model.inference_net.summary(), '\n', model.generative_net.summary())
+    print(model.inference_net.summary(), '\n', model.generative_net.summary())
     # print('\n', model.lat_env_net.summary())
 
     # with strategy.scope():
@@ -269,8 +280,8 @@ if __name__ == "__main__":
         path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
-    # model.load_weights(['en', 'de', 'le'], path_weights)
+    # model.load_weights(['en', 'de'], path_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment
     # train(model, epochs, path_tr, path_val, 'ed')
-    train(model, epochs, path_tr, path_val, 'vae')
+    # train(model, epochs, path_tr, path_val, 'vae')
