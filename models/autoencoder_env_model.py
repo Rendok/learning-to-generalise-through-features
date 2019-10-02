@@ -215,18 +215,18 @@ class AutoEncoderEnvironment(tf.keras.Model):
         return self.generative_net(z)
 
     @tf.function
-    def env_forward(self, x, a):
+    def env_step(self, z, a):
         # a = a[tf.newaxis, ...]
-        z = tf.concat([x, a], axis=1)
-        pred = self.lat_env_net(z)
-        return pred
+        z = tf.concat([z, a], axis=1)
+        z_pred = self.lat_env_net(z)
+        return z_pred
 
     @tf.function
-    def predict(self, x, a, y):
+    def forward(self, x, a):
         x = self.inference_net(x)
-        pred = self.env_forward(x, a)
-        label = self.inference_net(y)
-        return pred, label
+        pred = self.env_step(x, a)
+        pred = self.generative_net(pred)
+        return pred
 
     def save_weights(self, nets, file_path, number):
         for ch in nets:
@@ -258,7 +258,7 @@ class AutoEncoderEnvironment(tf.keras.Model):
 
         x_pred = self.encode(x0[np.newaxis, ...])
         for i in tf.range(actions.shape[0]):
-            x_pred = self.env_forward(x_pred, actions[i, ...])
+            x_pred = self.env_step(x_pred, actions[i, ...])
             all_preds.write(i, self.decode(x_pred))
 
         return x_pred, all_preds.stack()

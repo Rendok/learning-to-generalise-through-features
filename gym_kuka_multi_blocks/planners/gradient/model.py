@@ -211,7 +211,7 @@ def compute_apply_gradients_enc_dec(model, x, optimizer):
 
 
 def compute_loss_env(model, x, a, y):
-    x_pred, label = model.predict(x, a, y)
+    x_pred, label = model.forward(x, a, y)
 
     loss = tf.reduce_mean(tf.reduce_sum(tf.math.squared_difference(label, x_pred), axis=-1))
 
