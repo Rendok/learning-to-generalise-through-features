@@ -217,7 +217,7 @@ if __name__ == "__main__":
 
     print(tf.__version__)
     # train in the cloud
-    CLOUD = False
+    CLOUD = True
 
     epochs = 100
     TRAIN_BUF = 2048 * 4
