@@ -4,6 +4,7 @@ import tensorflow as tf
 import boto3
 from models.autoencoder_env_model import AutoEncoderEnvironment
 from models.vae_env_model import VAE
+from models.vae1_env_model import VAE1
 
 
 ######## GET DATASET ######
@@ -53,22 +54,22 @@ def compute_loss_de_en(model, x):
     return loss
 
 
-@tf.function
-def compute_loss_all(model, x, a, y):
-    z = model.inference_net(x)
-    z = model.env_step(z, a)
-    x_pred = model.generative_net(z)
-
-    x_shape = tf.shape(x_pred)[0]
-
-    x_pred = tf.reshape(x_pred, [x_shape, -1])
-    y = tf.reshape(y, [x_shape, -1])
-
-    loss = tf.reduce_mean(tf.reduce_sum(tf.math.squared_difference(y, x_pred), axis=-1))
-
-    # loss = tf.nn.compute_average_loss(loss, global_batch_size=BATCH_SIZE)
-
-    return loss
+# @tf.function
+# def compute_loss_all(model, x, a, y):
+#     z = model.inference_net(x)
+#     z = model.env_step(z, a)
+#     x_pred = model.generative_net(z)
+#
+#     x_shape = tf.shape(x_pred)[0]
+#
+#     x_pred = tf.reshape(x_pred, [x_shape, -1])
+#     y = tf.reshape(y, [x_shape, -1])
+#
+#     loss = tf.reduce_mean(tf.reduce_sum(tf.math.squared_difference(y, x_pred), axis=-1))
+#
+#     # loss = tf.nn.compute_average_loss(loss, global_batch_size=BATCH_SIZE)
+#
+#     return loss
 
 
 def log_normal_pdf(sample, mean, logvar, raxis=1):
@@ -79,21 +80,52 @@ def log_normal_pdf(sample, mean, logvar, raxis=1):
 
 
 @tf.function
-def compute_loss_vae(model, x, a, y):
+def compute_loss_vae(model, x):
     mean, logvar = model.encode(x)
     z = model.reparameterize(mean, logvar)
-    # z_pred = model.env_step(z, a)
-    y_pred = model.decode(z, apply_sigmoid=True)
+    x_pred = model.decode(z, apply_sigmoid=True)
 
-    y = tf.keras.layers.Flatten()(y)
-    y_pred = tf.keras.layers.Flatten()(y_pred)
+    x_pred = tf.keras.layers.Flatten()(x_pred)
+    x = tf.keras.layers.Flatten()(x)
 
-    log_px_z = -tf.reduce_sum(tf.math.squared_difference(y, y_pred), axis=-1)
+    log_px_z = -tf.reduce_sum(tf.math.squared_difference(x, x_pred), axis=-1)
+
     log_pz = log_normal_pdf(z, 0., 0.)
     log_qz_x = log_normal_pdf(z, mean, logvar)
     # print(log_px_z.shape, log_pz.shape, log_qz_x.shape)
 
     return -tf.reduce_mean(log_px_z + log_pz - log_qz_x)
+
+
+@tf.function
+def compute_loss_vae_env(model, x, a, y):
+    mean, logvar = model.encode(x)
+    z = model.reparameterize(mean, logvar)
+
+    z = model.env_step(z, a)
+
+    x_pred = model.decode(z, apply_sigmoid=True)
+
+    x_pred = tf.keras.layers.Flatten()(x_pred)
+
+    y = tf.keras.layers.Flatten()(y)
+    log_px_z = -tf.reduce_sum(tf.math.squared_difference(y, x_pred), axis=-1)
+
+    log_pz = log_normal_pdf(z, 0., 0.)
+    log_qz_x = log_normal_pdf(z, mean, logvar)
+    # print(log_px_z.shape, log_pz.shape, log_qz_x.shape)
+
+    return -tf.reduce_mean(log_px_z + log_pz - log_qz_x)
+
+
+# @tf.function
+# def compute_loss_vae(model, x, a, y):
+#     z = model.encode(x)
+#     # z_pred = model.env_step(z, a)
+#     rv_x = model.decode(z)
+#
+#     print(tf.reduce_sum(rv_x.log_prob(x)))
+#     return -tf.reduce_sum(rv_x.log_prob(x))
 
 
 @tf.function
@@ -114,29 +146,29 @@ def compute_apply_gradients_env(model, x, a, y, optimizer):
     model.generative_net.trainable = False
 
     with tf.GradientTape() as tape:
-        loss = compute_loss_all(model, x, a, y)
+        loss = compute_loss_vae_env(model, x, a, y)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
     return loss
 
 
+# @tf.function
+# def compute_apply_gradients_all(model, x, a, y, optimizer):
+#     with tf.GradientTape() as tape:
+#         loss = compute_loss_all(model, x, a, y)
+#     gradients = tape.gradient(loss, model.trainable_variables)
+#     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+#
+#     return loss
+
+
 @tf.function
-def compute_apply_gradients_all(model, x, a, y, optimizer):
-    with tf.GradientTape() as tape:
-        loss = compute_loss_all(model, x, a, y)
-    gradients = tape.gradient(loss, model.trainable_variables)
-    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-
-    return loss
-
-
-@tf.function
-def compute_apply_gradients_vae(model, x, a, y, optimizer):
+def compute_apply_gradients_vae(model, x, optimizer):
     model.lat_env_net.trainable = False
 
     with tf.GradientTape() as tape:
-        loss = compute_loss_vae(model, x, a, y)
+        loss = compute_loss_vae(model, x)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
@@ -151,10 +183,8 @@ def train(model, epochs, path_tr, path_val, mode):
                 # strategy.experimental_run_v2(compute_apply_gradients_enc_dec, args=(model, train_X, optimizer))
             elif mode == 'le':
                 loss = compute_apply_gradients_env(model, train_X, train_A, train_Y, optimizer)
-            elif mode == 'all':
-                loss = compute_apply_gradients_all(model, train_X, train_A, train_Y, optimizer)
             elif mode == 'vae':
-                loss = compute_apply_gradients_vae(model, train_X, train_A, train_Y, optimizer)
+                loss = compute_apply_gradients_vae(model, train_X, optimizer)
             else:
                 raise ValueError
 
@@ -172,10 +202,10 @@ def train(model, epochs, path_tr, path_val, mode):
             if mode == 'ed':
                 loss = compute_loss_de_en(model, test_X)
             # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
-            elif mode == 'le' or mode == 'all':
-                loss = compute_loss_all(model, test_X, test_A, test_Y)
+            elif mode == 'le':
+                loss = compute_loss_vae_env(model, test_X, test_A, test_Y)
             elif mode == 'vae':
-                loss = compute_loss_vae(model, test_X, test_A, test_Y)
+                loss = compute_loss_vae(model, test_X)
             else:
                 raise ValueError
 
@@ -208,7 +238,7 @@ def train(model, epochs, path_tr, path_val, mode):
             elif mode == 'le':
                 model.save_weights(['le'], '/tmp/weights', epoch % 3)
             elif mode == 'vae':
-                model.save_weights(['en', 'de', 'le'], '/tmp/weights', epoch % 3)
+                model.save_weights(['en', 'de'], '/tmp/weights', epoch % 3)
             else:
                 raise ValueError
         else:
@@ -217,7 +247,7 @@ def train(model, epochs, path_tr, path_val, mode):
             elif mode == 'le':
                 model.save_weights(['le'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
             elif mode == 'vae':
-                model.save_weights(['en', 'de', 'le'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
+                model.save_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
             else:
                 raise ValueError
 
@@ -270,7 +300,7 @@ if __name__ == "__main__":
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 
-    print(model.inference_net.summary(), '\n', model.generative_net.summary())
+    # print(model.inference_net.summary(), '\n', model.generative_net.summary())
     # print('\n', model.lat_env_net.summary())
 
     # with strategy.scope():
@@ -283,5 +313,5 @@ if __name__ == "__main__":
     # model.load_weights(['en', 'de'], path_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment
-    # train(model, epochs, path_tr, path_val, 'ed')
-    # train(model, epochs, path_tr, path_val, 'vae')
+    # train(model, epochs, path_tr, path_val, 'le')
+    train(model, epochs, path_tr, path_val, 'vae')

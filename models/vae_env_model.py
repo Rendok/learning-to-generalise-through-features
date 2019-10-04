@@ -60,38 +60,38 @@ def make_generative_net(latent_dim):
             tf.keras.layers.Reshape(target_shape=(4, 4, 512)),
             tf.keras.layers.UpSampling2D((2, 2)),
             tf.keras.layers.Conv2DTranspose(
-                filters=512, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
+                filters=512, kernel_size=2, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
             tf.keras.layers.Conv2DTranspose(
-                filters=512, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.UpSampling2D((2, 2)),
-            tf.keras.layers.Conv2DTranspose(
-                filters=256, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Conv2DTranspose(
-                filters=256, kernel_size=2, strides=(1, 1), activation='relu', padding='SAME',
+                filters=512, kernel_size=2, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
             tf.keras.layers.UpSampling2D((2, 2)),
             tf.keras.layers.Conv2DTranspose(
-                filters=128, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                filters=256, kernel_size=2, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
             tf.keras.layers.Conv2DTranspose(
-                filters=128, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.UpSampling2D((2, 2)),
-            tf.keras.layers.Conv2DTranspose(
-                filters=64, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
-                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Conv2DTranspose(
-                filters=64, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                filters=256, kernel_size=2, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
             tf.keras.layers.UpSampling2D((2, 2)),
             tf.keras.layers.Conv2DTranspose(
-                filters=32, kernel_size=3, strides=(1, 1), padding='SAME',
-                kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
+                filters=128, kernel_size=3, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
             tf.keras.layers.Conv2DTranspose(
-                filters=6, kernel_size=4, strides=(1, 1), padding='SAME',
+                filters=128, kernel_size=3, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.UpSampling2D((2, 2)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=64, kernel_size=3, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=64, kernel_size=3, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.UpSampling2D((2, 2)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=32, kernel_size=3, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=6, kernel_size=4, strides=(1, 1), activation=None, padding='SAME',
                 kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
         ], name="decoder"
     )
@@ -102,13 +102,13 @@ def make_latent_env_net(latent_dim):
     model = tf.keras.Sequential(
         [
             tf.keras.layers.InputLayer(input_shape=(latent_dim + 4)),
-            tf.keras.layers.Dense(2 * latent_dim, activation='relu',
+            tf.keras.layers.Dense(2 * latent_dim, activation=tf.nn.leaky_relu,
                                   kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dense(2 * latent_dim, activation='relu',
+            tf.keras.layers.Dense(2 * latent_dim, activation=tf.nn.leaky_relu,
                                   kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dense(2 * latent_dim, activation='relu',
+            tf.keras.layers.Dense(2 * latent_dim, activation=tf.nn.leaky_relu,
                                   kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
-            tf.keras.layers.Dense(latent_dim, ),
+            tf.keras.layers.Dense(latent_dim),
         ], name="dynamics"
     )
     return model
@@ -126,7 +126,7 @@ class VAE(tf.keras.Model):
     @tf.function
     def sample(self, eps=None):
         if eps is None:
-            eps = tf.random.normal(shape=(100, self.latent_dim))
+            eps = tf.random.normal(shape=(100, self._latent_dim))
         return self.decode(eps, apply_sigmoid=True)
 
     def encode(self, x):
