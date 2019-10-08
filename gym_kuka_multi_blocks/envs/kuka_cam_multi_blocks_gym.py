@@ -14,8 +14,16 @@ from pkg_resources import parse_version
 import gym
 from math import pi
 
+from tf_agents.environments import py_environment
+from tf_agents.environments import tf_environment
+from tf_agents.environments import tf_py_environment
+from tf_agents.specs import array_spec
+from tf_agents.environments import wrappers
+from tf_agents.environments import suite_gym
+from tf_agents.trajectories import time_step as ts
 
-class KukaCamMultiBlocksEnv(KukaGymEnv):
+
+class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
     """Class for Kuka environment with multi blocks.
 
     It generates the specified number of blocks
@@ -96,12 +104,23 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
                                        shape=(4,),
                                        dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
+        self._action_spec = array_spec.BoundedArraySpec(
+            shape=(4,), dtype=np.float32, minimum=-1, maximum=1, name='action')
+
         # camera images
         self.observation_space = spaces.Box(0, 255, [self._height, self._width, self._channels], dtype=np.uint8)
 
+        self._observation_spec = array_spec.BoundedArraySpec(
+            shape=(self._height, self._width, self._channels), dtype=np.uint8, minimum=0, maximum=255,
+            name='observation')
+
         self._set_camera_settings()
 
-        # self.viewer = None
+    def action_spec(self):
+        return self._action_spec
+
+    def observation_spec(self):
+        return self._observation_spec
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
@@ -109,7 +128,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
 
         # Set all the parameters
         self._env_step = 0
-        self._done = False
+        self._episode_ended = False
 
         # Set the physics engine
         p.resetSimulation()
@@ -606,6 +625,11 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
           debug: Dictionary of extra information provided by environment.
         """
 
+        if self._episode_ended:
+            # The last action ended the episode. Ignore the current action and start
+            # a new episode.
+            return self.reset()
+
         dv = self._dv  # velocity per physics step.
 
         # TODO: add finger's angle into actions
@@ -742,9 +766,9 @@ class KukaCamMultiBlocksEnv(KukaGymEnv):
         maxSteps steps.
         """
         if self._operation == "move_pick":
-            return self._done or self._env_step >= self._maxSteps
+            return self._episode_ended or self._env_step >= self._maxSteps
         else:
-            return self._done or self._env_step >= self._maxSteps
+            return self._episode_ended or self._env_step >= self._maxSteps
 
     def _get_distance_to_goal(self):
         """
