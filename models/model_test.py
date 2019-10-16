@@ -18,7 +18,7 @@ data = get_dataset(path_val)
 for i, (states, actions, labels) in enumerate(data.take(number)):
     if i == (number - 1):
         # z = model.encode(states[np.newaxis, ...])
-        mean, logvar = model.encode(states[np.newaxis, ...])
+        mean, logvar = model.infer(states[np.newaxis, ...])
         z = model.reparameterize(mean, logvar)
         x_pred = model.decode(z, apply_sigmoid=True)
         # x_pred = model.sample()

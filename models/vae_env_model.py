@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 
 def make_inference_net(latent_dim):
@@ -123,13 +124,16 @@ class VAE(tf.keras.Model):
         self.generative_net = make_generative_net(self._latent_dim)
         self.lat_env_net = make_latent_env_net(self._latent_dim)
 
+    def call(self, input):
+        return self.encode(input)
+
     @tf.function
     def sample(self, eps=None):
         if eps is None:
             eps = tf.random.normal(shape=(100, self._latent_dim))
         return self.decode(eps, apply_sigmoid=True)
 
-    def encode(self, x):
+    def infer(self, x):
         mean, logvar = tf.split(self.inference_net(x), num_or_size_splits=2, axis=1)
         return mean, logvar
 
@@ -137,7 +141,11 @@ class VAE(tf.keras.Model):
         eps = tf.random.normal(shape=mean.shape)
         return eps * tf.exp(logvar * .5) + mean
 
-    def decode(self, z, apply_sigmoid=False):
+    def encode(self, x):
+        mean, logvar = self.infer(x)
+        return self.reparameterize(mean, logvar)
+
+    def decode(self, z, apply_sigmoid=True):
         logits = self.generative_net(z)
         if apply_sigmoid:
             probs = tf.sigmoid(logits)
@@ -154,7 +162,7 @@ class VAE(tf.keras.Model):
 
     @tf.function
     def forward(self, x, a):
-        mean, logvar = self.encode(x)
+        mean, logvar = self.infer(x)
         z = self.reparameterize(mean, logvar)
         z_pred = self.env_step(z, a)
         y_pred = self.decode(z_pred, apply_sigmoid=True)
@@ -183,3 +191,46 @@ class VAE(tf.keras.Model):
                 self.lat_env_net.load_weights(latest)
             else:
                 raise ValueError
+
+    # @tf.function
+    def roll_out_plan(self, x0, actions):
+        all_preds = tf.TensorArray(tf.float32, actions.shape[0])
+
+        mean, logvar = self.infer(x0[np.newaxis, ...])
+        x_pred = self.reparameterize(mean, logvar)
+
+        for i in tf.range(actions.shape[0]):
+            act = actions[i, ...]
+            x_pred = self.env_step(x_pred, act[tf.newaxis, ...])
+            all_preds = all_preds.write(i, self.decode(x_pred))
+
+        return x_pred, all_preds.stack()
+
+    def plan(self, x0, xg, horizon, lr, epochs):
+        actions = tf.convert_to_tensor(np.random.randn(horizon, 4).astype(np.float32))
+
+        for i in range(epochs):
+            with tf.GradientTape(watch_accessed_variables=False) as tape:
+                tape.watch(actions)
+                x_pred, all_x = self.roll_out_plan(x0, actions)
+                mean, logvar = self.infer(xg[np.newaxis, ...])
+                zg = self.reparameterize(mean, logvar)
+                loss = tf.reduce_mean(tf.reduce_sum(tf.math.squared_difference(zg, x_pred), axis=-1))
+                # loss = tf.reduce_sum(tf.losses.mean_squared_error(zg, x_pred))
+
+            gradients = tape.gradient(loss, actions)
+
+            # print(gradients)
+            if i < 25:
+                actions -= lr * gradients
+            elif i < 50:
+                actions -= lr * gradients
+            else:
+                actions -= lr * gradients
+
+            actions = tf.clip_by_value(actions, -1., 1.)
+
+            if i % 200 == 0:
+                print(i)
+
+        return actions, all_x

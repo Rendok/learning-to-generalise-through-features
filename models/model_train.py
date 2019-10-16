@@ -39,7 +39,7 @@ def get_dataset(filename):
 ### TRAIN ###
 @tf.function
 def compute_loss_de_en(model, x):
-    z = model.encode(x)
+    z = model.infer(x)
     x_logit = model.decode(z)
 
     x_shape = tf.shape(x_logit)[0]
@@ -81,7 +81,7 @@ def log_normal_pdf(sample, mean, logvar, raxis=1):
 
 @tf.function
 def compute_loss_vae(model, x):
-    mean, logvar = model.encode(x)
+    mean, logvar = model.infer(x)
     z = model.reparameterize(mean, logvar)
     x_pred = model.decode(z, apply_sigmoid=True)
 
@@ -99,23 +99,21 @@ def compute_loss_vae(model, x):
 
 @tf.function
 def compute_loss_vae_env(model, x, a, y):
-    mean, logvar = model.encode(x)
+    mean, logvar = model.infer(x)
     z = model.reparameterize(mean, logvar)
-
     z = model.env_step(z, a)
-
     x_pred = model.decode(z, apply_sigmoid=True)
 
     x_pred = tf.keras.layers.Flatten()(x_pred)
-
     y = tf.keras.layers.Flatten()(y)
-    log_px_z = -tf.reduce_sum(tf.math.squared_difference(y, x_pred), axis=-1)
 
-    log_pz = log_normal_pdf(z, 0., 0.)
-    log_qz_x = log_normal_pdf(z, mean, logvar)
+    loss = tf.reduce_mean(tf.reduce_sum(tf.math.squared_difference(y, x_pred), axis=-1))
+
+    # log_pz = log_normal_pdf(z, 0., 0.)
+    # log_qz_x = log_normal_pdf(z, mean, logvar)
     # print(log_px_z.shape, log_pz.shape, log_qz_x.shape)
 
-    return -tf.reduce_mean(log_px_z + log_pz - log_qz_x)
+    return loss
 
 
 # @tf.function
@@ -130,6 +128,8 @@ def compute_loss_vae_env(model, x, a, y):
 
 @tf.function
 def compute_apply_gradients_enc_dec(model, x, optimizer):
+    model.inference_net.trainable = True
+    model.generative_net.trainable = True
     model.lat_env_net.trainable = False
 
     with tf.GradientTape() as tape:
@@ -141,9 +141,10 @@ def compute_apply_gradients_enc_dec(model, x, optimizer):
 
 
 @tf.function
-def compute_apply_gradients_env(model, x, a, y, optimizer):
+def compute_apply_gradients_vae_env(model, x, a, y, optimizer):
     model.inference_net.trainable = False
     model.generative_net.trainable = False
+    model.lat_env_net.trainable = True
 
     with tf.GradientTape() as tape:
         loss = compute_loss_vae_env(model, x, a, y)
@@ -175,60 +176,70 @@ def compute_apply_gradients_vae(model, x, optimizer):
     return loss
 
 
+def train_one_step(model, train_dataset, optimizer, epoch_loss, mode):
+    BATCH_SIZE = 128 * 2
+
+    for i, (train_X, train_A, train_Y) in train_dataset.enumerate():
+        if mode == 'ed':
+            loss = compute_apply_gradients_enc_dec(model, train_X, optimizer)
+            # strategy.experimental_run_v2(compute_apply_gradients_enc_dec, args=(model, train_X, optimizer))
+        elif mode == 'le':
+            loss = compute_apply_gradients_vae_env(model, train_X, train_A, train_Y, optimizer)
+        elif mode == 'vae':
+            loss = compute_apply_gradients_vae(model, train_X, optimizer)
+        else:
+            raise ValueError
+
+        # loss = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
+
+        epoch_loss.update_state(loss)
+        if i % 50 == 0:
+            print(i.numpy() * BATCH_SIZE, epoch_loss.result().numpy())
+            epoch_loss.reset_states()
+
+    train_loss = epoch_loss.result()
+    epoch_loss.reset_states()
+
+    return train_loss
+
+
+def test_one_step(model, test_dataset, epoch_loss, mode):
+    for test_X, test_A, test_Y in test_dataset:
+        if mode == 'ed':
+            loss = compute_loss_de_en(model, test_X)
+        # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
+        elif mode == 'le':
+            loss = compute_loss_vae_env(model, test_X, test_A, test_Y)
+        elif mode == 'vae':
+            loss = compute_loss_vae(model, test_X)
+        else:
+            raise ValueError
+
+        epoch_loss.update_state(loss)
+
+    test_loss = epoch_loss.result()
+    epoch_loss.reset_states()
+
+    return test_loss
+
+
 def train(model, epochs, path_tr, path_val, mode):
-    def train_one_step(model, train_dataset, test_dataset, mode):
-        for i, (train_X, train_A, train_Y) in train_dataset.enumerate():
-            if mode == 'ed':
-                loss = compute_apply_gradients_enc_dec(model, train_X, optimizer)
-                # strategy.experimental_run_v2(compute_apply_gradients_enc_dec, args=(model, train_X, optimizer))
-            elif mode == 'le':
-                loss = compute_apply_gradients_env(model, train_X, train_A, train_Y, optimizer)
-            elif mode == 'vae':
-                loss = compute_apply_gradients_vae(model, train_X, optimizer)
-            else:
-                raise ValueError
 
-            # loss = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
-
-            epoch_loss.update_state(loss)
-            if i % 50 == 0:
-                print(i.numpy() * BATCH_SIZE, epoch_loss.result().numpy())
-                epoch_loss.reset_states()
-
-        train_loss = epoch_loss.result()
-        epoch_loss.reset_states()
-
-        for test_X, test_A, test_Y in test_dataset:
-            if mode == 'ed':
-                loss = compute_loss_de_en(model, test_X)
-            # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
-            elif mode == 'le':
-                loss = compute_loss_vae_env(model, test_X, test_A, test_Y)
-            elif mode == 'vae':
-                loss = compute_loss_vae(model, test_X)
-            else:
-                raise ValueError
-
-            epoch_loss.update_state(loss)
-
-        test_loss = epoch_loss.result()
-        epoch_loss.reset_states()
-
-        return train_loss, test_loss
+    checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)  # TODO: incorporate into a class
+    epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 
     train_dataset = get_dataset(path_tr)
     train_dataset = train_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(
         buffer_size=tf.data.experimental.AUTOTUNE)
+    # train_dataset = strategy.experimental_distribute_dataset(train_dataset)
 
     test_dataset = get_dataset(path_val)
     test_dataset = test_dataset.shuffle(TRAIN_BUF).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-
-    # new distribute part
-    # train_dataset = strategy.experimental_distribute_dataset(train_dataset)
     # test_dataset = strategy.experimental_distribute_dataset(test_dataset)
 
     for epoch in range(1, epochs + 1):
-        train_loss, test_loss = train_one_step(model, train_dataset, test_dataset, mode)
+        train_loss = train_one_step(model, train_dataset, optimizer, epoch_loss, mode)
+        test_loss = test_one_step(model, test_dataset, optimizer, epoch_loss, mode)
 
         print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'validation loss:', test_loss.numpy())
 
@@ -258,12 +269,12 @@ if __name__ == "__main__":
 
     print(tf.__version__)
     # train in the cloud
-    CLOUD = False
+    CLOUD = True
 
     epochs = 100
-    TRAIN_BUF = 2048 * 4
-    BATCH_SIZE = 128 * 3
-    TEST_BUF = 2048 * 4
+    TRAIN_BUF = 2048 * 3
+    BATCH_SIZE = 128 * 2
+    TEST_BUF = 2048 * 3
 
     if CLOUD:
         BUCKET = 'kuka-training-dataset'
@@ -297,8 +308,8 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.Adam(1e-4)
     # model = AutoEncoderEnvironment(256)
     model = VAE(256)
-    checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
-    epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
+    # checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
+    # epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 
     # print(model.inference_net.summary(), '\n', model.generative_net.summary())
     # print('\n', model.lat_env_net.summary())
@@ -310,8 +321,8 @@ if __name__ == "__main__":
         path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
-    # model.load_weights(['en', 'de'], path_weights)
+    model.load_weights(['en', 'de', 'le'], path_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment
-    # train(model, epochs, path_tr, path_val, 'le')
-    train(model, epochs, path_tr, path_val, 'vae')
+    train(model, epochs, path_tr, path_val, 'le')
+    # train(model, epochs, path_tr, path_val, 'vae')

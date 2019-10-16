@@ -88,6 +88,9 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._operation = operation
         self._channels = 6
 
+        if self._operation not in ["move_pick", "move", "place"]:
+            raise NotImplementedError
+
         if self._renders:
             self.cid = p.connect(p.SHARED_MEMORY)
             if self.cid < 0:
@@ -99,16 +102,16 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         self._seed()
 
-        self.action_space = spaces.Box(low=-1,
-                                       high=1,
-                                       shape=(4,),
-                                       dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
+        # self.action_space = spaces.Box(low=-1,
+        #                                high=1,
+        #                                shape=(4,),
+        #                                dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
         self._action_spec = array_spec.BoundedArraySpec(
             shape=(4,), dtype=np.float32, minimum=-1, maximum=1, name='action')
 
         # camera images
-        self.observation_space = spaces.Box(0, 255, [self._height, self._width, self._channels], dtype=np.uint8)
+        # self.observation_space = spaces.Box(0, 255, [self._height, self._width, self._channels], dtype=np.uint8)
 
         self._observation_spec = array_spec.BoundedArraySpec(
             shape=(self._height, self._width, self._channels), dtype=np.uint8, minimum=0, maximum=255,
@@ -167,10 +170,11 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._goal = 0  # self._get_goal()
 
         # set observations
-        self._observation = self.get_observation()
+        observation = self.get_observation()
 
         # return observations
-        return self._observation
+        return ts.restart(np.array(observation, dtype=np.uint8))
+        # return observation
 
     def _randomly_place_objects(self, num_objects, table):
         """Randomly places the objects in the bin.
@@ -713,46 +717,15 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
                 self._attempted_grasp = True
 
-        elif self._operation == "place":
-            # FIXME: here
-            self.distance_x_y, self.distance_z = 0, 0  # self._get_distance_to_goal()
-
-        elif self._operation == "move":
-            # FIXME: here
-            self.distance = 0  # self._get_distance_to_goal()
-
         observation = self.get_observation()
         reward = self._reward()
         done = self._termination()
 
-        if self._operation == "move_pick":
-            debug = {
-                'goal_id': self._goal,
-                'distance_x_y': self.distance_x_y,
-                'distance_z': self.distance_z,
-                'operation': self._operation,
-                # 'disturbance': self.get_disturbance()
-            }
-        elif self._operation == 'place':
-            debug = {
-                'goal_id': self._goal,
-                'distance_x_y': self.distance_x_y,
-                'distance_z': abs(self.distance_z - 0.0075),
-                'operation': self._operation,
-                # 'disturbance': self.get_disturbance(),
-                'num_blocks': self._numObjects,
-            }
-        elif self._operation == 'move':
-            debug = {
-                'goal_id': self._goal[0],
-                'distance': self.distance,
-                'operation': self._operation
-            }
+        if done:
+            return ts.termination(np.array(observation, dtype=np.uint8), reward)
         else:
-            print(self._operation)
-            raise NotImplementedError
-
-        return observation, reward, done, debug
+            return ts.transition(
+                np.array(observation, dtype=np.uint8), reward=reward, discount=1.0)
 
     def _reward(self):
         """No reward in the environment

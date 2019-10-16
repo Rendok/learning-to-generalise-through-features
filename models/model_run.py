@@ -1,19 +1,28 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from gym_kuka_multi_blocks.datasets.generate_data_set import env_creator_kuka_cam
+from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlocksEnv
 from models.autoencoder_env_model import AutoEncoderEnvironment
+from models.vae_env_model import VAE
+from tf_agents.environments import utils
 
 print(tf.__version__)
-env = env_creator_kuka_cam()
+
+env = KukaCamMultiBlocksEnv(renders=False,
+                              numObjects=4,
+                              isTest=4,  # 1 and 4
+                              operation='move_pick',
+                              )
+
+utils.validate_py_environment(env, episodes=5)
 
 ideal_actions = np.array([[0, 0, -0.7, 0], [-0.7, 0, -0.7, 0], [-.7, 0, 0, 0], [0, 0, -0.7, 0], [0, 0, -0.7, 0], [0, 0, -0.7, 0]])
-horizon = 6
+horizon = 1
 
-x0 = env.reset() / 255.
+x0 = env.reset()[3] / 255.
 
-for i in ideal_actions:
-    obs, _, _, _ = env.step([0, 0, -.5, 0.5])
+for i in ideal_actions[:horizon]:
+    _, _, _, obs = env.step([0, 0, -1, 0.5])
 xg = obs / 255.
 
 plt.figure(figsize=(20, 20))
@@ -29,18 +38,19 @@ for i in range(2):
         plt.title('Goal State')
     plt.axis('off')
     plt.imshow(xg[..., 3*i:3 + 3*i])
-#
-model = AutoEncoderEnvironment()
+
+# model = AutoEncoderEnvironment()
+model = VAE(256)
 
 path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 model.load_weights(['en', 'de', 'le'], path_weights)
 
-actions, all_x = model.plan(x0, xg, horizon=horizon, epochs=400)
+actions, all_x = model.plan(x0, xg, horizon=horizon, lr=1e-4, epochs=100)
 
 env.reset()
 
 for i, a in enumerate(actions):
-    obs, _, _, _ = env.step(a)
+    _, _, _, obs = env.step(a)
 
     plt.subplot(6, horizon, 2*horizon + 1 + i)
     plt.axis('off')

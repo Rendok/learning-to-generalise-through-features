@@ -143,7 +143,7 @@ class AE(tf.keras.Model):
 def roll_out_plan(model, x0, actions):
     all_preds = tf.TensorArray(tf.float32, actions.shape[0])
 
-    x_pred = model.encode(x0[np.newaxis, ...])
+    x_pred = model.infer(x0[np.newaxis, ...])
     for i in tf.range(actions.shape[0]):
         x_pred = model.forward(x_pred, actions[i, ...])
         all_preds.write(i, model.decode(x_pred))
@@ -158,7 +158,7 @@ def plan(model, x0, xg, horizon, epochs):
         with tf.GradientTape(watch_accessed_variables=False) as tape:
             tape.watch(actions)
             x_pred, all_x = roll_out_plan(model, x0, actions)
-            zg = model.encode(xg[np.newaxis, ...])
+            zg = model.infer(xg[np.newaxis, ...])
             loss = tf.reduce_sum(tf.losses.mean_squared_error(zg, x_pred))
 
         gradients = tape.gradient(loss, actions)
@@ -184,7 +184,7 @@ def plan(model, x0, xg, horizon, epochs):
 
 
 def compute_loss_de_en(model, x):
-    z = model.encode(x)
+    z = model.infer(x)
     x_logit = model.decode(z)
 
     x_shape = tf.shape(x_logit)[0]
