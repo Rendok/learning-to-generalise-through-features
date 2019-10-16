@@ -30,6 +30,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
     """
 
     def __init__(self,
+                 encoding_net,
                  urdfRoot=pybullet_data.getDataPath(),
                  actionRepeat=80,
                  isEnableSelfCollision=True,
@@ -87,6 +88,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._isTest = isTest
         self._operation = operation
         self._channels = 6
+        self._encoding_net = encoding_net
 
         if self._operation not in ["move_pick", "move", "place"]:
             raise NotImplementedError
@@ -128,7 +130,6 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
     def _reset(self):
         """Environment reset called at the beginning of an episode.
         """
-
         # Set all the parameters
         self._env_step = 0
         self._episode_ended = False
@@ -167,7 +168,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                 p.stepSimulation()
 
         # FIXME: a more comprehensive goal state
-        self._goal = 0  # self._get_goal()
+        self.make_goal()
+        # self._goal = 0  # self._get_goal()
 
         # set observations
         observation = self.get_observation()
@@ -717,21 +719,22 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
                 self._attempted_grasp = True
 
-        observation = self.get_observation()
+        self.observation = self.get_observation()
         reward = self._reward()
         done = self._termination()
 
         if done:
-            return ts.termination(np.array(observation, dtype=np.uint8), reward)
+            return ts.termination(np.array(self.observation, dtype=np.uint8), reward)
         else:
             return ts.transition(
-                np.array(observation, dtype=np.uint8), reward=reward, discount=1.0)
+                np.array(self.observation, dtype=np.uint8), reward=reward, discount=1.0)
 
     def _reward(self):
         """No reward in the environment
         """
-
-        return 0
+        x = self._encoding_net.encode(self.observation[np.newaxis, ...].astype(np.float32) / 255.).numpy()
+        rew = np.dot(x, self._goal.T) / np.linalg.norm(x) / np.linalg.norm(self._goal)
+        return np.squeeze(rew)
 
     def _termination(self):
         """
@@ -795,6 +798,31 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         far = 10
 
         self._proj_matrix = p.computeProjectionMatrixFOV(fov, aspect, near, far)
+
+    def make_goal(self):
+
+        r = self._kuka.endEffectorPos[0:3]
+        a = self._kuka.endEffectorAngle
+
+        self._kuka.endEffectorPos[0] = 1
+        self._kuka.endEffectorPos[1] = 1
+        self._kuka.endEffectorPos[2] = 1
+        self._kuka.endEffectorAngle = 0
+
+        self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
+        for _ in range(self._actionRepeat):
+            p.stepSimulation()
+
+        self._goal_img = self.get_observation().astype(np.float32) / 255.
+        self._goal = self._encoding_net.encode(self._goal_img[np.newaxis, ...]).numpy()
+
+        self._kuka.endEffectorPos[0:3] = r
+        self._kuka.endEffectorAngle = a
+
+        self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
+        for _ in range(self._actionRepeat):
+            p.stepSimulation()
+
 
     if parse_version(gym.__version__) >= parse_version('0.9.6'):
         reset = _reset
