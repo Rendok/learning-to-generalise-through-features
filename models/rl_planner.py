@@ -4,6 +4,7 @@ from tf_agents.agents.ppo import ppo_agent
 from tf_agents.environments import suite_pybullet
 from tf_agents.environments import tf_py_environment
 from tf_agents.environments import parallel_py_environment
+from tf_agents.environments.utils import validate_py_environment
 from tf_agents.eval import metric_utils
 from tf_agents.metrics import tf_metrics
 from tf_agents.networks import actor_distribution_network, network
@@ -27,17 +28,6 @@ from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlo
 import matplotlib.pyplot as plt
 import os
 
-
-def env():
-    env = KukaCamMultiBlocksEnv(renders=False,
-                                numObjects=4,
-                                isTest=4,  # 1 and 4
-                                operation='move_pick',
-                                )
-    return env
-
-# utils.validate_py_environment(env, episodes=10)
-
 # HYPER PARAMETERS
 collect_episodes_per_iteration = 4  # 1000
 replay_buffer_capacity = 50
@@ -50,11 +40,10 @@ learning_rate = 3e-4
 gradient_clipping = None
 num_eval_episodes = 30
 
-num_parallel_environments = 2
+num_parallel_environments = 1
 num_epochs = 2
 
-batch_size = 2
-num_iterations = 3
+num_iterations = 50
 log_interval = 1
 eval_interval = 1
 
@@ -62,38 +51,43 @@ debug_summaries = False,
 summarize_grads_and_vars = False
 # --------
 
-# train_env = tf_py_environment.TFPyEnvironment(train_py_env)
-eval_env = tf_py_environment.TFPyEnvironment(env())
-
-train_env = tf_py_environment.TFPyEnvironment(
-    parallel_py_environment.ParallelPyEnvironment(
-        [lambda: env()] * num_parallel_environments))
-
-observation_spec = train_env.observation_spec()
-print(observation_spec)
-action_spec = train_env.action_spec()
-
 encoding_net = VAE(num_latent_dims)
 encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights')
+
+
+def env():
+    env = KukaCamMultiBlocksEnv(renders=False,
+                                encoding_net=encoding_net,
+                                numObjects=4,
+                                isTest=4,  # 1 and 4
+                                operation='move_pick',
+                                )
+    return env
+
+
+eval_env = tf_py_environment.TFPyEnvironment(env())
+
+# utils.validate_py_environment(eval_env, episodes=10)
+
+train_env = tf_py_environment.TFPyEnvironment(env())  # TODO: bug don't work in parallel
+    # parallel_py_environment.ParallelPyEnvironment(
+    #     [lambda: env()] * num_parallel_environments))
+
+# validate_py_environment(env(), episodes=10)
+
+observation_spec = train_env.observation_spec()
+action_spec = train_env.action_spec()
 
 critic_net = CriticNetwork(
     observation_spec,
     encoding_network=encoding_net,
     fc_layer_params=critic_fc_layer_params)
 
-# critic_net = value_network.ValueNetwork(
-#           observation_spec, fc_layer_params=critic_joint_fc_layer_params)
-
 actor_net = ActorNetwork(
     observation_spec,
     action_spec,
     encoding_network=encoding_net,
     fc_layer_params=actor_fc_layer_params)
-
-# actor_net = actor_distribution_network.ActorDistributionNetwork(
-#           observation_spec,
-#           action_spec,
-#           fc_layer_params=actor_fc_layer_params)
 
 # actor_net = actor_distribution_network.ActorDistributionNetwork(
 #     observation_spec,
@@ -157,10 +151,6 @@ collect_driver = dynamic_episode_driver.DynamicEpisodeDriver(
     num_episodes=collect_episodes_per_iteration
 )
 
-# dataset = replay_buffer.as_dataset(
-#     num_parallel_calls=3, sample_batch_size=batch_size, num_steps=1).prefetch(3)  #, num_steps=1).prefetch(3)
-
-
 tf_agent.train = common.function(tf_agent.train)
 collect_driver.run = common.function(collect_driver.run)
 
@@ -185,22 +175,24 @@ checkpoint_prefix = os.path.join(checkpoint_directory, "ckpt")
 checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=tf_agent)
 status = checkpoint.restore(tf.train.latest_checkpoint(checkpoint_directory))
 
-for _ in range(num_iterations):
-    collect_driver.run()
-    trajectories = replay_buffer.gather_all()
+for _ in range(0):  # num_iterations):
 
     encoding_net.inference_net.trainable = False
     encoding_net.generative_net.trainable = False
     encoding_net.lat_env_net.trainable = False
+    print('collecting')
+    collect_driver.run()
+    trajectories = replay_buffer.gather_all()
 
-    print(trajectories.observation.shape)
+    # print(trajectories.reward)
 
-    dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-        .shuffle(TRAIN_BUF) \
-        .batch(BATCH_SIZE) \
-        .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-        .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
-        .take(int(TRAIN_BUF / BATCH_SIZE))
+    # sample_batch_size=batch_size, num_steps=1
+    # dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    #     .shuffle(TRAIN_BUF) \
+    #     .batch(BATCH_SIZE) \
+    #     .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    #     .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
+    #     .take(int(TRAIN_BUF / BATCH_SIZE))
 
     # for i, (d, a, b) in enumerate(dataset):
     #     print(i) #d.shape)
@@ -210,10 +202,8 @@ for _ in range(num_iterations):
     # train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
 
     train_loss, _ = tf_agent.train(experience=trajectories)
-    # print(train_loss)
 
-    # tf.saved_model.save(tf_agent, saved_models_path)
-    status.assert_consumed()
+    # status.assert_consumed()
     checkpoint.save(file_prefix=checkpoint_prefix)
 
     # replay_buffer.clear()
@@ -226,10 +216,3 @@ for _ in range(num_iterations):
     if step % eval_interval == 0:
         avg_return = compute_avg_return(eval_env, eval_policy, num_eval_episodes)
         print('step = {0}: Average Return = {1}'.format(step, avg_return))
-
-# # Initial driver.run will reset the environment and initialize the policy.
-# final_time_step, policy_state = driver.run()
-#
-# print('final_time_step', final_time_step)
-# print('Number of Steps: ', env_steps.result().numpy())
-# print('Number of Episodes: ', num_episodes.result().numpy())

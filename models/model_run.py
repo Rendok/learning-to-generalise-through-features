@@ -16,10 +16,10 @@ model.load_weights(['en', 'de', 'le'], path_weights)
 env = KukaCamMultiBlocksEnv(renders=False,
                             encoding_net=model,
                             numObjects=4,
-                            isTest=4,  # 1 and 4
+                            isTest=1,  # 1 and 4
                             operation='move_pick')
 
-# utils.validate_py_environment(env, episodes=5)
+utils.validate_py_environment(env, episodes=10)
 
 ideal_actions = np.array(
     [[0, 0, -0.7, 0], [-0.7, 0, -0.7, 0], [-.7, 0, 0, 0], [0, 0, -0.7, 0], [0, 0, -0.7, 0], [0, 0, -0.7, 0]])
@@ -27,12 +27,13 @@ horizon = 1
 
 x0 = env.reset()[3] / 255.
 
-goal = env._goal_img
+goal = env.goal_img
 plt.imshow(goal[..., :3])
 plt.show()
 
 for i in ideal_actions[:horizon]:
-    _, _, _, obs = env.step([0, 0, -1, 0.5])
+    _, rew, _, obs = env.step([0, 0, -1, 0.5])
+    print(rew)
 xg = obs / 255.
 
 plt.figure(figsize=(20, 20))

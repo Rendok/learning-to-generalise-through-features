@@ -121,6 +121,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         self._set_camera_settings()
 
+        self._stash_coords = None
+
     def action_spec(self):
         return self._action_spec
 
@@ -167,7 +169,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
             for _ in range(100):
                 p.stepSimulation()
 
-        # FIXME: a more comprehensive goal state
+        # TODO: a more comprehensive goal state
         self.make_goal()
         # self._goal = 0  # self._get_goal()
 
@@ -573,6 +575,10 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                     angle = np.pi / 2
                     orn = p.getQuaternionFromEuler([0, 0, angle])
 
+            # TODO: delete
+            if i == 0:
+                self._stash_coords = (xpos, ypos, zpos)
+
             urdf_path = os.path.join(self._urdfRoot, "cube_small.urdf")
             uid = p.loadURDF(urdf_path, [xpos, ypos, zpos],
                              [orn[0], orn[1], orn[2], orn[3]])
@@ -804,17 +810,17 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         r = self._kuka.endEffectorPos[0:3]
         a = self._kuka.endEffectorAngle
 
-        self._kuka.endEffectorPos[0] = 1
-        self._kuka.endEffectorPos[1] = 1
-        self._kuka.endEffectorPos[2] = 1
+        self._kuka.endEffectorPos[0] = self._stash_coords[0]
+        self._kuka.endEffectorPos[1] = self._stash_coords[1] - 0.01
+        self._kuka.endEffectorPos[2] = self._stash_coords[2] + 0.15  # 0.45
         self._kuka.endEffectorAngle = 0
 
         self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
         for _ in range(self._actionRepeat):
             p.stepSimulation()
 
-        self._goal_img = self.get_observation().astype(np.float32) / 255.
-        self._goal = self._encoding_net.encode(self._goal_img[np.newaxis, ...]).numpy()
+        self.goal_img = self.get_observation().astype(np.float32) / 255.
+        self._goal = self._encoding_net.encode(self.goal_img[np.newaxis, ...]).numpy()
 
         self._kuka.endEffectorPos[0:3] = r
         self._kuka.endEffectorAngle = a
