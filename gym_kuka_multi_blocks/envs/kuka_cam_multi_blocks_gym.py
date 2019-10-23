@@ -845,7 +845,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
             return 5.0
         else:
             # print(self.distance_x_y, abs(self.distance_z - 0.0345))
-            return 1 - 10 * self.distance_x_y - 10 * abs(self.distance_z - 0.0345) #- action_norm  # - 100/36 * block_norm
+            return 0.2 - 10 * self.distance_x_y - 10 * abs(self.distance_z - 0.0345) #- action_norm  # - 100/36 * block_norm
 
     def _termination(self):
         """
