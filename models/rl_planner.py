@@ -52,11 +52,11 @@ summarize_grads_and_vars = False
 # --------
 
 encoding_net = VAE(num_latent_dims)
-# encoding_net.load_weights(['en', 'de'], '/tmp/weights')
-encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights')
+encoding_net.load_weights(['en', 'de'], '/tmp/weights')
+# encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights')
 
-# checkpoint_directory = '/tmp/weights/rl'
-checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
+checkpoint_directory = '/tmp/weights/rl'
+# checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
 
 def env():
     env = KukaCamMultiBlocksEnv(renders=False,
@@ -183,7 +183,7 @@ if manager.latest_checkpoint:
 else:
     print("Initializing from scratch.")
 
-for _ in range(0): #num_iterations):
+for _ in range(num_iterations):
 
     print('collecting')
     collect_driver.run()

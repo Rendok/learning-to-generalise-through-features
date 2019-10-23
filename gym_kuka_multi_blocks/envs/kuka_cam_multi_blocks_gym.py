@@ -839,12 +839,12 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         if self._episode_ended:
             # If the block is above the ground, provide extra reward
-            print('END')
+            # print('END')
             if z > 0.1:
                 return 100.0  # - 100/36 * block_norm
             return 5.0
         else:
-            print(self.distance_x_y, abs(self.distance_z - 0.0345))
+            # print(self.distance_x_y, abs(self.distance_z - 0.0345))
             return 1 - 10 * self.distance_x_y - 10 * abs(self.distance_z - 0.0345) #- action_norm  # - 100/36 * block_norm
 
     def _termination(self):
