@@ -29,8 +29,8 @@ import matplotlib.pyplot as plt
 import os
 
 # HYPER PARAMETERS
-collect_episodes_per_iteration = 50  # The number of episodes to take in the environment before
-replay_buffer_capacity = 1001  # Replay buffer capacity per env
+collect_episodes_per_iteration = 30  # The number of episodes to take in the environment before
+replay_buffer_capacity = 101  # Replay buffer capacity per env
 
 actor_fc_layer_params = (256, 256)
 critic_fc_layer_params = (256, 256)
@@ -40,18 +40,19 @@ learning_rate = 3e-4
 gradient_clipping = None
 num_eval_episodes = 30  # The number of episodes to run eval on.
 
-num_parallel_environments = 3  # Number of environments to run in parallel
+num_parallel_environments = 1  # Number of environments to run in parallel
 num_epochs = 25  # Number of epochs for computing policy updates
 
 num_iterations = 50
 log_interval = 1
-eval_interval = 1
+eval_interval = 3
 
 debug_summaries = False,
 summarize_grads_and_vars = False
 # --------
 
 encoding_net = VAE(num_latent_dims)
+# encoding_net.load_weights(['en', 'de'], '/tmp/weights')
 encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights')
 
 
@@ -167,13 +168,21 @@ def split_trajectory(trajectory, rest):
 optimizer = tf.keras.optimizers.Adam(1e-4)
 epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 TRAIN_BUF = 2048
-BATCH_SIZE = 128 * 2
+BATCH_SIZE = 128
 
+# checkpoint_directory = '/tmp/weights/rl' \
 checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
-checkpoint_prefix = os.path.join(checkpoint_directory, "ckpt")
+# checkpoint_prefix = os.path.join(checkpoint_directory, "ckpt")
 
 checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=tf_agent)
-status = checkpoint.restore(tf.train.latest_checkpoint(checkpoint_directory))
+manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
+# status = checkpoint.restore(tf.train.latest_checkpoint(checkpoint_directory))
+status = checkpoint.restore(manager.latest_checkpoint)
+
+if manager.latest_checkpoint:
+    print("Restored from {}".format(manager.latest_checkpoint))
+else:
+    print("Initializing from scratch.")
 
 for _ in range(num_iterations):
 
@@ -189,34 +198,36 @@ for _ in range(num_iterations):
         .batch(BATCH_SIZE) \
         .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
-        .take(int(TRAIN_BUF / BATCH_SIZE))
-
-    # for i, (d, a, b) in enumerate(dataset):
-    #     print(i, d.shape)
-    # plt.imshow(d[0, ..., :3])
-    # plt.show()
-
+        .take(3 * int(TRAIN_BUF / BATCH_SIZE))
+    #
+    # # for i, (d, a, b) in enumerate(dataset):
+    # #     print(i, d.shape)
+    # # plt.imshow(d[0, ..., :3])
+    # # plt.show()
+    #
     train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
 
     encoding_net.inference_net.trainable = False
     encoding_net.generative_net.trainable = False
     encoding_net.lat_env_net.trainable = False
 
-    # train_loss, _ = tf_agent.train(experience=trajectories)
+    train_loss, _ = tf_agent.train(experience=trajectories)
 
     # status.assert_consumed() TODO: del
-    # checkpoint.save(file_prefix=checkpoint_prefix)
+    # checkpoint.save(file_prefix=checkpoint_prefix) TODO: del
+    save_path = manager.save()
+    print("Saved checkpoint: {}".format(save_path))
 
     replay_buffer.clear()
 
     step = tf_agent.train_step_counter.numpy()
 
-    # if step % log_interval == 0:
-    #     print('step = {0}: loss = {1}'.format(step, train_loss))
-    #
-    # if step % eval_interval == 0:
-    #     avg_return = compute_avg_return(eval_env, eval_policy, num_eval_episodes)
-    #     print('step = {0}: Average Return = {1}'.format(step, avg_return))
+    if step % log_interval == 0:
+        print('step = {0}: loss = {1}'.format(step, train_loss))
+
+    if step % eval_interval == 0:
+        avg_return = compute_avg_return(eval_env, eval_policy, num_eval_episodes)
+        print('step = {0}: Average Return = {1}'.format(step, avg_return))
 
 
 environment = KukaCamMultiBlocksEnv(renders=False,
@@ -234,11 +245,15 @@ episode_return = 0.0
 # plt.show()
 i = 0
 
-while not i == 10:  # time_step.is_last():
+while not i == 5:  # time_step.is_last():
     action_step = eval_policy.action(time_step)
     a = action_step.action
     print(a)
     time_step = environment.step(a)
+    z = time_step.observation / 255.
+    z = encoding_net.decode(encoding_net.encode(z[tf.newaxis, ...]))
+    plt.imshow(z[0, ..., :3])
+    plt.show()
     plt.imshow(time_step.observation[..., :3])
     plt.show()
     print(time_step.reward)
