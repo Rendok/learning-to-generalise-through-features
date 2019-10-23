@@ -112,7 +112,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         #                                dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
         self._action_spec = array_spec.BoundedArraySpec(
-            shape=(4,), dtype=np.float32, minimum=-1, maximum=1, name='action')
+            shape=(4,), dtype=np.float32, minimum=-2, maximum=2, name='action')
 
         # camera images
         # self.observation_space = spaces.Box(0, 255, [self._height, self._width, self._channels], dtype=np.uint8)
@@ -828,7 +828,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         x, y, z, *rest = block_pos[0]
 
         # Negative reward for every extra action
-        action_norm = inner1d(self.action[0:4], self.action[0:4])
+        # action_norm = inner1d(self.action[0:4], self.action[0:4])
 
         # block_norm = self.get_disturbance()
         # print(100 * block_norm)
@@ -842,7 +842,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                 return 50.0  # - 100/36 * block_norm
             return -1.0
         else:
-            return - 10 * self.distance_x_y - 10 * abs(self.distance_z - 0.0345) - action_norm  # - 100/36 * block_norm
+            return - 10 * self.distance_x_y - 10 * abs(self.distance_z - 0.0345) #- action_norm  # - 100/36 * block_norm
 
     def _termination(self):
         """

@@ -52,8 +52,8 @@ summarize_grads_and_vars = False
 # --------
 
 encoding_net = VAE(num_latent_dims)
-# encoding_net.load_weights(['en', 'de'], '/tmp/weights')
-encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights')
+encoding_net.load_weights(['en', 'de'], '/tmp/weights')
+# encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights')
 
 
 def env():
@@ -170,8 +170,8 @@ epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 TRAIN_BUF = 2048
 BATCH_SIZE = 128
 
-# checkpoint_directory = '/tmp/weights/rl' \
-checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
+checkpoint_directory = '/tmp/weights/rl' \
+# checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
 # checkpoint_prefix = os.path.join(checkpoint_directory, "ckpt")
 
 checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=tf_agent)
