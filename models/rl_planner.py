@@ -155,7 +155,7 @@ collect_driver = dynamic_episode_driver.DynamicEpisodeDriver(
     num_episodes=collect_episodes_per_iteration
 )
 
-tf_agent.train = common.function(tf_agent.train)
+# tf_agent.train = common.function(tf_agent.train)
 collect_driver.run = common.function(collect_driver.run)
 
 
@@ -183,7 +183,7 @@ if manager.latest_checkpoint:
 else:
     print("Initializing from scratch.")
 
-for _ in range(num_iterations):
+for _ in range(0): #num_iterations):
 
     print('collecting')
     collect_driver.run()
@@ -192,12 +192,12 @@ for _ in range(num_iterations):
     # print(trajectories.observation.shape)
 
     # sample_batch_size=batch_size, num_steps=1 TODO: del
-    dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-        .shuffle(replay_buffer_capacity) \
-        .batch(BATCH_SIZE) \
-        .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-        .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
-        .take(3 * int(TRAIN_BUF / BATCH_SIZE))
+    # dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    #     .shuffle(replay_buffer_capacity) \
+    #     .batch(BATCH_SIZE) \
+    #     .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    #     .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
+    #     .take(3 * int(TRAIN_BUF / BATCH_SIZE))
     #
     # # for i, (d, a, b) in enumerate(dataset):
     # #     print(i, d.shape)
