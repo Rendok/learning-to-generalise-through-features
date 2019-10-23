@@ -52,11 +52,11 @@ summarize_grads_and_vars = False
 # --------
 
 encoding_net = VAE(num_latent_dims)
-encoding_net.load_weights(['en', 'de'], '/tmp/weights')
-# encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights')
+# encoding_net.load_weights(['en', 'de'], '/tmp/weights')
+encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights')
 
-checkpoint_directory = '/tmp/weights/rl'
-# checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
+# checkpoint_directory = '/tmp/weights/rl'
+checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
 
 def env():
     env = KukaCamMultiBlocksEnv(renders=False,
@@ -189,7 +189,7 @@ for _ in range(num_iterations):
     collect_driver.run()
     trajectories = replay_buffer.gather_all()
 
-    print(trajectories.observation.shape)
+    # print(trajectories.observation.shape)
 
     # sample_batch_size=batch_size, num_steps=1 TODO: del
     dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
@@ -204,7 +204,7 @@ for _ in range(num_iterations):
     # # plt.imshow(d[0, ..., :3])
     # # plt.show()
     #
-    train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
+    # train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
 
     encoding_net.inference_net.trainable = False
     encoding_net.generative_net.trainable = False
