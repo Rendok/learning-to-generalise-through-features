@@ -47,6 +47,9 @@ class ActorNetwork(network.DistributionNetwork):
             name=name
         )
 
+        self._projection_networks = projection_networks
+        self._encoder = encoding_network
+
         if len(tf.nest.flatten(observation_spec)) > 1:
             raise ValueError('Only a single observation is supported by this network')
         self._observation_spec = observation_spec
@@ -65,9 +68,6 @@ class ActorNetwork(network.DistributionNetwork):
 
         if self._single_action_spec.dtype not in [tf.float32, tf.float64]:
             raise ValueError('Only float actions are supported by this network.')
-
-        self._encoder = encoding_network
-        self._projection_networks = projection_networks
 
         self._mlp_layers = utils.mlp_layers(
             conv_layer_params,
@@ -91,21 +91,26 @@ class ActorNetwork(network.DistributionNetwork):
         return self._action_spec
 
     def call(self, observations, step_type=(), network_state=()):
+
+        import matplotlib.pyplot as plt
+
         del step_type
         # print(observations.shape)
 
         outer_rank = nest_utils.get_outer_rank(observations, self._observation_spec)
-        # print('out rank', outer_rank)
         batch_squash = utils.BatchSquash(outer_rank)
         observations = tf.nest.map_structure(batch_squash.flatten, observations)
 
         # print(observations.shape)
-
         output = tf.cast(observations, tf.float32) / 255.
-        # print(observations.shape)
-
+        # print(output.shape)
 
         output = self._encoder.encode(output)
+
+        # if observations.shape != (0, 128, 128, 6):
+        #     test = self._encoder.decode(output)
+        #     plt.imshow(test[0, ..., :3])
+        #     plt.show()
         # print(output.shape)
 
         for layer in self._mlp_layers:

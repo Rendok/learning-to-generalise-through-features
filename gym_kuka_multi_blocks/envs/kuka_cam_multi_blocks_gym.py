@@ -1,3 +1,5 @@
+from numpy.core.umath_tests import inner1d
+
 from gym_kuka_multi_blocks.envs.kukaGymEnv import KukaGymEnv
 import random
 import os
@@ -30,7 +32,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
     """
 
     def __init__(self,
-                 encoding_net,
+                 # encoding_net,
                  urdfRoot=pybullet_data.getDataPath(),
                  actionRepeat=80,
                  isEnableSelfCollision=True,
@@ -88,7 +90,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._isTest = isTest
         self._operation = operation
         self._channels = 6
-        self._encoding_net = encoding_net
+        # self._encoding_net = encoding_net
 
         if self._operation not in ["move_pick", "move", "place"]:
             raise NotImplementedError
@@ -621,7 +623,81 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         assert np_img_arr.shape == (self._width, self._height, self._channels)
 
-        return np_img_arr.astype('uint8')
+        return np_img_arr.astype(np.float32)
+
+    def _get_observation_coordinates(self, inMatrixForm=False):
+        """Return an observation array:
+            if inMatrixForm is True then as a nested list:
+            [ [gripper in the world frame X, Y, Z, fingers X, Y, Z, orientation Al, Bt, Gm],
+            goal block number,
+            [blocks' in the gripper's frame X, Y, Z, Euler X, Y, Z] ]
+
+            otherwise as a list
+        """
+
+        # get the gripper's world position and orientation
+        # The coordinates of the gripper and fingers (X, Y, Z)
+        gripperState = p.getLinkState(self._kuka.kukaUid, self._kuka.kukaGripperIndex)
+
+        # ad hoc shift due to slant spinsters
+        fingerState_l = p.getLinkState(self._kuka.kukaUid, 10)[0]
+        fingerState_r = p.getLinkState(self._kuka.kukaUid, 13)[0]
+        gripperPos = gripperState[0]
+        gripperPos = np.array(gripperState[0]) + (np.array(fingerState_l) + np.array(fingerState_r) - 2*np.array(gripperPos)) / 2.0
+        gripperPos[2] -= 0.02
+
+        gripperOrn = gripperState[1]  # Quaternion
+
+        observation = []
+        if inMatrixForm:
+            # this line for global gripper
+            # observation.append([0, 0, 0, 0, 0, 0, 0])
+            observation.append(list(gripperPos) + list(gripperOrn))
+            if type(self._goal) == int:
+                bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
+                observation.append(list(bl_pos) + list(orn))
+
+            elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list or type(self._goal) == tuple:
+                observation.append(list(self._goal[0]) + list(self._goal[1]))
+
+            else:
+                print(type(self._goal), self._goal)
+                raise TypeError
+        else:
+            # this line for global gripper
+            if self._globalGripper:
+                observation.extend(list(gripperPos))
+                observation.extend(list(gripperOrn))
+            else:
+                observation.extend([0, 0, 0, 0, 0, 0, 0])
+
+            if type(self._goal) == int:
+                bl_pos, orn = p.getBasePositionAndOrientation(self._goal)
+                observation.extend(list(bl_pos) + list(orn))
+
+            elif type(self._goal).__module__ == np.__name__ or type(self._goal) == list or type(self._goal) == tuple:
+                observation.extend(list(self._goal[0]) + list(self._goal[1]))
+
+            else:
+                print(type(self._goal), self._goal)
+                raise TypeError
+
+        for id_ in self._objectUids:
+            if id_ == self._goal:
+                continue
+
+            # get the block's position (X, Y, Z) and orientation (Quaternion)
+            blockPos, blockOrn = p.getBasePositionAndOrientation(id_)
+
+            blockPosXYZQ = [blockPos[i] for i in range(3)]
+            blockPosXYZQ.extend([blockOrn[i] for i in range(4)])
+
+            if inMatrixForm:
+                observation.append(list(blockPosXYZQ))
+            else:
+                observation.extend(list(blockPosXYZQ))
+
+        return np.array(observation)
 
     def _step(self, action):
         """
@@ -693,7 +769,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         if self._operation == "move_pick":
             # FIXME: here
-            self.distance_x_y, self.distance_z, gr_z = 0, 0, 0  # self._get_distance_to_goal()
+            self.distance_x_y, self.distance_z, gr_z = self._get_distance_to_goal()
             # Hardcoded grasping
             if self.distance_x_y < 0.008 and 0.033 <= self.distance_z < 0.035 and gr_z > 0.01:
                 finger_angle = 0.4
@@ -723,7 +799,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                     if self._renders:
                         time.sleep(self._timeStep)
 
-                self._attempted_grasp = True
+                self._episode_ended = True
 
         self.observation = self.get_observation()
         reward = self._reward()
@@ -736,11 +812,37 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                 np.array(self.observation, dtype=np.uint8), reward=reward, discount=1.0)
 
     def _reward(self):
-        """No reward in the environment
         """
-        x = self._encoding_net.encode(self.observation[np.newaxis, ...].astype(np.float32) / 255.).numpy()
-        rew = np.dot(x, self._goal.T) / np.linalg.norm(x) / np.linalg.norm(self._goal)
-        return np.squeeze(rew)
+        Distance reward for performance comparing
+        """
+        # state = self._get_observation_coordinates(inMatrixForm=True)
+        #
+        # x = self._encoding_net.encode(self.observation[np.newaxis, ...].astype(np.float32) / 255.).numpy()
+        # rew = np.dot(x, self._goal.T) / np.linalg.norm(x) / np.linalg.norm(self._goal)
+        # return np.squeeze(rew)
+
+        # Unpack the block's coordinate
+        grip_pos, *block_pos = self._get_observation_coordinates(inMatrixForm=True)
+
+        # Get the goal block's coordinates
+        x, y, z, *rest = block_pos[0]
+
+        # Negative reward for every extra action
+        # action_norm = inner1d(self.action[0:4], self.action[0:4])
+
+        # block_norm = self.get_disturbance()
+        # print(100 * block_norm)
+
+        if grip_pos[2] < 0.0:
+            return -1
+
+        if self._episode_ended:
+            # If the block is above the ground, provide extra reward
+            if z > 0.1:
+                return 50.0  # - 100/36 * block_norm
+            return -1.0
+        else:
+            return - 10 * self.distance_x_y - 10 * abs(self.distance_z - 0.0345)  # - action_norm  # - 100/36 * block_norm
 
     def _termination(self):
         """
@@ -754,9 +856,36 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
     def _get_distance_to_goal(self):
         """
-        No
+        To get the distance from the effector to the goal
+        :return: list of floats
         """
-        pass
+        if self._operation == "move_pick" or self._operation == "pick":
+            return self._get_distance_pick()
+
+        elif self._operation == "move":
+            raise NotImplementedError
+
+        elif self._operation == "push":
+            raise NotImplementedError
+
+        elif self._operation == "place":
+            raise NotImplementedError
+
+        else:
+            raise NotImplementedError
+
+    def _get_distance_pick(self):
+        # Unpack the block's coordinate
+        grip_pos, *block_pos = self._get_observation_coordinates(inMatrixForm=True)
+
+        # Get the goal block's coordinates
+        x, y, z, *rest = block_pos[0]
+
+        # Distance: gripper - block
+        gr_bl_distance_x_y = (x - grip_pos[0]) ** 2 + (y - grip_pos[1]) ** 2
+        gr_bl_distance_z = (z - grip_pos[2]) ** 2
+
+        return gr_bl_distance_x_y, gr_bl_distance_z, grip_pos[2]
 
     def _set_camera_settings(self):
         """
@@ -820,7 +949,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
             p.stepSimulation()
 
         self.goal_img = self.get_observation().astype(np.float32) / 255.
-        self._goal = self._encoding_net.encode(self.goal_img[np.newaxis, ...]).numpy()
+        self._goal = 0  # self._encoding_net.encode(self.goal_img[np.newaxis, ...]).numpy()
 
         self._kuka.endEffectorPos[0:3] = r
         self._kuka.endEffectorAngle = a

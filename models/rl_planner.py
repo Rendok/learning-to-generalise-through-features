@@ -29,8 +29,8 @@ import matplotlib.pyplot as plt
 import os
 
 # HYPER PARAMETERS
-collect_episodes_per_iteration = 4  # 1000
-replay_buffer_capacity = 50
+collect_episodes_per_iteration = 50  # The number of episodes to take in the environment before
+replay_buffer_capacity = 1001  # Replay buffer capacity per env
 
 actor_fc_layer_params = (256, 256)
 critic_fc_layer_params = (256, 256)
@@ -38,10 +38,10 @@ critic_fc_layer_params = (256, 256)
 num_latent_dims = 256
 learning_rate = 3e-4
 gradient_clipping = None
-num_eval_episodes = 30
+num_eval_episodes = 30  # The number of episodes to run eval on.
 
-num_parallel_environments = 1
-num_epochs = 2
+num_parallel_environments = 3  # Number of environments to run in parallel
+num_epochs = 25  # Number of epochs for computing policy updates
 
 num_iterations = 50
 log_interval = 1
@@ -57,7 +57,7 @@ encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weig
 
 def env():
     env = KukaCamMultiBlocksEnv(renders=False,
-                                encoding_net=encoding_net,
+                                # encoding_net=encoding_net,
                                 numObjects=4,
                                 isTest=4,  # 1 and 4
                                 operation='move_pick',
@@ -67,11 +67,9 @@ def env():
 
 eval_env = tf_py_environment.TFPyEnvironment(env())
 
-# utils.validate_py_environment(eval_env, episodes=10)
-
-train_env = tf_py_environment.TFPyEnvironment(env())  # TODO: bug don't work in parallel
-    # parallel_py_environment.ParallelPyEnvironment(
-    #     [lambda: env()] * num_parallel_environments))
+train_env = tf_py_environment.TFPyEnvironment(  #env())  # TODO: bug don't work in parallel with an encoding net inside
+    parallel_py_environment.ParallelPyEnvironment(
+        [lambda: env()] * num_parallel_environments))
 
 # validate_py_environment(env(), episodes=10)
 
@@ -108,6 +106,8 @@ tf_agent = ppo_agent.PPOAgent(
     gradient_clipping=gradient_clipping,
     debug_summaries=debug_summaries,
     summarize_grads_and_vars=summarize_grads_and_vars,
+    normalize_observations=False,
+    normalize_rewards=False,
     train_step_counter=global_step)
 
 tf_agent.initialize()
@@ -175,44 +175,74 @@ checkpoint_prefix = os.path.join(checkpoint_directory, "ckpt")
 checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=tf_agent)
 status = checkpoint.restore(tf.train.latest_checkpoint(checkpoint_directory))
 
-for _ in range(0):  # num_iterations):
+for _ in range(num_iterations):
 
-    encoding_net.inference_net.trainable = False
-    encoding_net.generative_net.trainable = False
-    encoding_net.lat_env_net.trainable = False
     print('collecting')
     collect_driver.run()
     trajectories = replay_buffer.gather_all()
 
-    # print(trajectories.reward)
+    print(trajectories.observation.shape)
 
-    # sample_batch_size=batch_size, num_steps=1
-    # dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-    #     .shuffle(TRAIN_BUF) \
-    #     .batch(BATCH_SIZE) \
-    #     .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-    #     .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
-    #     .take(int(TRAIN_BUF / BATCH_SIZE))
+    # sample_batch_size=batch_size, num_steps=1 TODO: del
+    dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+        .shuffle(replay_buffer_capacity) \
+        .batch(BATCH_SIZE) \
+        .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+        .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
+        .take(int(TRAIN_BUF / BATCH_SIZE))
 
     # for i, (d, a, b) in enumerate(dataset):
-    #     print(i) #d.shape)
+    #     print(i, d.shape)
     # plt.imshow(d[0, ..., :3])
     # plt.show()
 
-    # train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
+    train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
 
-    train_loss, _ = tf_agent.train(experience=trajectories)
+    encoding_net.inference_net.trainable = False
+    encoding_net.generative_net.trainable = False
+    encoding_net.lat_env_net.trainable = False
 
-    # status.assert_consumed()
-    checkpoint.save(file_prefix=checkpoint_prefix)
+    # train_loss, _ = tf_agent.train(experience=trajectories)
 
-    # replay_buffer.clear()
+    # status.assert_consumed() TODO: del
+    # checkpoint.save(file_prefix=checkpoint_prefix)
+
+    replay_buffer.clear()
 
     step = tf_agent.train_step_counter.numpy()
 
-    if step % log_interval == 0:
-        print('step = {0}: loss = {1}'.format(step, train_loss))
+    # if step % log_interval == 0:
+    #     print('step = {0}: loss = {1}'.format(step, train_loss))
+    #
+    # if step % eval_interval == 0:
+    #     avg_return = compute_avg_return(eval_env, eval_policy, num_eval_episodes)
+    #     print('step = {0}: Average Return = {1}'.format(step, avg_return))
 
-    if step % eval_interval == 0:
-        avg_return = compute_avg_return(eval_env, eval_policy, num_eval_episodes)
-        print('step = {0}: Average Return = {1}'.format(step, avg_return))
+
+environment = KukaCamMultiBlocksEnv(renders=False,
+                                # encoding_net=encoding_net,
+                                numObjects=4,
+                                isTest=4,  # 1 and 4
+                                operation='move_pick')
+
+
+
+time_step = environment.reset()
+episode_return = 0.0
+
+# plt.imshow(environment.goal_img[..., :3])
+# plt.show()
+i = 0
+
+while not i == 10:  # time_step.is_last():
+    action_step = eval_policy.action(time_step)
+    a = action_step.action
+    print(a)
+    time_step = environment.step(a)
+    plt.imshow(time_step.observation[..., :3])
+    plt.show()
+    print(time_step.reward)
+    episode_return += time_step.reward
+    i += 1
+
+print(episode_return)
