@@ -823,6 +823,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         # Unpack the block's coordinate
         grip_pos, *block_pos = self._get_observation_coordinates(inMatrixForm=True)
+        # print(self._get_observation_coordinates(True))
 
         # Get the goal block's coordinates
         x, y, z, *rest = block_pos[0]
@@ -949,7 +950,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
             p.stepSimulation()
 
         self.goal_img = self.get_observation().astype(np.float32) / 255.
-        self._goal = 0  # self._encoding_net.encode(self.goal_img[np.newaxis, ...]).numpy()
+        self._goal = 3  # self._encoding_net.encode(self.goal_img[np.newaxis, ...]).numpy()
 
         self._kuka.endEffectorPos[0:3] = r
         self._kuka.endEffectorAngle = a

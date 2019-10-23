@@ -55,6 +55,8 @@ encoding_net = VAE(num_latent_dims)
 encoding_net.load_weights(['en', 'de'], '/tmp/weights')
 # encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights')
 
+checkpoint_directory = '/tmp/weights/rl'
+# checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
 
 def env():
     env = KukaCamMultiBlocksEnv(renders=False,
@@ -76,6 +78,7 @@ train_env = tf_py_environment.TFPyEnvironment(  #env())  # TODO: bug don't work 
 
 observation_spec = train_env.observation_spec()
 action_spec = train_env.action_spec()
+print("Spec", action_spec)
 
 critic_net = CriticNetwork(
     observation_spec,
@@ -170,10 +173,6 @@ epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 TRAIN_BUF = 2048
 BATCH_SIZE = 128
 
-checkpoint_directory = '/tmp/weights/rl' \
-# checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
-# checkpoint_prefix = os.path.join(checkpoint_directory, "ckpt")
-
 checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=tf_agent)
 manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
 # status = checkpoint.restore(tf.train.latest_checkpoint(checkpoint_directory))
@@ -245,16 +244,16 @@ episode_return = 0.0
 # plt.show()
 i = 0
 
-while not i == 5:  # time_step.is_last():
+while not time_step.is_last():
     action_step = eval_policy.action(time_step)
     a = action_step.action
     print(a)
     time_step = environment.step(a)
-    z = time_step.observation / 255.
-    z = encoding_net.decode(encoding_net.encode(z[tf.newaxis, ...]))
-    plt.imshow(z[0, ..., :3])
-    plt.show()
-    plt.imshow(time_step.observation[..., :3])
+    # z = time_step.observation / 255.
+    # z = encoding_net.decode(encoding_net.encode(z[tf.newaxis, ...]))
+    # plt.imshow(z[0, ..., :3])
+    # plt.show()
+    plt.imshow(time_step.observation[..., 3:6])
     plt.show()
     print(time_step.reward)
     episode_return += time_step.reward
