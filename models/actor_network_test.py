@@ -43,7 +43,6 @@ class ActorNetworkTest(tf.test.TestCase):
 
         self.assertAllEqual([1, batch_size] + action_spec.shape.as_list(),
                             actions.batch_shape.as_list())
-        # self.assertEqual(58, len(actor_net.trainable_variables))
 
 
 if __name__ == '__main__':

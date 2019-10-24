@@ -24,7 +24,6 @@ class CriticNetworkTest(tf.test.TestCase):
     def test_build(self):
         batch_size = 10
         obs_spec = env.observation_spec()
-        action_spec = env.action_spec()
         critic_net = CriticNetwork(obs_spec,
                                    encoding_network=VAE(256),
                                    fc_layer_params=(256, 256))
@@ -33,13 +32,11 @@ class CriticNetworkTest(tf.test.TestCase):
             obs_spec, fc_layer_params=(256, 256))
 
         obs = tf.random.uniform([1, batch_size] + obs_spec.shape.as_list())
-        acts = tf.random.uniform([1, batch_size] + action_spec.shape.as_list())
         value, _ = critic_net(obs)
         print(value)
         value_comp, _ = critic_net_compare(obs)
         print(value_comp)
         self.assertEqual([1, batch_size], value.shape)
-        # self.assertEqual(58, len(actor_net.trainable_variables))
 
 
 if __name__ == '__main__':

@@ -92,8 +92,6 @@ class ActorNetwork(network.DistributionNetwork):
 
     def call(self, observations, step_type=(), network_state=()):
 
-        import matplotlib.pyplot as plt
-
         del step_type
         # print(observations.shape)
 
@@ -106,11 +104,6 @@ class ActorNetwork(network.DistributionNetwork):
         # print(output.shape)
 
         output = self._encoder.encode(output)
-
-        # if observations.shape != (0, 128, 128, 6):
-        #     test = self._encoder.decode(output)
-        #     plt.imshow(test[0, ..., :3])
-        #     plt.show()
         # print(output.shape)
 
         for layer in self._mlp_layers:
@@ -121,12 +114,6 @@ class ActorNetwork(network.DistributionNetwork):
         output = tf.nest.map_structure(batch_squash.unflatten, output)
         # print(output.shape)
 
-        # actions = common.scale_to_spec(output, self._single_action_spec)
-        # output_actions = tf.nest.pack_sequence_as(self._action_spec,
-        #                                           [actions])
-        # print(output_actions.shape)
-
-        # outer_rank = nest_utils.get_outer_rank(observations, self._observation_spec)
         output_actions = tf.nest.map_structure(
             lambda proj_net: proj_net(output, outer_rank), self._projection_networks)
 

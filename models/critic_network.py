@@ -1,5 +1,4 @@
 import tensorflow as tf
-from tf_agents.agents.ddpg import critic_network
 from tf_agents.networks import value_network
 from tf_agents.networks import utils
 from tf_agents.utils import nest_utils
@@ -40,24 +39,14 @@ class CriticNetwork(value_network.ValueNetwork):
 
         # print(self._input_tensor_spec)
         outer_rank = nest_utils.get_outer_rank(observation, self._input_tensor_spec)
-        # print(outer_rank)
         batch_squash = utils.BatchSquash(outer_rank)
         output = tf.nest.map_structure(batch_squash.flatten, observation)
 
         output = tf.cast(output, tf.float32) / 255.
-        # print(output.shape)
         output = self._encoder.encode(output)
-
-        # actions = tf.cast(tf.nest.flatten(actions)[0], tf.float32)
-        # for layer in self._action_layers:
-        #     actions = layer(actions)
-        #
-        # joint = tf.concat([output, actions], 1)
-        # for layer in self._joint_layers:
-        #     joint = layer(joint)
 
         value = self._postprocessing_layers(output)
 
         value = tf.nest.map_structure(batch_squash.unflatten, value)
 
-        return tf.squeeze(value, -1), network_state  # tf.reshape(joint, [-1])
+        return tf.squeeze(value, -1), network_state
