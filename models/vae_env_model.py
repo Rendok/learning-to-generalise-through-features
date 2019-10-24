@@ -8,6 +8,7 @@ def make_inference_net(latent_dim):
 
     :param int latent_dim: The number of latent dimensions
     :return: tf.model object
+    :raises ValueError: if the input shape is wrong
     """
     model = tf.keras.Sequential(
         [
@@ -60,6 +61,7 @@ def make_generative_net(latent_dim):
 
     :param int latent_dim: The number of latent dimensions
     :return: tf.model object
+    :raises ValueError: if the input shape is wrong
     """
     model = tf.keras.Sequential(
         [
@@ -113,6 +115,7 @@ def make_latent_env_net(latent_dim):
 
     :param int latent_dim: The number of latent dimensions
     :return: tf.model object
+    :raises ValueError: if the input shape is wrong
     """
     model = tf.keras.Sequential(
         [
@@ -147,6 +150,12 @@ class VAE(tf.keras.Model):
         self.lat_env_net = make_latent_env_net(self._latent_dim)
 
     def call(self, input):
+        """
+        Standard call method. Encodes the image into the latent space.
+
+        :param list input: input image
+        :return: the encoded image
+        """
         return self.encode(input)
 
     @tf.function
