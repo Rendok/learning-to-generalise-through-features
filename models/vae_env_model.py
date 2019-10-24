@@ -9,7 +9,10 @@ def make_inference_net(latent_dim):
     :param int latent_dim: The number of latent dimensions
     :return: tf.model object
     :raises ValueError: if the input shape is wrong
+    :raises AssertionError: if latent_dim is not integer
     """
+    assert type(latent_dim) == int
+
     model = tf.keras.Sequential(
         [
             tf.keras.layers.InputLayer(input_shape=(128, 128, 6)),
@@ -62,7 +65,10 @@ def make_generative_net(latent_dim):
     :param int latent_dim: The number of latent dimensions
     :return: tf.model object
     :raises ValueError: if the input shape is wrong
+    :raises AssertionError: if latent_dim is not integer
     """
+    assert type(latent_dim) == int
+
     model = tf.keras.Sequential(
         [
             tf.keras.layers.InputLayer(input_shape=(latent_dim,)),
@@ -116,7 +122,10 @@ def make_latent_env_net(latent_dim):
     :param int latent_dim: The number of latent dimensions
     :return: tf.model object
     :raises ValueError: if the input shape is wrong
+    :raises AssertionError: if latent_dim is not integer
     """
+    assert type(latent_dim) == int
+
     model = tf.keras.Sequential(
         [
             tf.keras.layers.InputLayer(input_shape=(latent_dim + 4)),
@@ -141,13 +150,17 @@ class VAE(tf.keras.Model):
         Class constructor
 
         :param int latent_dim: The number of latent dimensions
+        :raises AssertionError: if latent_dim is not integer
         """
+        assert type(latent_dim) == int
+
         super().__init__()
+
         self._latent_dim = latent_dim
 
-        self.inference_net = make_inference_net(self._latent_dim)
-        self.generative_net = make_generative_net(self._latent_dim)
-        self.lat_env_net = make_latent_env_net(self._latent_dim)
+        self._inference_net = make_inference_net(self._latent_dim)
+        self._generative_net = make_generative_net(self._latent_dim)
+        self._lat_env_net = make_latent_env_net(self._latent_dim)
 
     def call(self, input):
         """
@@ -158,17 +171,17 @@ class VAE(tf.keras.Model):
         """
         return self.encode(input)
 
-    @tf.function
-    def sample(self, eps=None):
-        """
-        Sample a new random state from a normal distribution.
+    @property
+    def inference_net(self):
+        return self._inference_net
 
-        :param list eps: means
-        :return: a new state, image
-        """
-        if eps is None:
-            eps = tf.random.normal(shape=(100, self._latent_dim))
-        return self.decode(eps, apply_sigmoid=True)
+    @property
+    def generative_net(self):
+        return self._generative_net
+
+    @property
+    def lat_env_net(self):
+        return self._lat_env_net
 
     def infer(self, x):
         """
@@ -176,7 +189,7 @@ class VAE(tf.keras.Model):
         :param list x: input image, [B, H, W, C]
         :return: means and log variances
         """
-        mean, logvar = tf.split(self.inference_net(x), num_or_size_splits=2, axis=1)
+        mean, logvar = tf.split(self._inference_net(x), num_or_size_splits=2, axis=1)
         return mean, logvar
 
     def reparameterize(self, mean, logvar):
@@ -210,7 +223,7 @@ class VAE(tf.keras.Model):
         :param bool apply_sigmoid: apply an activation function
         :return: decoded image
         """
-        logits = self.generative_net(z)
+        logits = self._generative_net(z)
         if apply_sigmoid:
             probs = tf.sigmoid(logits)
             return probs
@@ -228,7 +241,7 @@ class VAE(tf.keras.Model):
         """
         # a = a[tf.newaxis, ...]
         z = tf.concat([z, a], axis=1)
-        z_pred = self.lat_env_net(z)
+        z_pred = self._lat_env_net(z)
         return z_pred
 
     @tf.function
@@ -257,11 +270,11 @@ class VAE(tf.keras.Model):
         for ch in nets:
             latest = file_path + "/" + ch + "/cp-{}.ckpt".format(number)
             if ch == 'encoder' or ch == 'en':
-                self.inference_net.save_weights(latest)
+                self._inference_net.save_weights(latest)
             elif ch == 'decoder' or ch == 'de':
-                self.generative_net.save_weights(latest)
+                self._generative_net.save_weights(latest)
             elif ch == 'lat_env' or ch == 'le':
-                self.lat_env_net.save_weights(latest)
+                self._lat_env_net.save_weights(latest)
             else:
                 raise ValueError
 
@@ -276,11 +289,11 @@ class VAE(tf.keras.Model):
         for ch in nets:
             latest = tf.train.latest_checkpoint(file_path + "/" + ch)
             if ch == 'encoder' or ch == 'en':
-                self.inference_net.load_weights(latest)
+                self._inference_net.load_weights(latest)
             elif ch == 'decoder' or ch == 'de':
-                self.generative_net.load_weights(latest)
+                self._generative_net.load_weights(latest)
             elif ch == 'lat_env' or ch == 'le':
-                self.lat_env_net.load_weights(latest)
+                self._lat_env_net.load_weights(latest)
             else:
                 raise ValueError
 
