@@ -826,9 +826,9 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         if self._encoding_net is not None:
             return self._reward_as_cos_similarity()
         else:
-            return self.reward_as_real_distance()
+            return self._reward_as_real_distance()
 
-    def reward_as_real_distance(self):
+    def _reward_as_real_distance(self):
         """
         Reward as the distance between the gripper and the goal in real space
 
@@ -967,9 +967,17 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         r = self._kuka.endEffectorPos[0:3]
         a = self._kuka.endEffectorAngle
 
-        self._kuka.endEffectorPos[0] = self._stash_coords[0]
-        self._kuka.endEffectorPos[1] = self._stash_coords[1] - 0.01
-        self._kuka.endEffectorPos[2] = self._stash_coords[2] + 0.15  # 0.45
+        self._goal = 3
+
+        grip_pos, goal_pos, *block_pos = self._get_observation_coordinates(inMatrixForm=True)
+        # print(self._get_observation_coordinates(True))
+
+        # Get the goal block's coordinates
+        x, y, z, *rest = goal_pos
+
+        self._kuka.endEffectorPos[0] = x  # self._stash_coords[0]
+        self._kuka.endEffectorPos[1] = y  # self._stash_coords[1] - 0.01
+        self._kuka.endEffectorPos[2] = z + 0.286  # self._stash_coords[2] + 0.45  # 0.45
         self._kuka.endEffectorAngle = 0
 
         self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
@@ -980,8 +988,6 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         if self._encoding_net is not None:
             self._goal_state = self._encoding_net.encode(self.goal_img[np.newaxis, ...]).numpy()
-
-        self._goal = 3
 
         self._kuka.endEffectorPos[0:3] = r
         self._kuka.endEffectorAngle = a
