@@ -32,7 +32,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
     """
 
     def __init__(self,
-                 # encoding_net,
+                 encoding_net=None,
                  urdfRoot=pybullet_data.getDataPath(),
                  actionRepeat=80,
                  isEnableSelfCollision=True,
@@ -90,7 +90,10 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._isTest = isTest
         self._operation = operation
         self._channels = 6
-        # self._encoding_net = encoding_net
+        self._encoding_net = encoding_net
+        self.goal_img = None
+        self._goal_state = None
+        self._goal = None
 
         if self._operation not in ["move_pick", "move", "place"]:
             raise NotImplementedError
@@ -814,14 +817,24 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
     def _reward(self):
         """
-        Distance reward for performance comparing
-        """
-        # state = self._get_observation_coordinates(inMatrixForm=True)
-        #
-        # x = self._encoding_net.encode(self.observation[np.newaxis, ...].astype(np.float32) / 255.).numpy()
-        # rew = np.dot(x, self._goal.T) / np.linalg.norm(x) / np.linalg.norm(self._goal)
-        # return np.squeeze(rew)
+        Reward function
 
+        :return: reward
+        :rtype: float
+        """
+
+        if self._encoding_net is not None:
+            return self._reward_as_cos_similarity()
+        else:
+            return self.reward_as_real_distance()
+
+    def reward_as_real_distance(self):
+        """
+        Reward as the distance between the gripper and the goal in real space
+
+        :return: reward
+        :rtype: float
+        """
         # Unpack the block's coordinate
         grip_pos, *block_pos = self._get_observation_coordinates(inMatrixForm=True)
         # print(self._get_observation_coordinates(True))
@@ -847,6 +860,17 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         else:
             # print(self.distance_x_y, abs(self.distance_z - 0.0345))
             return 0.1 - 10 * self.distance_x_y - 10 * abs(self.distance_z - 0.0345) #- action_norm  # - 100/36 * block_norm
+
+    def _reward_as_cos_similarity(self):
+        """
+        Reward as cosine similarity between states in a latent space
+
+        :return: reward
+        :rtype: float
+        """
+        x = self._encoding_net.encode(self.observation[np.newaxis, ...].astype(np.float32) / 255.).numpy()
+        rew = np.dot(x, self._goal_state.T) / np.linalg.norm(x) / np.linalg.norm(self._goal_state)
+        return np.squeeze(rew)
 
     def _termination(self):
         """
@@ -953,7 +977,11 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
             p.stepSimulation()
 
         self.goal_img = self.get_observation().astype(np.float32) / 255.
-        self._goal = 3  # self._encoding_net.encode(self.goal_img[np.newaxis, ...]).numpy()
+
+        if self._encoding_net is not None:
+            self._goal_state = self._encoding_net.encode(self.goal_img[np.newaxis, ...]).numpy()
+
+        self._goal = 3
 
         self._kuka.endEffectorPos[0:3] = r
         self._kuka.endEffectorAngle = a
@@ -961,7 +989,6 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
         for _ in range(self._actionRepeat):
             p.stepSimulation()
-
 
     if parse_version(gym.__version__) >= parse_version('0.9.6'):
         reset = _reset
