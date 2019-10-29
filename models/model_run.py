@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlocksEnv
 from models.autoencoder_env_model import AutoEncoderEnvironment
-from models.vae_env_model import VAE
+from models.vae_env_model import VAE, plan
 from tf_agents.environments import utils
 
 print(tf.__version__)
@@ -14,12 +14,12 @@ path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 model.load_weights(['en', 'de', 'le'], path_weights)
 
 env = KukaCamMultiBlocksEnv(renders=False,
-                            encoding_net=model,
+                            # encoding_net=model,
                             numObjects=4,
                             isTest=1,  # 1 and 4
                             operation='move_pick')
 
-utils.validate_py_environment(env, episodes=10)
+# utils.validate_py_environment(env, episodes=10)
 
 ideal_actions = np.array(
     [[0, 0, -0.7, 0], [-0.7, 0, -0.7, 0], [-.7, 0, 0, 0], [0, 0, -0.7, 0], [0, 0, -0.7, 0], [0, 0, -0.7, 0]])
@@ -50,7 +50,7 @@ for i in range(2):
     plt.axis('off')
     plt.imshow(xg[..., 3 * i:3 + 3 * i])
 
-actions, all_x = model.plan(x0, xg, horizon=horizon, lr=1e-4, epochs=100)
+actions, all_x = plan(model, x0, xg, horizon=horizon, lr=1e-4, epochs=100)
 
 env.reset()
 

@@ -28,96 +28,80 @@ from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlo
 import matplotlib.pyplot as plt
 import os
 
-# HYPER PARAMETERS
-collect_episodes_per_iteration = 30  # The number of episodes to take in the environment before
-replay_buffer_capacity = 101  # Replay buffer capacity per env
 
-actor_fc_layer_params = (256, 256)
-critic_fc_layer_params = (256, 256)
+def rl_planner(train_env, encoding_net, checkpoint_directory):
+    # HYPER PARAMETERS
+    actor_fc_layer_params = (256, 256)
+    critic_fc_layer_params = (256, 256)
 
-num_latent_dims = 256
-learning_rate = 3e-4
-gradient_clipping = None
-num_eval_episodes = 30  # The number of episodes to run eval on.
+    learning_rate = 3e-4
+    gradient_clipping = None
 
-num_parallel_environments = 1  # Number of environments to run in parallel
-num_epochs = 25  # Number of epochs for computing policy updates
+    num_epochs = 25  # Number of epochs for computing policy updates
 
-num_iterations = 50
-log_interval = 1
-eval_interval = 3
+    debug_summaries = False,
+    summarize_grads_and_vars = False
+    # --------
 
-debug_summaries = False,
-summarize_grads_and_vars = False
-# --------
+    observation_spec = train_env.observation_spec()
+    action_spec = train_env.action_spec()
+    print("Spec", action_spec)
 
-encoding_net = VAE(num_latent_dims)
-# encoding_net.load_weights(['en', 'de'], '/tmp/weights')
-encoding_net.load_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights')
+    critic_net = CriticNetwork(
+        observation_spec,
+        encoding_network=encoding_net,
+        fc_layer_params=critic_fc_layer_params)
 
-# checkpoint_directory = '/tmp/weights/rl'
-checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
+    actor_net = ActorNetwork(
+        observation_spec,
+        action_spec,
+        encoding_network=encoding_net,
+        fc_layer_params=actor_fc_layer_params)
+
+    # actor_net = actor_distribution_network.ActorDistributionNetwork(
+    #     observation_spec,
+    #     action_spec,
+    #     fc_layer_params=actor_fc_layer_params)
+    # continuous_projection_net=normal_projection_net)
+
+    global_step = tf.compat.v1.train.get_or_create_global_step()
+
+    tf_agent = ppo_agent.PPOAgent(
+        train_env.time_step_spec(),
+        action_spec,
+        optimizer=tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate),
+        actor_net=actor_net,
+        value_net=critic_net,
+        num_epochs=num_epochs,
+        gradient_clipping=gradient_clipping,
+        debug_summaries=debug_summaries,
+        summarize_grads_and_vars=summarize_grads_and_vars,
+        normalize_observations=False,
+        normalize_rewards=False,
+        train_step_counter=global_step)
+
+    tf_agent.initialize()
+    # tf_agent.train = common.function(tf_agent.train)
+
+    optimizer = tf.keras.optimizers.Adam(1e-4)
+    checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=tf_agent)
+    manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
+    status = checkpoint.restore(manager.latest_checkpoint)
+
+    if manager.latest_checkpoint:
+        print("Restored from {}".format(manager.latest_checkpoint))
+    else:
+        print("Initializing from scratch.")
+
+    return tf_agent, manager
+
 
 def env():
-    env = KukaCamMultiBlocksEnv(renders=False,
-                                # encoding_net=encoding_net,
-                                numObjects=4,
-                                isTest=4,  # 1 and 4
-                                operation='move_pick',
-                                )
-    return env
-
-
-eval_env = tf_py_environment.TFPyEnvironment(env())
-
-train_env = tf_py_environment.TFPyEnvironment(  #env())  # TODO: bug don't work in parallel with an encoding net inside
-    parallel_py_environment.ParallelPyEnvironment(
-        [lambda: env()] * num_parallel_environments))
-
-# validate_py_environment(env(), episodes=10)
-
-observation_spec = train_env.observation_spec()
-action_spec = train_env.action_spec()
-print("Spec", action_spec)
-
-critic_net = CriticNetwork(
-    observation_spec,
-    encoding_network=encoding_net,
-    fc_layer_params=critic_fc_layer_params)
-
-actor_net = ActorNetwork(
-    observation_spec,
-    action_spec,
-    encoding_network=encoding_net,
-    fc_layer_params=actor_fc_layer_params)
-
-# actor_net = actor_distribution_network.ActorDistributionNetwork(
-#     observation_spec,
-#     action_spec,
-#     fc_layer_params=actor_fc_layer_params)
-# continuous_projection_net=normal_projection_net)
-
-global_step = tf.compat.v1.train.get_or_create_global_step()
-
-tf_agent = ppo_agent.PPOAgent(
-    train_env.time_step_spec(),
-    action_spec,
-    optimizer=tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate),
-    # optimizer=tf.optimizers.Adam(learning_rate),
-    actor_net=actor_net,
-    value_net=critic_net,
-    num_epochs=num_epochs,
-    gradient_clipping=gradient_clipping,
-    debug_summaries=debug_summaries,
-    summarize_grads_and_vars=summarize_grads_and_vars,
-    normalize_observations=False,
-    normalize_rewards=False,
-    train_step_counter=global_step)
-
-tf_agent.initialize()
-
-eval_policy = tf_agent.policy
-collect_policy = tf_agent.collect_policy
+    return KukaCamMultiBlocksEnv(renders=False,
+                                 # encoding_net=encoding_net,
+                                 numObjects=4,
+                                 isTest=4,  # 1 and 4
+                                 operation='move_pick')
 
 
 def compute_avg_return(environment, policy, num_episodes=5):
@@ -137,28 +121,6 @@ def compute_avg_return(environment, policy, num_episodes=5):
     return avg_return.numpy()[0]
 
 
-replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
-    data_spec=tf_agent.collect_data_spec,
-    batch_size=train_env.batch_size,
-    max_length=replay_buffer_capacity
-)
-
-# step_metrics = [tf_metrics.NumberOfEpisodes(), tf_metrics.EnvironmentSteps()]
-
-# TODO: fix metrics; don't work in parallel
-# train_metrics = [tf_metrics.AverageReturnMetric(), tf_metrics.AverageEpisodeLengthMetric()]
-
-collect_driver = dynamic_episode_driver.DynamicEpisodeDriver(
-    train_env,
-    collect_policy,
-    observers=[replay_buffer.add_batch],
-    num_episodes=collect_episodes_per_iteration
-)
-
-# tf_agent.train = common.function(tf_agent.train)
-collect_driver.run = common.function(collect_driver.run)
-
-
 def split_trajectory(trajectory, rest):
     outer_rank = nest_utils.get_outer_rank(trajectory.observation, observation_spec)
     batch_squash = utils.BatchSquash(outer_rank)
@@ -168,95 +130,109 @@ def split_trajectory(trajectory, rest):
     return observation, action, observation
 
 
-optimizer = tf.keras.optimizers.Adam(1e-4)
-epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
-TRAIN_BUF = 2048
-BATCH_SIZE = 128
+if __name__ == "__main__":
 
-checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=tf_agent)
-manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
-# status = checkpoint.restore(tf.train.latest_checkpoint(checkpoint_directory))
-status = checkpoint.restore(manager.latest_checkpoint)
+    CLOUD = False
 
-if manager.latest_checkpoint:
-    print("Restored from {}".format(manager.latest_checkpoint))
-else:
-    print("Initializing from scratch.")
+    num_iterations = 50
+    log_interval = 1
+    eval_interval = 3
+    num_parallel_environments = 1  # Number of environments to run in parallel
+    num_latent_dims = 256
+    collect_episodes_per_iteration = 30  # The number of episodes to take in the environment before
+    replay_buffer_capacity = 101  # Replay buffer capacity per env
+    num_eval_episodes = 15  # The number of episodes to run eval on
 
-for _ in range(0): #num_iterations):
+    eval_env = tf_py_environment.TFPyEnvironment(env())
 
-    print('collecting')
-    collect_driver.run()
-    trajectories = replay_buffer.gather_all()
+    train_env = tf_py_environment.TFPyEnvironment(  # env())  # TODO: bug don't work in parallel with an encoding net inside
+        parallel_py_environment.ParallelPyEnvironment(
+            [lambda: env()] * num_parallel_environments))
 
-    # print(trajectories.observation.shape)
+    # validate_py_environment(env(), episodes=10)
 
-    # sample_batch_size=batch_size, num_steps=1 TODO: del
-    # dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-    #     .shuffle(replay_buffer_capacity) \
-    #     .batch(BATCH_SIZE) \
-    #     .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-    #     .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
-    #     .take(3 * int(TRAIN_BUF / BATCH_SIZE))
-    #
-    # # for i, (d, a, b) in enumerate(dataset):
-    # #     print(i, d.shape)
-    # # plt.imshow(d[0, ..., :3])
-    # # plt.show()
-    #
-    # train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
+    if CLOUD:
+        weights_path = '/tmp/weights'
+        checkpoint_directory = '/tmp/weights/rl'
+    else:
+        weights_path = '/Users/dgrebenyuk/Research/dataset/weights'
+        checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
 
-    encoding_net.inference_net.trainable = False
-    encoding_net.generative_net.trainable = False
-    encoding_net.lat_env_net.trainable = False
+    encoding_net = VAE(num_latent_dims)
+    encoding_net.load_weights(['en', 'de'], weights_path)
 
-    train_loss, _ = tf_agent.train(experience=trajectories)
+    epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
+    TRAIN_BUF = 2048
+    BATCH_SIZE = 128
 
-    # status.assert_consumed() TODO: del
-    # checkpoint.save(file_prefix=checkpoint_prefix) TODO: del
-    save_path = manager.save()
-    print("Saved checkpoint: {}".format(save_path))
+    tf_agent, manager = rl_planner(train_env, encoding_net, checkpoint_directory)
 
-    replay_buffer.clear()
+    replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
+            data_spec=tf_agent.collect_data_spec,
+            batch_size=train_env.batch_size,
+            max_length=replay_buffer_capacity)
 
-    step = tf_agent.train_step_counter.numpy()
+    # # # METRICS
 
-    if step % log_interval == 0:
-        print('step = {0}: loss = {1}'.format(step, train_loss))
+    step_metrics = [tf_metrics.NumberOfEpisodes(), tf_metrics.EnvironmentSteps()]
 
-    if step % eval_interval == 0:
-        avg_return = compute_avg_return(eval_env, eval_policy, num_eval_episodes)
-        print('step = {0}: Average Return = {1}'.format(step, avg_return))
+    return_metrics = [
+        tf_metrics.AverageReturnMetric(
+            batch_size=num_parallel_environments),
+        tf_metrics.AverageEpisodeLengthMetric(
+            batch_size=num_parallel_environments),
+    ]
 
+    # # #
 
-environment = KukaCamMultiBlocksEnv(renders=False,
-                                # encoding_net=encoding_net,
-                                numObjects=4,
-                                isTest=4,  # 1 and 4
-                                operation='move_pick')
+    collect_driver = dynamic_episode_driver.DynamicEpisodeDriver(
+        train_env,
+        tf_agent.collect_policy,
+        observers=[replay_buffer.add_batch] + step_metrics + return_metrics,
+        num_episodes=collect_episodes_per_iteration
+    )
 
+    collect_driver.run = common.function(collect_driver.run)
 
+    for _ in range(num_iterations):
 
-time_step = environment.reset()
-episode_return = 0.0
+        print('collecting')
+        collect_driver.run()
+        trajectories = replay_buffer.gather_all()
 
-# plt.imshow(environment.goal_img[..., :3])
-# plt.show()
-i = 0
+        # print(trajectories.observation.shape)
 
-while not time_step.is_last():
-    action_step = eval_policy.action(time_step)
-    a = action_step.action
-    print(a)
-    time_step = environment.step(a)
-    # z = time_step.observation / 255.
-    # z = encoding_net.decode(encoding_net.encode(z[tf.newaxis, ...]))
-    # plt.imshow(z[0, ..., :3])
-    # plt.show()
-    plt.imshow(time_step.observation[..., 3:6])
-    plt.show()
-    print(time_step.reward)
-    episode_return += time_step.reward
-    i += 1
+        # sample_batch_size=batch_size, num_steps=1 TODO: del
+        # dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+        #     .shuffle(replay_buffer_capacity) \
+        #     .batch(BATCH_SIZE) \
+        #     .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+        #     .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
+        #     .take(3 * int(TRAIN_BUF / BATCH_SIZE))
+        #
+        # # for i, (d, a, b) in enumerate(dataset):
+        # #     print(i, d.shape)
+        # # plt.imshow(d[0, ..., :3])
+        # # plt.show()
+        #
+        # train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
 
-print(episode_return)
+        encoding_net._inference_net.trainable = False
+        encoding_net._generative_net.trainable = False
+        encoding_net._lat_env_net.trainable = False
+
+        train_loss, _ = tf_agent.train(experience=trajectories)
+
+        save_path = manager.save()
+        print("Saved checkpoint: {}".format(save_path))
+
+        replay_buffer.clear()
+
+        step = tf_agent.train_step_counter.numpy()
+
+        if step % log_interval == 0:
+            print('step = {0}: loss = {1}'.format(step, train_loss))
+
+        if step % eval_interval == 0:
+            avg_return = compute_avg_return(eval_env, tf_agent.policy, num_eval_episodes)
+            print('step = {0}: Average Return = {1}'.format(step, avg_return))
