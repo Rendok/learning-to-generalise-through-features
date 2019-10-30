@@ -869,7 +869,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         :rtype: float
         """
         x = self._encoding_net.encode(self.observation[np.newaxis, ...].astype(np.float32) / 255.).numpy()
-        rew = np.around(np.dot(x, self._goal_state.T) / np.linalg.norm(x) / np.linalg.norm(self._goal_state) - 0.7, decimals=2)
+        rew = np.around(np.dot(x, self._goal_state.T) / np.linalg.norm(x) / np.linalg.norm(self._goal_state) - 0.5, decimals=2)
         return np.squeeze(rew)
 
     def _termination(self):
