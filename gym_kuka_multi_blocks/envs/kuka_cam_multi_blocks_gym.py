@@ -888,7 +888,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         # test2 = np.sqrt(np.sum(np.power(x - self._goal_state, 2)))
         # print(test1, test2)
 
-        return 10 - distance
+        return 0.5 - distance
 
     def _termination(self):
         """
