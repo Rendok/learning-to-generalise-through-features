@@ -33,6 +33,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
     def __init__(self,
                  encoding_net=None,
+                 latent_env = None,
                  urdfRoot=pybullet_data.getDataPath(),
                  actionRepeat=80,
                  isEnableSelfCollision=True,
@@ -44,7 +45,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                  height=128,
                  numObjects=3,
                  isTest=0,
-                 operation="place"
+                 operation="place",
+                 is_multistep_action=False
                  ):
         """Initializes the KukaDiverseObjectEnv.
 
@@ -84,16 +86,19 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._dv = dv
         self._p = p
         self._blockRandom = blockRandom
-        self._width = width
-        self._height = height
+        self._width = width     # image width
+        self._height = height   # image height
+        self._channels = 6  # two images stacked
         self._numObjects = numObjects
         self._isTest = isTest
         self._operation = operation
-        self._channels = 6
-        self._encoding_net = encoding_net
+        self._encoding_net = encoding_net   # auto encoder
+        self._latent_env = latent_env   # learned state transitions
+        self._is_multistep_action = is_multistep_action
         self.goal_img = None
         self._goal_state = None
         self._goal = None
+        self._num_steps = 5
 
         if self._operation not in ["move_pick", "move", "place"]:
             raise NotImplementedError
@@ -114,8 +119,12 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         #                                shape=(4,),
         #                                dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
-        self._action_spec = array_spec.BoundedArraySpec(
-            shape=(4,), dtype=np.float32, minimum=-2, maximum=2, name='action')
+        if self._is_multistep_action:
+            self._action_spec = array_spec.BoundedArraySpec(
+                shape=(self._num_steps, 4), dtype=np.float32, minimum=-2, maximum=2, name='action')
+        else:
+            self._action_spec = array_spec.BoundedArraySpec(
+                shape=(4,), dtype=np.float32, minimum=-2, maximum=2, name='action')
 
         # camera images
         # self.observation_space = spaces.Box(0, 255, [self._height, self._width, self._channels], dtype=np.uint8)
@@ -824,7 +833,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         """
 
         if self._encoding_net is not None:
-            return self._reward_as_cos_similarity()
+            return self._reward_as_lat_space_distance()
         else:
             return self._reward_as_real_distance()
 
@@ -871,6 +880,15 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         x = self._encoding_net.encode(self.observation[np.newaxis, ...].astype(np.float32) / 255.).numpy()
         rew = np.around(np.dot(x, self._goal_state.T) / np.linalg.norm(x) / np.linalg.norm(self._goal_state) - 0.5, decimals=2)
         return np.squeeze(rew)
+
+    def _reward_as_lat_space_distance(self):
+        x = self._encoding_net.encode(self.observation[np.newaxis, ...].astype(np.float32) / 255.).numpy()
+
+        distance = np.linalg.norm(x - self._goal_state)
+        # test2 = np.sqrt(np.sum(np.power(x - self._goal_state, 2)))
+        # print(test1, test2)
+
+        return 0.1 - distance
 
     def _termination(self):
         """
