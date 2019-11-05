@@ -837,7 +837,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         """
 
         if self._encoding_net is not None:
-            return self._reward_as_reconstruction_errror()
+            return self._reward_as_image_error()
         else:
             return self._reward_as_real_distance()
 
@@ -890,6 +890,12 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         x_h = self._encoding_net.decode(z).numpy()
 
         distance = np.linalg.norm(x_h.flatten() - self._goal_img.flatten())
+        return 30 - distance
+
+    def _reward_as_image_error(self):
+        x = self.get_observation() / 255.
+
+        distance = np.linalg.norm(x.flatten() - self._goal_img.flatten())
         return 30 - distance
 
     def _reward_as_lat_space_distance(self):
