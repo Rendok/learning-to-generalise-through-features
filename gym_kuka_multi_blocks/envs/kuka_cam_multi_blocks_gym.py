@@ -95,7 +95,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._encoding_net = encoding_net   # auto encoder
         self._latent_env = latent_env   # learned state transitions
         self._is_multistep_action = is_multistep_action
-        self.goal_img = None
+        self._goal_img = None
         self._goal_state = None
         self._goal = None
         self._num_steps = 5
@@ -142,6 +142,10 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
     def observation_spec(self):
         return self._observation_spec
+
+    @property
+    def goal_img(self):
+        return self._goal_img
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
@@ -833,7 +837,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         """
 
         if self._encoding_net is not None:
-            return self._reward_as_lat_space_distance()
+            return self._reward_as_reconstruction_errror()
         else:
             return self._reward_as_real_distance()
 
@@ -881,12 +885,23 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         rew = np.around(np.dot(x, self._goal_state.T) / np.linalg.norm(x) / np.linalg.norm(self._goal_state) - 0.5, decimals=2)
         return np.squeeze(rew)
 
+    def _reward_as_reconstruction_errror(self):
+        z = self._encoding_net.encode(self.observation[np.newaxis, ...].astype(np.float32) / 255.).numpy()
+        x_h = self._encoding_net.decode(z).numpy()
+
+        distance = np.linalg.norm(x_h.flatten() - self._goal_img.flatten())
+        return 30 - distance
+
     def _reward_as_lat_space_distance(self):
         x = self._encoding_net.encode(self.observation[np.newaxis, ...].astype(np.float32) / 255.).numpy()
 
         distance = np.linalg.norm(x - self._goal_state)
         # test2 = np.sqrt(np.sum(np.power(x - self._goal_state, 2)))
         # print(test1, test2)
+        
+        # import matplotlib.pyplot as plt
+        # plt.imshow(self._encoding_net.decode(self._goal_state)[0, ..., 3:6])
+        # plt.show()
 
         return 0.5 - distance
 
@@ -1002,10 +1017,10 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         for _ in range(self._actionRepeat):
             p.stepSimulation()
 
-        self.goal_img = self.get_observation().astype(np.float32) / 255.
+        self._goal_img = self.get_observation().astype(np.float32) / 255.
 
         if self._encoding_net is not None:
-            self._goal_state = self._encoding_net.encode(self.goal_img[np.newaxis, ...]).numpy()
+            self._goal_state = self._encoding_net.encode(self._goal_img[np.newaxis, ...]).numpy()
 
         self._kuka.endEffectorPos[0:3] = r
         self._kuka.endEffectorAngle = a
