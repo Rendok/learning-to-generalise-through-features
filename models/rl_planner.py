@@ -4,7 +4,6 @@ from tf_agents.agents.ppo import ppo_agent
 from tf_agents.environments import suite_pybullet
 from tf_agents.environments import tf_py_environment
 from tf_agents.environments import parallel_py_environment
-from tf_agents.environments.utils import validate_py_environment
 from tf_agents.eval import metric_utils
 from tf_agents.metrics import tf_metrics
 from tf_agents.networks import actor_distribution_network, network
@@ -17,8 +16,8 @@ from tf_agents.trajectories import trajectory
 from tf_agents.utils import common
 from tf_agents.networks import utils
 from tf_agents.utils import nest_utils
-from models.critic_network import CriticNetwork
-from models.actor_network import ActorNetwork
+from models.critic_network import CriticNetwork, AugmentedCriticNetwork
+from models.actor_network import ActorNetwork, AugmentedActorNetwork
 from models.model_train import train_one_step
 
 import tensorflow as tf
@@ -47,12 +46,12 @@ def rl_planner(train_env, encoding_net, checkpoint_directory):
     action_spec = train_env.action_spec()
     print("Spec", action_spec)
 
-    critic_net = CriticNetwork(
+    critic_net = AugmentedCriticNetwork(
         observation_spec,
         encoding_network=encoding_net,
         fc_layer_params=critic_fc_layer_params)
 
-    actor_net = ActorNetwork(
+    actor_net = AugmentedActorNetwork(
         observation_spec,
         action_spec,
         encoding_network=encoding_net,
@@ -78,6 +77,7 @@ def rl_planner(train_env, encoding_net, checkpoint_directory):
         summarize_grads_and_vars=summarize_grads_and_vars,
         normalize_observations=False,
         normalize_rewards=False,
+        use_gae=False,
         train_step_counter=global_step)
 
     tf_agent.initialize()
@@ -88,17 +88,19 @@ def rl_planner(train_env, encoding_net, checkpoint_directory):
     manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
     status = checkpoint.restore(manager.latest_checkpoint)
 
+    # TODO: add train_checkpointer = common.Checkpointer() to visualise training
+
     if manager.latest_checkpoint:
         print("Restored from {}".format(manager.latest_checkpoint))
     else:
         print("Initializing from scratch.")
 
-    return tf_agent, manager
+    return tf_agent, manager, optimizer
 
 
 def env():
     return KukaCamMultiBlocksEnv(renders=False,
-                                 # encoding_net=encoding_net,
+                                 encoding_net=encoding_net,
                                  numObjects=4,
                                  isTest=4,  # 1 and 4
                                  operation='move_pick')
@@ -143,14 +145,6 @@ if __name__ == "__main__":
     replay_buffer_capacity = 101  # Replay buffer capacity per env
     num_eval_episodes = 15  # The number of episodes to run eval on
 
-    eval_env = tf_py_environment.TFPyEnvironment(env())
-
-    train_env = tf_py_environment.TFPyEnvironment(  # env())  # TODO: bug don't work in parallel with an encoding net inside
-        parallel_py_environment.ParallelPyEnvironment(
-            [lambda: env()] * num_parallel_environments))
-
-    # validate_py_environment(env(), episodes=10)
-
     if CLOUD:
         weights_path = '/tmp/weights'
         checkpoint_directory = '/tmp/weights/rl'
@@ -161,11 +155,19 @@ if __name__ == "__main__":
     encoding_net = VAE(num_latent_dims)
     encoding_net.load_weights(['en', 'de'], weights_path)
 
+    eval_env = tf_py_environment.TFPyEnvironment(env())
+
+    # TODO: bug don't work in parallel with an encoding net inside
+    train_env = tf_py_environment.TFPyEnvironment(env())
+        # parallel_py_environment.ParallelPyEnvironment(
+        #     [lambda: env()] * num_parallel_environments))
+
+
     epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
     TRAIN_BUF = 2048
     BATCH_SIZE = 128
 
-    tf_agent, manager = rl_planner(train_env, encoding_net, checkpoint_directory)
+    tf_agent, manager, optimizer = rl_planner(train_env, encoding_net, checkpoint_directory)
 
     replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
             data_spec=tf_agent.collect_data_spec,
@@ -194,6 +196,8 @@ if __name__ == "__main__":
 
     collect_driver.run = common.function(collect_driver.run)
 
+    observation_spec = train_env.observation_spec()
+
     for _ in range(num_iterations):
 
         print('collecting')
@@ -202,26 +206,21 @@ if __name__ == "__main__":
 
         # print(trajectories.observation.shape)
 
-        # sample_batch_size=batch_size, num_steps=1 TODO: del
-        # dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-        #     .shuffle(replay_buffer_capacity) \
-        #     .batch(BATCH_SIZE) \
-        #     .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-        #     .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
-        #     .take(3 * int(TRAIN_BUF / BATCH_SIZE))
-        #
-        # # for i, (d, a, b) in enumerate(dataset):
-        # #     print(i, d.shape)
-        # # plt.imshow(d[0, ..., :3])
-        # # plt.show()
-        #
-        # train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
-
         encoding_net._inference_net.trainable = False
         encoding_net._generative_net.trainable = False
         encoding_net._lat_env_net.trainable = False
 
         train_loss, _ = tf_agent.train(experience=trajectories)
+
+        # sample_batch_size=batch_size, num_steps=1 TODO: del
+        dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+            .shuffle(replay_buffer_capacity) \
+            .batch(BATCH_SIZE) \
+            .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+            .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
+            .take(3 * int(TRAIN_BUF / BATCH_SIZE))
+
+        train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
 
         save_path = manager.save()
         print("Saved checkpoint: {}".format(save_path))

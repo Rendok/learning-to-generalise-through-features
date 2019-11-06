@@ -1,4 +1,5 @@
 from tf_agents.environments import tf_py_environment
+from tf_agents.environments.utils import validate_py_environment
 from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlocksEnv
 from models.rl_planner import rl_planner
 from models.vae_env_model import VAE
@@ -16,6 +17,8 @@ environment = KukaCamMultiBlocksEnv(renders=False,
                                 numObjects=4,
                                 isTest=4,  # 1 and 4
                                 operation='move_pick')
+
+# validate_py_environment(environment, episodes=10)
 
 eval_env = tf_py_environment.TFPyEnvironment(environment)
 tf_agent, _, _ = rl_planner(eval_env, encoding_net, checkpoint_directory + "/rl")

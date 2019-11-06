@@ -120,3 +120,72 @@ class ActorNetwork(network.DistributionNetwork):
         # print('last out', output_actions.batch_shape)
 
         return output_actions, network_state
+
+
+class AugmentedActorNetwork(ActorNetwork):
+
+    def __init__(self,
+                 observation_spec,
+                 action_spec,
+                 encoding_network,
+                 preprocessing_layers=None,
+                 preprocessing_combiner=None,
+                 conv_layer_params=None,
+                 fc_layer_params=(75, 40),
+                 dropout_layer_params=None,
+                 activation_fn=tf.keras.activations.relu,
+                 enable_last_layer_zero_initializer=False,
+                 name='ActorNetwork'):
+
+        super().__init__(
+            observation_spec=observation_spec,
+            action_spec=action_spec,
+            encoding_network=encoding_network,
+            preprocessing_layers=preprocessing_layers,
+            preprocessing_combiner=preprocessing_combiner,
+            conv_layer_params=conv_layer_params,
+            fc_layer_params=fc_layer_params,
+            dropout_layer_params=dropout_layer_params,
+            activation_fn=activation_fn,
+            enable_last_layer_zero_initializer=enable_last_layer_zero_initializer,
+            name=name)
+
+    def call(self, observation, step_type=(), network_state=()):
+
+        del step_type
+        # print(observations.shape)
+
+        outer_rank = nest_utils.get_outer_rank(observation, self._observation_spec)
+        batch_squash = utils.BatchSquash(outer_rank)
+        observation = tf.nest.map_structure(batch_squash.flatten, observation)
+
+        image = observation[..., :6]
+        global_coordinates = observation[..., :7, 0, 6]
+
+        # print(observations.shape)
+        output = tf.cast(image, tf.float32)
+        # print(output.shape)
+        output = self._encoder.encode(output)
+        # print(output.shape)
+
+        # if output.shape != (0, 256):
+        #     import matplotlib.pyplot as plt
+        #     plt.imshow(self._encoder.decode(output)[0, ..., :3])
+        #     plt.show()
+
+        output = tf.concat([output, global_coordinates], axis=1)
+
+        for layer in self._mlp_layers:
+            output = layer(output)
+
+        # print(output.shape)
+
+        output = tf.nest.map_structure(batch_squash.unflatten, output)
+        # print(output.shape)
+
+        output_actions = tf.nest.map_structure(
+            lambda proj_net: proj_net(output, outer_rank), self._projection_networks)
+
+        # print('last out', output_actions.batch_shape)
+
+        return output_actions, network_state
