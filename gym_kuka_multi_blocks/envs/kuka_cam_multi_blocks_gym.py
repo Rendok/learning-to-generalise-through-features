@@ -98,6 +98,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._goal_img = None
         self._goal_state = None
         self._goal = None
+        self._goal_coordinates = None
         self._num_steps = 5
 
         if self._operation not in ["move_pick", "move", "place"]:
@@ -910,6 +911,9 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         observation = self.get_observation()
         x = self._encoding_net.encode(observation[np.newaxis, ...]).numpy()
 
+        coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
+        x = np.concatenate((x[0, ...], coordinates), axis=-1)
+
         distance = np.linalg.norm(x - self._goal_state)
         # test2 = np.sqrt(np.sum(np.power(x - self._goal_state, 2)))
         # print(test1, test2)
@@ -1020,6 +1024,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         grip_pos, goal_pos, *block_pos = self._get_observation_coordinates(inMatrixForm=True)
         # print(self._get_observation_coordinates(True))
 
+        self._goal_coordinates = grip_pos
+
         # Get the goal block's coordinates
         x, y, z, *rest = goal_pos
 
@@ -1036,6 +1042,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         if self._encoding_net is not None:
             self._goal_state = self._encoding_net.encode(self._goal_img[np.newaxis, ...]).numpy()
+            coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
+            self._goal_state = np.concatenate((self._goal_state[0, ...], coordinates), axis=-1)
 
         self._kuka.endEffectorPos[0:3] = r
         self._kuka.endEffectorAngle = a
@@ -1051,6 +1059,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         :param observation:
         :return:
         """
+        assert observation.shape == (self._height, self._width, self._channels)
+
         to_add = np.zeros((self._height, self._width, 1)).astype(np.float32)
         coordinates = self._get_observation_coordinates(inMatrixForm=True)
         to_add[:7, 0, 0] = coordinates[0]

@@ -183,6 +183,10 @@ class VAE(tf.keras.Model):
     def lat_env_net(self):
         return self._lat_env_net
 
+    @property
+    def latent_dim(self):
+        return self._latent_dim
+
     def infer(self, x):
         """
         Infers means and std's from an image

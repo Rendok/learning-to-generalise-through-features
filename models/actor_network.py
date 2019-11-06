@@ -161,12 +161,12 @@ class AugmentedActorNetwork(ActorNetwork):
 
         image = observation[..., :6]
         global_coordinates = observation[..., :7, 0, 6]
-
+        # print(global_coordinates)
         # print(observations.shape)
         output = tf.cast(image, tf.float32)
         # print(output.shape)
         output = self._encoder.encode(output)
-        # print(output.shape)
+        # print(output)
 
         # if output.shape != (0, 256):
         #     import matplotlib.pyplot as plt
