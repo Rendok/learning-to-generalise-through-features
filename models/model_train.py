@@ -114,7 +114,7 @@ def compute_loss_vae_two_states(model, x, x_prev):
     mean_prev, logvar_prev = model.infer(x_prev)
     log_qz_x_prev = log_normal_pdf(z, mean_prev, logvar_prev)
 
-    # print(log_px_z.shape, log_pz.shape, log_qz_x.shape)
+    # print(log_px_z.shape, log_pz.shape, log_qz_x.shape, log_qz_x_prev.shape)
 
     return -tf.reduce_mean(log_px_z + 0.5 * log_pz - log_qz_x + 0.5 * log_qz_x_prev)
 
@@ -191,7 +191,7 @@ def compute_apply_gradients_vae(model, x, optimizer):
     model.lat_env_net.trainable = False
 
     with tf.GradientTape() as tape:
-        loss = compute_loss_vae_(model, x)
+        loss = compute_loss_vae(model, x)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
