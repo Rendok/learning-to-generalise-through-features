@@ -16,8 +16,8 @@ from tf_agents.trajectories import trajectory
 from tf_agents.utils import common
 from tf_agents.networks import utils
 from tf_agents.utils import nest_utils
-from models.critic_network import CriticNetwork, AugmentedCriticNetwork
-from models.actor_network import ActorNetwork, AugmentedActorNetwork
+from models.critic_network import CriticNetwork
+from models.actor_network import ActorNetwork
 from models.model_train import train_one_step
 
 import tensorflow as tf
@@ -46,12 +46,12 @@ def rl_planner(train_env, encoding_net, checkpoint_directory):
     action_spec = train_env.action_spec()
     print("Spec", action_spec)
 
-    critic_net = AugmentedCriticNetwork(
+    critic_net = CriticNetwork(
         observation_spec,
         encoding_network=encoding_net,
         fc_layer_params=critic_fc_layer_params)
 
-    actor_net = AugmentedActorNetwork(
+    actor_net = ActorNetwork(
         observation_spec,
         action_spec,
         encoding_network=encoding_net,
@@ -126,10 +126,12 @@ def compute_avg_return(environment, policy, num_episodes=5):
 def split_trajectory(trajectory, rest):
     outer_rank = nest_utils.get_outer_rank(trajectory.observation, observation_spec)
     batch_squash = utils.BatchSquash(outer_rank)
-    observation, action = tf.nest.map_structure(batch_squash.flatten, (trajectory.observation, trajectory.action))
-    observation = tf.cast(observation, tf.float32) / 255.
+    observation, action = trajectory.observation, trajectory.action
+    # observation, action = tf.nest.map_structure(batch_squash.flatten, (trajectory.observation, trajectory.action))
+    # observation = tf.cast(observation[..., :6], tf.float32)
+    print(observation.shape)
 
-    return observation, action, observation
+    return observation[:, 1, ...], action, observation[:, 0, ...]
 
 
 if __name__ == "__main__":
@@ -169,6 +171,8 @@ if __name__ == "__main__":
 
     tf_agent, manager, optimizer = rl_planner(train_env, encoding_net, checkpoint_directory)
 
+    # The TFUniformReplayBuffer stores episodes in `B == batch_size` blocks of
+    # size `L == max_length`, with total frame capacity `C == L * B`.
     replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
             data_spec=tf_agent.collect_data_spec,
             batch_size=train_env.batch_size,
@@ -198,11 +202,11 @@ if __name__ == "__main__":
 
     observation_spec = train_env.observation_spec()
 
-    for _ in range(num_iterations):
+    for _ in range(1): #num_iterations):
 
         print('collecting')
         collect_driver.run()
-        trajectories = replay_buffer.gather_all()
+        # trajectories = replay_buffer.gather_all()
 
         # print(trajectories.observation.shape)
 
@@ -210,28 +214,37 @@ if __name__ == "__main__":
         encoding_net._generative_net.trainable = False
         encoding_net._lat_env_net.trainable = False
 
-        train_loss, _ = tf_agent.train(experience=trajectories)
+        # train_loss, _ = tf_agent.train(experience=trajectories)
 
-        # sample_batch_size=batch_size, num_steps=1 TODO: del
-        dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+        dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE, num_steps=2) \
             .shuffle(replay_buffer_capacity) \
             .batch(BATCH_SIZE) \
             .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
             .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
             .take(3 * int(TRAIN_BUF / BATCH_SIZE))
 
-        train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae')
+        # import matplotlib.pyplot as plt
+        # for d, _, d1 in dataset:
+        #     plt.imshow(d[0, ..., 3:])
+        #     plt.show()
+        #     plt.imshow(d1[0, ..., 3:])
+        #     plt.show()
+        #     # print(d.shape)
 
-        save_path = manager.save()
-        print("Saved checkpoint: {}".format(save_path))
+        train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae+')
 
-        replay_buffer.clear()
+        # encoding_net.save_weights(['en', 'de'], weights_path, 1) #num_iterations % 3)
 
-        step = tf_agent.train_step_counter.numpy()
-
-        if step % log_interval == 0:
-            print('step = {0}: loss = {1}'.format(step, train_loss))
-
-        if step % eval_interval == 0:
-            avg_return = compute_avg_return(eval_env, tf_agent.policy, num_eval_episodes)
-            print('step = {0}: Average Return = {1}'.format(step, avg_return))
+        # save_path = manager.save()
+        # print("Saved checkpoint: {}".format(save_path))
+        #
+        # replay_buffer.clear()
+        #
+        # step = tf_agent.train_step_counter.numpy()
+        #
+        # if step % log_interval == 0:
+        #     print('step = {0}: loss = {1}'.format(step, train_loss))
+        #
+        # if step % eval_interval == 0:
+        #     avg_return = compute_avg_return(eval_env, tf_agent.policy, num_eval_episodes)
+        #     print('step = {0}: Average Return = {1}'.format(step, avg_return))

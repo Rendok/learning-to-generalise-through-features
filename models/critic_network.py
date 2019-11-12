@@ -37,12 +37,14 @@ class CriticNetwork(value_network.ValueNetwork):
 
     def call(self, observation, step_type=None, network_state=()):
 
+        assert observation.dtype == tf.float32
+
         # print(self._input_tensor_spec)
         outer_rank = nest_utils.get_outer_rank(observation, self._input_tensor_spec)
         batch_squash = utils.BatchSquash(outer_rank)
         output = tf.nest.map_structure(batch_squash.flatten, observation)
 
-        output = tf.cast(output, tf.float32) / 255.
+        # output = tf.cast(output, tf.float32)
         output = self._encoder.encode(output)
 
         value = self._postprocessing_layers(output)

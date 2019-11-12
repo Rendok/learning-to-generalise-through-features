@@ -98,6 +98,28 @@ def compute_loss_vae(model, x):
 
 
 @tf.function
+def compute_loss_vae_two_states(model, x, x_prev):
+    mean, logvar = model.infer(x)
+    z = model.reparameterize(mean, logvar)
+    x_pred = model.decode(z, apply_sigmoid=True)
+
+    x_pred = tf.keras.layers.Flatten()(x_pred)
+    x = tf.keras.layers.Flatten()(x)
+
+    log_px_z = -tf.reduce_sum(tf.math.squared_difference(x, x_pred), axis=-1)
+
+    log_pz = log_normal_pdf(z, 0., 0.)
+    log_qz_x = log_normal_pdf(z, mean, logvar)
+
+    mean_prev, logvar_prev = model.infer(x_prev)
+    log_qz_x_prev = log_normal_pdf(z, mean_prev, logvar_prev)
+
+    # print(log_px_z.shape, log_pz.shape, log_qz_x.shape)
+
+    return -tf.reduce_mean(log_px_z + 0.5 * log_pz - log_qz_x + 0.5 * log_qz_x_prev)
+
+
+@tf.function
 def compute_loss_vae_env(model, x, a, y):
     mean, logvar = model.infer(x)
     z = model.reparameterize(mean, logvar)
@@ -169,7 +191,19 @@ def compute_apply_gradients_vae(model, x, optimizer):
     model.lat_env_net.trainable = False
 
     with tf.GradientTape() as tape:
-        loss = compute_loss_vae(model, x)
+        loss = compute_loss_vae_(model, x)
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+    return loss
+
+
+@tf.function
+def compute_apply_gradients_vae_two_states(model, x, x_prev, optimizer):
+    model.lat_env_net.trainable = False
+
+    with tf.GradientTape() as tape:
+        loss = compute_loss_vae_two_states(model, x,  x_prev)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
@@ -177,7 +211,7 @@ def compute_apply_gradients_vae(model, x, optimizer):
 
 
 def train_one_step(model, train_dataset, optimizer, epoch_loss, mode):
-    BATCH_SIZE = 128 * 2
+    BATCH_SIZE = 128
 
     for i, (train_X, train_A, train_Y) in train_dataset.enumerate():
         if mode == 'ed':
@@ -187,13 +221,15 @@ def train_one_step(model, train_dataset, optimizer, epoch_loss, mode):
             loss = compute_apply_gradients_vae_env(model, train_X, train_A, train_Y, optimizer)
         elif mode == 'vae':
             loss = compute_apply_gradients_vae(model, train_X, optimizer)
+        elif mode == 'vae+':
+            loss = compute_apply_gradients_vae_two_states(model, train_X, train_Y, optimizer)
         else:
             raise ValueError
 
         # loss = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
 
         epoch_loss.update_state(loss)
-        if i % 50 == 0:
+        if i % 10 == 0:
             print(i.numpy() * BATCH_SIZE, epoch_loss.result().numpy())
             epoch_loss.reset_states()
 

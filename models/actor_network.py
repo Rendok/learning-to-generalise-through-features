@@ -90,17 +90,16 @@ class ActorNetwork(network.DistributionNetwork):
     def output_tensor_spec(self):
         return self._action_spec
 
-    def call(self, observations, step_type=(), network_state=()):
+    def call(self, observation, step_type=None, network_state=()):
 
-        del step_type
-        # print(observations.shape)
+        assert observation.dtype == tf.float32
 
-        outer_rank = nest_utils.get_outer_rank(observations, self._observation_spec)
+        outer_rank = nest_utils.get_outer_rank(observation, self._observation_spec)
         batch_squash = utils.BatchSquash(outer_rank)
-        observations = tf.nest.map_structure(batch_squash.flatten, observations)
+        output = tf.nest.map_structure(batch_squash.flatten, observation)
 
         # print(observations.shape)
-        output = tf.cast(observations, tf.float32) / 255.
+        # output = tf.cast(observations, tf.float32)
         # print(output.shape)
 
         output = self._encoder.encode(output)

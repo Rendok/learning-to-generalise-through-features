@@ -46,7 +46,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                  numObjects=3,
                  isTest=0,
                  operation="place",
-                 is_multistep_action=False
+                 is_multistep_action=False,
+                 add_global_coords=False
                  ):
         """Initializes the KukaDiverseObjectEnv.
 
@@ -100,6 +101,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._goal = None
         self._goal_coordinates = None
         self._num_steps = 5
+        self._add_global_coords = add_global_coords
 
         if self._operation not in ["move_pick", "move", "place"]:
             raise NotImplementedError
@@ -130,9 +132,14 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         # camera images
         # self.observation_space = spaces.Box(0, 255, [self._height, self._width, self._channels], dtype=np.uint8)
 
-        self._observation_spec = array_spec.BoundedArraySpec(
-            shape=(self._height, self._width, self._channels+1), dtype=np.float32, minimum=-3, maximum=3,
-            name='observation')
+        if self._add_global_coords:
+            self._observation_spec = array_spec.BoundedArraySpec(
+                shape=(self._height, self._width, self._channels + 1), dtype=np.float32, minimum=-3, maximum=3,
+                name='observation')
+        else:
+            self._observation_spec = array_spec.BoundedArraySpec(
+                shape=(self._height, self._width, self._channels), dtype=np.float32, minimum=0, maximum=1,
+                name='observation')
 
         self._set_camera_settings()
 
@@ -194,7 +201,9 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         # set observations
         observation = self.get_observation()
-        observation = self._add_global_coordinates(observation)
+
+        if self._add_global_coords:
+            observation = self._add_global_coordinates(observation)
 
         # return observations
         return ts.restart(observation)
@@ -823,7 +832,9 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                 self._episode_ended = True
 
         observation = self.get_observation()
-        observation = self._add_global_coordinates(observation)
+
+        if self._add_global_coords:
+            observation = self._add_global_coordinates(observation)
 
         reward = self._reward()
         done = self._termination()
