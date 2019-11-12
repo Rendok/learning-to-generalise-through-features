@@ -33,7 +33,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
     def __init__(self,
                  encoding_net=None,
-                 latent_env = None,
+                 latent_env=None,
                  urdfRoot=pybullet_data.getDataPath(),
                  actionRepeat=80,
                  isEnableSelfCollision=True,
@@ -922,8 +922,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         observation = self.get_observation()
         x = self._encoding_net.encode(observation[np.newaxis, ...]).numpy()
 
-        coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
-        x = np.concatenate((x[0, ...], coordinates), axis=-1)
+        # coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
+        # x = np.concatenate((x[0, ...], coordinates), axis=-1)
 
         distance = np.linalg.norm(x - self._goal_state)
         # test2 = np.sqrt(np.sum(np.power(x - self._goal_state, 2)))
@@ -1053,8 +1053,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         if self._encoding_net is not None:
             self._goal_state = self._encoding_net.encode(self._goal_img[np.newaxis, ...]).numpy()
-            coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
-            self._goal_state = np.concatenate((self._goal_state[0, ...], coordinates), axis=-1)
+            # coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
+            # self._goal_state = np.concatenate((self._goal_state[0, ...], coordinates), axis=-1)
 
         self._kuka.endEffectorPos[0:3] = r
         self._kuka.endEffectorAngle = a
