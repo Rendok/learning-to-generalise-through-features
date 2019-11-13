@@ -222,7 +222,7 @@ def train_one_step(model, train_dataset, optimizer, epoch_loss, mode):
         elif mode == 'vae':
             loss = compute_apply_gradients_vae(model, train_X, optimizer)
         elif mode == 'vae+':
-            loss = compute_apply_gradients_vae_two_states(model, train_X, train_Y, optimizer)
+            loss = compute_apply_gradients_vae_two_states(model, train_Y, train_X, optimizer)
         else:
             raise ValueError
 
@@ -248,6 +248,8 @@ def test_one_step(model, test_dataset, epoch_loss, mode):
             loss = compute_loss_vae_env(model, test_X, test_A, test_Y)
         elif mode == 'vae':
             loss = compute_loss_vae(model, test_X)
+        elif mode == 'vae+':
+            loss = compute_loss_vae_two_states(model, train_Y, train_X, optimizer)
         else:
             raise ValueError
 
@@ -284,7 +286,7 @@ def train(model, epochs, path_tr, path_val, mode):
                 model.save_weights(['en', 'de'], '/tmp/weights', epoch % 3)
             elif mode == 'le':
                 model.save_weights(['le'], '/tmp/weights', epoch % 3)
-            elif mode == 'vae':
+            elif mode == 'vae' or mode == 'vae+':
                 model.save_weights(['en', 'de'], '/tmp/weights', epoch % 3)
             else:
                 raise ValueError
@@ -293,7 +295,7 @@ def train(model, epochs, path_tr, path_val, mode):
                 model.save_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
             elif mode == 'le':
                 model.save_weights(['le'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
-            elif mode == 'vae':
+            elif mode == 'vae' or mode == 'vae+':
                 model.save_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
             else:
                 raise ValueError
@@ -305,7 +307,7 @@ if __name__ == "__main__":
 
     print(tf.__version__)
     # train in the cloud
-    CLOUD = True
+    CLOUD = False
 
     epochs = 100
     TRAIN_BUF = 2048 * 3
@@ -329,8 +331,8 @@ if __name__ == "__main__":
     else:
         # path_tr = '/Users/dgrebenyuk/Research/dataset/training1.h5'
         # path_val = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
-        path_tr = '/Users/dgrebenyuk/Research/dataset/training.tfrecord'
-        path_val = '/Users/dgrebenyuk/Research/dataset/validation.tfrecord'
+        path_tr = '/Users/dgrebenyuk/Research/dataset/training2.tfrecord'
+        path_val = '/Users/dgrebenyuk/Research/dataset/validation2.tfrecord'
 
     # testing distributed training
     # strategy = tf.distribute.MirroredStrategy()
@@ -360,5 +362,5 @@ if __name__ == "__main__":
     model.load_weights(['en', 'de', 'le'], path_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment
-    train(model, epochs, path_tr, path_val, 'le')
-    # train(model, epochs, path_tr, path_val, 'vae')
+    # train(model, epochs, path_tr, path_val, 'le')
+    train(model, epochs, path_tr, path_val, 'vae+')

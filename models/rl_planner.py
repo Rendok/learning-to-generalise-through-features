@@ -131,20 +131,20 @@ def split_trajectory(trajectory, rest):
     # observation = tf.cast(observation[..., :6], tf.float32)
     # print(observation.shape)
 
-    return observation[:, 1, ...], action, observation[:, 0, ...]
+    return observation[:, 0, ...], action, observation[:, 1, ...]
 
 
 if __name__ == "__main__":
 
-    CLOUD = True
+    CLOUD = False
 
     num_iterations = 50
     log_interval = 1
     eval_interval = 3
     num_parallel_environments = 1  # Number of environments to run in parallel
     num_latent_dims = 256
-    collect_episodes_per_iteration = 30  # The number of episodes to take in the environment before
-    replay_buffer_capacity = 151  # Replay buffer capacity per env
+    collect_episodes_per_iteration = 300  # 30  The number of episodes to take in the environment before
+    replay_buffer_capacity = 351  # 151 Replay buffer capacity per env
     num_eval_episodes = 15  # The number of episodes to run eval on
 
     if CLOUD:
@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
     epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
     TRAIN_BUF = 2048
-    BATCH_SIZE = 128
+    BATCH_SIZE = 128 * 2
 
     tf_agent, manager, optimizer = rl_planner(train_env, encoding_net, checkpoint_directory)
 
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
         print('collecting')
         collect_driver.run()
-        trajectories = replay_buffer.gather_all()
+        # trajectories = replay_buffer.gather_all()
 
         # print(trajectories.observation.shape)
 
@@ -214,26 +214,27 @@ if __name__ == "__main__":
         encoding_net._generative_net.trainable = False
         encoding_net._lat_env_net.trainable = False
 
-        train_loss, _ = tf_agent.train(experience=trajectories)
-
+        # train_loss, _ = tf_agent.train(experience=trajectories)
+        # .shuffle(TRAIN_BUF) \
+        # .batch(BATCH_SIZE) \
         dataset = replay_buffer.as_dataset(num_parallel_calls=tf.data.experimental.AUTOTUNE, num_steps=2) \
-            .shuffle(replay_buffer_capacity) \
             .batch(BATCH_SIZE) \
             .map(split_trajectory, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
             .prefetch(buffer_size=tf.data.experimental.AUTOTUNE) \
-            .take(4 * int(TRAIN_BUF / BATCH_SIZE))
+            .take(50)  # * int(TRAIN_BUF / BATCH_SIZE))
 
         # import matplotlib.pyplot as plt
-        # for d, _, d1 in dataset:
+        for i, (d, _, d1) in enumerate(dataset):
+            print(i, d.shape)
         #     plt.imshow(d[0, ..., 3:])
         #     plt.show()
         #     plt.imshow(d1[0, ..., 3:])
         #     plt.show()
         #     # print(d.shape)
 
-        train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae+')
+        # train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae+')
 
-        encoding_net.save_weights(['en', 'de'], weights_path, num_iterations % 3)
+        # encoding_net.save_weights(['en', 'de'], weights_path, num_iterations % 3)
 
         # save_path = manager.save()
         # print("Saved checkpoint: {}".format(save_path))

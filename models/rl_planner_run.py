@@ -40,7 +40,7 @@ while not time_step.is_last():
     # z = encoding_net.decode(encoding_net.encode(z[tf.newaxis, ...]))
     # plt.imshow(z[0, ..., :3])
     # plt.show()
-    plt.imshow(time_step.observation[..., 3:6])
+    plt.imshow(time_step.observation[..., :3])
     plt.show()
     print(time_step.reward)
     episode_return += time_step.reward
