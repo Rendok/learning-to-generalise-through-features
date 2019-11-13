@@ -4,6 +4,7 @@ from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlo
 from models.rl_planner import rl_planner
 from models.vae_env_model import VAE
 import matplotlib.pyplot as plt
+import tensorflow as tf
 
 num_latent_dims = 256
 checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights'
@@ -29,14 +30,14 @@ episode_return = 0.0
 environment.reset()
 plt.imshow(environment.goal_img[..., :3])
 plt.show()
-# i = 0
 
 while not time_step.is_last():
+# for _ in range(10):
     action_step = tf_agent.policy.action(time_step)
     a = action_step.action
     print(a)
     time_step = environment.step(a)
-    # z = time_step.observation / 255.
+    z = time_step.observation
     # z = encoding_net.decode(encoding_net.encode(z[tf.newaxis, ...]))
     # plt.imshow(z[0, ..., :3])
     # plt.show()
@@ -44,6 +45,5 @@ while not time_step.is_last():
     plt.show()
     print(time_step.reward)
     episode_return += time_step.reward
-    # i += 1
 
 print(episode_return)

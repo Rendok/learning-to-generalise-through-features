@@ -23,7 +23,7 @@ env = KukaCamMultiBlocksEnv(renders=False,
 
 ideal_actions = np.array(
     [[0, 0, -0.7, 0], [-0.7, 0, -0.7, 0], [-.7, 0, 0, 0], [0, 0, -0.7, 0], [0, 0, -0.7, 0], [0, 0, -0.7, 0]])
-horizon = 1
+horizon = 6
 
 x0 = env.reset()[3] / 255.
 

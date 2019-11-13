@@ -210,8 +210,7 @@ def compute_apply_gradients_vae_two_states(model, x, x_prev, optimizer):
     return loss
 
 
-def train_one_step(model, train_dataset, optimizer, epoch_loss, mode):
-    BATCH_SIZE = 128
+def train_one_step(model, train_dataset, optimizer, epoch_loss, mode, batch_size):
 
     for i, (train_X, train_A, train_Y) in train_dataset.enumerate():
         if mode == 'ed':
@@ -229,8 +228,8 @@ def train_one_step(model, train_dataset, optimizer, epoch_loss, mode):
         # loss = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
 
         epoch_loss.update_state(loss)
-        if i % 10 == 0:
-            print(i.numpy() * BATCH_SIZE, epoch_loss.result().numpy())
+        if i % 50 == 0:
+            print(i.numpy() * batch_size, epoch_loss.result().numpy())
             epoch_loss.reset_states()
 
     train_loss = epoch_loss.result()
@@ -249,7 +248,7 @@ def test_one_step(model, test_dataset, epoch_loss, mode):
         elif mode == 'vae':
             loss = compute_loss_vae(model, test_X)
         elif mode == 'vae+':
-            loss = compute_loss_vae_two_states(model, train_Y, train_X, optimizer)
+            loss = compute_loss_vae_two_states(model, test_Y, test_X)
         else:
             raise ValueError
 
@@ -276,8 +275,8 @@ def train(model, epochs, path_tr, path_val, mode):
     # test_dataset = strategy.experimental_distribute_dataset(test_dataset)
 
     for epoch in range(1, epochs + 1):
-        train_loss = train_one_step(model, train_dataset, optimizer, epoch_loss, mode)
-        test_loss = test_one_step(model, test_dataset, optimizer, epoch_loss, mode)
+        train_loss = train_one_step(model, train_dataset, optimizer, epoch_loss, mode, BATCH_SIZE)
+        test_loss = test_one_step(model, test_dataset, epoch_loss, mode)
 
         print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'validation loss:', test_loss.numpy())
 
@@ -307,12 +306,12 @@ if __name__ == "__main__":
 
     print(tf.__version__)
     # train in the cloud
-    CLOUD = False
+    CLOUD = True
 
-    epochs = 100
-    TRAIN_BUF = 2048 * 3
-    BATCH_SIZE = 128 * 2
-    TEST_BUF = 2048 * 3
+    epochs = 1
+    TRAIN_BUF = 2048
+    BATCH_SIZE = 128
+    TEST_BUF = 2048
 
     if CLOUD:
         BUCKET = 'kuka-training-dataset'
