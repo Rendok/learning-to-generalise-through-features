@@ -23,7 +23,7 @@ dataset = get_dataset(path_val)
 pca = PCA(n_components=50)
 tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
 BATCH = 1024
-TAKE = 4  # 9 - whole
+TAKE = 9  # 9 - whole
 # to get an array from the data set
 for i, (data, _, _) in enumerate(dataset.batch(BATCH).take(TAKE)):
     embedded = encoding_net.encode(data)
@@ -75,7 +75,7 @@ out = pd.concat([out, df], axis=0, ignore_index=True)
 plt.imshow(obs.observation[..., :3])
 plt.show()
 
-init = encoding_net.encode(obs.observation[tf.newaxis, ...]/255.)
+init = encoding_net.encode(obs.observation[tf.newaxis, ...])
 init = pca.transform(init)
 
 df = pd.DataFrame(data=init)
@@ -86,7 +86,7 @@ while not time_step.is_last():
     a = action_step.action
     # print(a)
     time_step = environment.step(a)
-    z = time_step.observation / 255.
+    z = time_step.observation
     z = encoding_net.encode(z[tf.newaxis, ...])
     z = pca.transform(z)
     df = pd.DataFrame(data=z)
@@ -115,6 +115,7 @@ plt.figure(figsize=(16, 10))
 sns.scatterplot(
     x="tsne-one", y="tsne-two",
     hue="show",
+    style="show",
     palette=sns.color_palette(flatui),
     data=out,
     legend="full",
