@@ -187,6 +187,7 @@ class VAE(tf.keras.Model):
     def latent_dim(self):
         return self._latent_dim
 
+    @tf.function
     def infer(self, x):
         """
         Infers means and std's from an image
@@ -196,6 +197,7 @@ class VAE(tf.keras.Model):
         mean, logvar = tf.split(self._inference_net(x), num_or_size_splits=2, axis=1)
         return mean, logvar
 
+    @tf.function
     def reparameterize(self, mean, logvar):
         """
         Samples a new latent state from a normal distribution.

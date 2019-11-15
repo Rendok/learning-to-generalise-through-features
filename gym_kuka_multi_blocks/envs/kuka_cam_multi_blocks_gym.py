@@ -98,6 +98,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._is_multistep_action = is_multistep_action
         self._goal_img = None
         self._goal_state = None
+        self._goal_mean = None
+        self._goal_var = None
         self._goal = None
         self._goal_coordinates = None
         self._num_steps = 5
@@ -925,7 +927,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         # coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
         # x = np.concatenate((x[0, ...], coordinates), axis=-1)
 
-        distance = np.linalg.norm(x - self._goal_state)
+        # distance = np.linalg.norm(x - self._goal_state)
+        distance = np.linalg.norm(x - self._goal_mean.numpy())
         # test2 = np.sqrt(np.sum(np.power(x - self._goal_state, 2)))
         # print(test1, test2)
         
@@ -1052,7 +1055,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._goal_img = self.get_observation()
 
         if self._encoding_net is not None:
-            self._goal_state = self._encoding_net.encode(self._goal_img[np.newaxis, ...]).numpy()
+            self._goal_mean, self._goal_var = self._encoding_net.infer(self._goal_img[np.newaxis, ...])
+            # self._goal_state = self._encoding_net.encode(self._goal_img[np.newaxis, ...]).numpy()
             # coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
             # self._goal_state = np.concatenate((self._goal_state[0, ...], coordinates), axis=-1)
 
