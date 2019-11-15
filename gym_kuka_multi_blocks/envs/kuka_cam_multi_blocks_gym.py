@@ -922,16 +922,15 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
     def _reward_as_lat_space_distance(self):
         observation = self.get_observation()
-        x = self._encoding_net.encode(observation[np.newaxis, ...]).numpy()
+        # x = self._encoding_net.encode(observation[np.newaxis, ...]).numpy()
+        x, _ = self._encoding_net.infer(observation[np.newaxis, ...])
 
         # coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
         # x = np.concatenate((x[0, ...], coordinates), axis=-1)
 
         # distance = np.linalg.norm(x - self._goal_state)
-        distance = np.linalg.norm(x - self._goal_mean.numpy())
-        # test2 = np.sqrt(np.sum(np.power(x - self._goal_state, 2)))
-        # print(test1, test2)
-        
+        distance = np.linalg.norm(x.numpy() - self._goal_mean.numpy())
+
         # import matplotlib.pyplot as plt
         # plt.imshow(self._encoding_net.decode(self._goal_state)[0, ..., 3:6])
         # plt.show()
