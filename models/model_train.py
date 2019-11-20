@@ -255,7 +255,7 @@ def compute_apply_gradients_vae_two_states(model, x, x_prev, optimizer):
 
 def train_one_step(model, train_dataset, optimizer, epoch_loss, mode, batch_size):
 
-    for i, (train_X, train_A, train_Y) in train_dataset.take(3).enumerate():
+    for i, (train_X, train_A, train_Y) in train_dataset.enumerate():
         if mode == 'ed':
             loss = compute_apply_gradients_enc_dec(model, train_X, optimizer)
             # strategy.experimental_run_v2(compute_apply_gradients_enc_dec, args=(model, train_X, optimizer))
@@ -284,7 +284,7 @@ def train_one_step(model, train_dataset, optimizer, epoch_loss, mode, batch_size
 
 
 def test_one_step(model, test_dataset, epoch_loss, mode):
-    for test_X, test_A, test_Y in test_dataset.take(3):
+    for test_X, test_A, test_Y in test_dataset:
         if mode == 'ed':
             loss = compute_loss_de_en(model, test_X)
         # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
@@ -332,7 +332,7 @@ def train(model, epochs, path_tr, path_val, mode):
                 model.save_weights(['en', 'de'], '/tmp/weights', epoch % 3)
             elif mode == 'le':
                 model.save_weights(['le'], '/tmp/weights', epoch % 3)
-            elif mode == 'vae' or mode == 'vae+':
+            elif mode == 'vae' or mode == 'vae+' or mode == 'act':
                 model.save_weights(['en', 'de'], '/tmp/weights', epoch % 3)
             else:
                 raise ValueError
@@ -341,7 +341,7 @@ def train(model, epochs, path_tr, path_val, mode):
                 model.save_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
             elif mode == 'le':
                 model.save_weights(['le'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
-            elif mode == 'vae' or mode == 'vae+':
+            elif mode == 'vae' or mode == 'vae+' or mode == 'act':
                 model.save_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
             else:
                 raise ValueError
@@ -353,7 +353,7 @@ if __name__ == "__main__":
 
     print(tf.__version__)
     # train in the cloud
-    CLOUD = False
+    CLOUD = True
 
     epochs = 1
     TRAIN_BUF = 2048
