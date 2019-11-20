@@ -98,7 +98,7 @@ def compute_loss_vae(model, x):
     return -tf.reduce_mean(log_px_z + log_pz - log_qz_x)
 
 
-@tf.function
+# @tf.function
 def compute_loss_actions(model, a):
     mean, logvar = model.infer(a)
     z = model.reparameterize(mean, logvar)
@@ -106,25 +106,25 @@ def compute_loss_actions(model, a):
 
     a_norm, _ = tf.linalg.normalize(a, axis=1)
 
-    a_pred = tf.keras.layers.Flatten()(a_pred)
-    a = tf.keras.layers.Flatten()(a)
+    # a_pred = tf.keras.layers.Flatten()(a_pred)
+    # a = tf.keras.layers.Flatten()(a)
 
     log_px_z = -tf.reduce_sum(tf.math.squared_difference(a, a_pred), axis=-1)
+    # print(log_px_z)
 
-    z, _ = tf.linalg.normalize(z, axis=1)
-    z_sqr = tf.matmul(z, tf.transpose(z))
+    z_norm, _ = tf.linalg.normalize(z, axis=1)
+    z_sqr = tf.matmul(z_norm, tf.transpose(z))
     a_sqr = tf.matmul(a_norm, tf.transpose(a_norm))
 
     # print(a_sqr)
     # print(z_sqr)
-    log_px_z -= tf.reduce_sum(tf.math.squared_difference(z_sqr, a_sqr))
-    # print(distance)
+    dist = tf.reduce_sum(tf.math.abs(z_sqr - a_sqr) / tf.math.abs(a_sqr))
 
-    log_pz = log_normal_pdf(z, 0., 0.)
-    log_qz_x = log_normal_pdf(z, mean, logvar)
-    # print(log_px_z.shape, log_pz.shape, log_qz_x.shape)
+    # log_pz = log_normal_pdf(z, 0., 0.)
+    # log_qz_x = log_normal_pdf(z, mean, logvar)
 
-    return -tf.reduce_mean(log_px_z + log_pz - log_qz_x)
+    return -tf.reduce_mean(log_px_z) + dist
+    # return -tf.reduce_mean(log_px_z + log_pz - log_qz_x) + dist
 
 
 @tf.function
@@ -229,7 +229,7 @@ def compute_apply_gradients_vae(model, x, optimizer):
     return loss
 
 
-@tf.function
+# @tf.function
 def compute_apply_gradients_actions(model, x, optimizer):
     model.lat_env_net.trainable = False
 
@@ -307,7 +307,7 @@ def test_one_step(model, test_dataset, epoch_loss, mode):
     return test_loss
 
 
-def train(model, epochs, path_tr, path_val, mode):
+def train(model, epochs, path_tr, path_val, path_weights, mode):
 
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)  # TODO: incorporate into a class
     epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
@@ -327,24 +327,14 @@ def train(model, epochs, path_tr, path_val, mode):
 
         print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'validation loss:', test_loss.numpy())
 
-        if CLOUD:
-            if mode == 'ed':
-                model.save_weights(['en', 'de'], '/tmp/weights', epoch % 3)
-            elif mode == 'le':
-                model.save_weights(['le'], '/tmp/weights', epoch % 3)
-            elif mode == 'vae' or mode == 'vae+' or mode == 'act':
-                model.save_weights(['en', 'de'], '/tmp/weights', epoch % 3)
-            else:
-                raise ValueError
+        if mode == 'ed':
+            model.save_weights(['en', 'de'], path_weights, epoch % 3)
+        elif mode == 'le':
+            model.save_weights(['le'], path_weights, epoch % 3)
+        elif mode == 'vae' or mode == 'vae+' or mode == 'act':
+            model.save_weights(['en', 'de'], path_weights, epoch % 3)
         else:
-            if mode == 'ed':
-                model.save_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
-            elif mode == 'le':
-                model.save_weights(['le'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
-            elif mode == 'vae' or mode == 'vae+' or mode == 'act':
-                model.save_weights(['en', 'de'], '/Users/dgrebenyuk/Research/dataset/weights', epoch % 3)
-            else:
-                raise ValueError
+            raise ValueError
 
         # s3.meta.client.upload_file('/tmp/weights/cp-de-{}.ckpt'.format(epoch), BUCKET, '/weights/cp-de-{}.ckpt'.format(epoch))
 
@@ -355,7 +345,7 @@ if __name__ == "__main__":
     # train in the cloud
     CLOUD = True
 
-    epochs = 1
+    epochs = 10
     TRAIN_BUF = 2048
     BATCH_SIZE = 128
     TEST_BUF = 2048
@@ -401,13 +391,15 @@ if __name__ == "__main__":
 
     # with strategy.scope():
     if CLOUD:
-        path_weights = '/tmp/weights'
+        # path_weights = '/tmp/weights'
+        path_weights = '/tmp/weights/act'
     else:
-        path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
+        # path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
+        path_weights = '/Users/dgrebenyuk/Research/dataset/weights/act'
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
-    # model.load_weights(['en', 'de', 'le'], path_weights)
+    model.load_weights(['en', 'de'], path_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment
     # train(model, epochs, path_tr, path_val, 'le')
-    train(model, epochs, path_tr, path_val, 'act')
+    train(model, epochs, path_tr, path_val, path_weights, 'act')
