@@ -4,7 +4,8 @@ import tensorflow as tf
 import boto3
 from models.autoencoder_env_model import AutoEncoderEnvironment
 from models.vae_env_model import VAE
-from models.vae1_env_model import VAE1
+# from models.vae1_env_model import VAE1
+from models.vae_actions import ActionsVAE
 
 
 ######## GET DATASET ######
@@ -98,6 +99,35 @@ def compute_loss_vae(model, x):
 
 
 @tf.function
+def compute_loss_actions(model, a):
+    mean, logvar = model.infer(a)
+    z = model.reparameterize(mean, logvar)
+    a_pred = model.decode(z, apply_sigmoid=True)
+
+    a_norm, _ = tf.linalg.normalize(a, axis=1)
+
+    a_pred = tf.keras.layers.Flatten()(a_pred)
+    a = tf.keras.layers.Flatten()(a)
+
+    log_px_z = -tf.reduce_sum(tf.math.squared_difference(a, a_pred), axis=-1)
+
+    z, _ = tf.linalg.normalize(z, axis=1)
+    z_sqr = tf.matmul(z, tf.transpose(z))
+    a_sqr = tf.matmul(a_norm, tf.transpose(a_norm))
+
+    # print(a_sqr)
+    # print(z_sqr)
+    log_px_z -= tf.reduce_sum(tf.math.squared_difference(z_sqr, a_sqr))
+    # print(distance)
+
+    log_pz = log_normal_pdf(z, 0., 0.)
+    log_qz_x = log_normal_pdf(z, mean, logvar)
+    # print(log_px_z.shape, log_pz.shape, log_qz_x.shape)
+
+    return -tf.reduce_mean(log_px_z + log_pz - log_qz_x)
+
+
+@tf.function
 def compute_loss_vae_two_states(model, x, x_prev):
     mean, logvar = model.infer(x)
     z = model.reparameterize(mean, logvar)
@@ -116,7 +146,8 @@ def compute_loss_vae_two_states(model, x, x_prev):
 
     # print(log_px_z.shape, log_pz.shape, log_qz_x.shape, log_qz_x_prev.shape)
 
-    return -tf.reduce_mean(log_px_z + 0.5 * log_pz - log_qz_x + 0.5 * log_qz_x_prev)
+    # return -tf.reduce_mean(log_px_z - log_qz_x + log_qz_x_prev)
+    return -tf.reduce_mean(log_px_z + 0.00001 * log_pz - log_qz_x + 0.99999 * log_qz_x_prev)
 
 
 @tf.function
@@ -199,6 +230,18 @@ def compute_apply_gradients_vae(model, x, optimizer):
 
 
 @tf.function
+def compute_apply_gradients_actions(model, x, optimizer):
+    model.lat_env_net.trainable = False
+
+    with tf.GradientTape() as tape:
+        loss = compute_loss_actions(model, x)
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+    return loss
+
+
+@tf.function
 def compute_apply_gradients_vae_two_states(model, x, x_prev, optimizer):
     model.lat_env_net.trainable = False
 
@@ -212,7 +255,7 @@ def compute_apply_gradients_vae_two_states(model, x, x_prev, optimizer):
 
 def train_one_step(model, train_dataset, optimizer, epoch_loss, mode, batch_size):
 
-    for i, (train_X, train_A, train_Y) in train_dataset.enumerate():
+    for i, (train_X, train_A, train_Y) in train_dataset.take(3).enumerate():
         if mode == 'ed':
             loss = compute_apply_gradients_enc_dec(model, train_X, optimizer)
             # strategy.experimental_run_v2(compute_apply_gradients_enc_dec, args=(model, train_X, optimizer))
@@ -222,6 +265,8 @@ def train_one_step(model, train_dataset, optimizer, epoch_loss, mode, batch_size
             loss = compute_apply_gradients_vae(model, train_X, optimizer)
         elif mode == 'vae+':
             loss = compute_apply_gradients_vae_two_states(model, train_Y, train_X, optimizer)
+        elif mode == 'act':
+            loss = compute_apply_gradients_actions(model, train_A, optimizer)
         else:
             raise ValueError
 
@@ -239,7 +284,7 @@ def train_one_step(model, train_dataset, optimizer, epoch_loss, mode, batch_size
 
 
 def test_one_step(model, test_dataset, epoch_loss, mode):
-    for test_X, test_A, test_Y in test_dataset:
+    for test_X, test_A, test_Y in test_dataset.take(3):
         if mode == 'ed':
             loss = compute_loss_de_en(model, test_X)
         # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
@@ -249,6 +294,8 @@ def test_one_step(model, test_dataset, epoch_loss, mode):
             loss = compute_loss_vae(model, test_X)
         elif mode == 'vae+':
             loss = compute_loss_vae_two_states(model, test_Y, test_X)
+        elif mode == 'act':
+            loss = compute_loss_actions(model, test_A)
         else:
             raise ValueError
 
@@ -306,7 +353,7 @@ if __name__ == "__main__":
 
     print(tf.__version__)
     # train in the cloud
-    CLOUD = True
+    CLOUD = False
 
     epochs = 1
     TRAIN_BUF = 2048
@@ -344,7 +391,8 @@ if __name__ == "__main__":
     # with strategy.scope():
     optimizer = tf.keras.optimizers.Adam(1e-4)
     # model = AutoEncoderEnvironment(256)
-    model = VAE(256)
+    # model = VAE(256)
+    model = ActionsVAE(256)
     # checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     # epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 
@@ -358,8 +406,8 @@ if __name__ == "__main__":
         path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
-    model.load_weights(['en', 'de', 'le'], path_weights)
+    # model.load_weights(['en', 'de', 'le'], path_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment
     # train(model, epochs, path_tr, path_val, 'le')
-    train(model, epochs, path_tr, path_val, 'vae+')
+    train(model, epochs, path_tr, path_val, 'act')

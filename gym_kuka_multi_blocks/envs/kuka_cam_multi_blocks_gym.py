@@ -930,6 +930,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         # distance = np.linalg.norm(x - self._goal_state)
         distance = np.linalg.norm(x.numpy() - self._goal_mean.numpy())
+        # print(np.sqrt(np.sum((x.numpy() - self._goal_mean.numpy())**2)))
 
         # import matplotlib.pyplot as plt
         # plt.imshow(self._encoding_net.decode(self._goal_state)[0, ..., 3:6])

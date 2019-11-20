@@ -207,7 +207,7 @@ class VAE(tf.keras.Model):
         :return:
         """
         eps = tf.random.normal(shape=mean.shape)
-        return eps * tf.exp(logvar * .5) + mean
+        return eps * tf.exp(logvar * 0.5) + mean
 
     @tf.function
     def encode(self, x):
