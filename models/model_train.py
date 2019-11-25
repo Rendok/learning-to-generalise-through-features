@@ -381,7 +381,7 @@ if __name__ == "__main__":
     # train in the cloud
     CLOUD = True
 
-    epochs = 10
+    epochs = 100
     TRAIN_BUF = 2048
     BATCH_SIZE = 128
     TEST_BUF = 2048

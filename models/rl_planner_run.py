@@ -31,12 +31,12 @@ environment.reset()
 plt.imshow(environment.goal_img[..., 3:])
 plt.show()
 
-# while not time_step.is_last():
-for _ in range(5):
+while not time_step.is_last():
+# for _ in range(5):
     action_step = tf_agent.policy.action(time_step)
     a = action_step.action
     # print(a)
-    time_step = environment.step([0,0,1,0])
+    time_step = environment.step(a)
     z = time_step.observation
     # z = encoding_net.decode(encoding_net.encode(z[tf.newaxis, ...]))
     # plt.imshow(z[0, ..., 3:])
