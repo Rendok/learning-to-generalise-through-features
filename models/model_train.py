@@ -288,7 +288,7 @@ def compute_apply_gradients_vae_two_states_and_act(model, vae_act, x, action, x_
 
 def train_one_step(model, vae_act, train_dataset, optimizer, epoch_loss, mode, batch_size):
 
-    for i, (train_X, train_A, train_Y) in train_dataset.take(1).enumerate():
+    for i, (train_X, train_A, train_Y) in train_dataset.enumerate():
         if mode == 'ed':
             loss = compute_apply_gradients_enc_dec(model, train_X, optimizer)
             # strategy.experimental_run_v2(compute_apply_gradients_enc_dec, args=(model, train_X, optimizer))
@@ -317,7 +317,7 @@ def train_one_step(model, vae_act, train_dataset, optimizer, epoch_loss, mode, b
 
 
 def test_one_step(model, vae_act, test_dataset, epoch_loss, mode):
-    for test_X, test_A, test_Y in test_dataset.take(1):
+    for test_X, test_A, test_Y in test_dataset:
         if mode == 'ed':
             loss = compute_loss_de_en(model, test_X)
         # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
@@ -376,7 +376,7 @@ if __name__ == "__main__":
 
     print(tf.__version__)
     # train in the cloud
-    CLOUD = False
+    CLOUD = True
 
     epochs = 10
     TRAIN_BUF = 2048
