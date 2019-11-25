@@ -33,7 +33,7 @@ def rl_planner(train_env, encoding_net, checkpoint_directory):
     actor_fc_layer_params = (256, 256)
     critic_fc_layer_params = (256, 256)
 
-    learning_rate = 3e-4
+    learning_rate = 1e-4
     gradient_clipping = None
 
     num_epochs = 25  # Number of epochs for computing policy updates
@@ -72,7 +72,7 @@ def rl_planner(train_env, encoding_net, checkpoint_directory):
         actor_net=actor_net,
         value_net=critic_net,
         num_epochs=num_epochs,
-        gradient_clipping=gradient_clipping,
+        # gradient_clipping=gradient_clipping,
         debug_summaries=debug_summaries,
         summarize_grads_and_vars=summarize_grads_and_vars,
         normalize_observations=False,
@@ -83,7 +83,7 @@ def rl_planner(train_env, encoding_net, checkpoint_directory):
     tf_agent.initialize()
     # tf_agent.train = common.function(tf_agent.train)
 
-    optimizer = tf.keras.optimizers.Adam(1e-4)
+    optimizer = tf.keras.optimizers.Adam(4e-4)
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=tf_agent)
     manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
     status = checkpoint.restore(manager.latest_checkpoint)
@@ -136,15 +136,15 @@ def split_trajectory(trajectory, rest):
 
 if __name__ == "__main__":
 
-    CLOUD = False
+    CLOUD = True
 
     num_iterations = 50
     log_interval = 1
     eval_interval = 3
     num_parallel_environments = 1  # Number of environments to run in parallel
     num_latent_dims = 256
-    collect_episodes_per_iteration = 100  # 30  The number of episodes to take in the environment before
-    replay_buffer_capacity = 351  # 151 Replay buffer capacity per env
+    collect_episodes_per_iteration = 150  # 30  The number of episodes to take in the environment before
+    replay_buffer_capacity = 1051  # 151 Replay buffer capacity per env
     num_eval_episodes = 15  # The number of episodes to run eval on
 
     if CLOUD:
@@ -234,7 +234,7 @@ if __name__ == "__main__":
 
         # train_one_step(encoding_net, dataset, optimizer, epoch_loss, 'vae+')
 
-        encoding_net.save_weights(['en', 'de'], weights_path, num_iterations % 3)
+        # encoding_net.save_weights(['en', 'de'], weights_path, num_iterations % 3)
 
         save_path = manager.save()
         print("Saved checkpoint: {}".format(save_path))

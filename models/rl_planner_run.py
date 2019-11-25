@@ -28,20 +28,20 @@ time_step = environment.reset()
 episode_return = 0.0
 
 environment.reset()
-plt.imshow(environment.goal_img[..., :3])
+plt.imshow(environment.goal_img[..., 3:])
 plt.show()
 
-while not time_step.is_last():
-# for _ in range(10):
+# while not time_step.is_last():
+for _ in range(5):
     action_step = tf_agent.policy.action(time_step)
     a = action_step.action
-    print(a)
-    time_step = environment.step(a)
+    # print(a)
+    time_step = environment.step([0,0,1,0])
     z = time_step.observation
     # z = encoding_net.decode(encoding_net.encode(z[tf.newaxis, ...]))
-    # plt.imshow(z[0, ..., :3])
+    # plt.imshow(z[0, ..., 3:])
     # plt.show()
-    plt.imshow(time_step.observation[..., :3])
+    plt.imshow(time_step.observation[..., 3:])
     plt.show()
     print(time_step.reward)
     episode_return += time_step.reward

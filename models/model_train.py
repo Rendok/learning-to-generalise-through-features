@@ -118,7 +118,7 @@ def compute_loss_actions(model, a):
 
     # print(a_sqr)
     # print(z_sqr)
-    dist = tf.reduce_sum(tf.math.abs(z_sqr - a_sqr) / tf.math.abs(a_sqr))
+    dist = tf.reduce_mean(tf.math.abs(z_sqr - a_sqr))
 
     # log_pz = log_normal_pdf(z, 0., 0.)
     # log_qz_x = log_normal_pdf(z, mean, logvar)
@@ -148,6 +148,27 @@ def compute_loss_vae_two_states(model, x, x_prev):
 
     # return -tf.reduce_mean(log_px_z - log_qz_x + log_qz_x_prev)
     return -tf.reduce_mean(log_px_z + 0.00001 * log_pz - log_qz_x + 0.99999 * log_qz_x_prev)
+
+
+@tf.function
+def compute_loss_vae_two_states_and_action(model, vae_action, x, action, x_prev):
+    mean, logvar = model.infer(x)
+    z = model.reparameterize(mean, logvar)
+    x_pred = model.decode(z, apply_sigmoid=True)
+
+    x_pred = tf.keras.layers.Flatten()(x_pred)
+    x = tf.keras.layers.Flatten()(x)
+
+    log_px_z = -tf.reduce_sum(tf.math.squared_difference(x, x_pred), axis=-1)
+
+    z_prev = model.encode(x_prev)
+    a_lat = vae_action.encode(action)
+
+    # log_dif = tf.reduce_sum(tf.math.log(z) - tf.math.log(z_prev + a_lat), axis=-1)
+    log_dif = tf.reduce_sum(tf.math.squared_difference(z, z_prev + a_lat), axis=-1)
+    print(log_dif.shape, log_px_z.shape)
+
+    return -tf.reduce_mean(log_px_z - log_dif)
 
 
 @tf.function
@@ -253,9 +274,21 @@ def compute_apply_gradients_vae_two_states(model, x, x_prev, optimizer):
     return loss
 
 
-def train_one_step(model, train_dataset, optimizer, epoch_loss, mode, batch_size):
+@tf.function
+def compute_apply_gradients_vae_two_states_and_act(model, vae_act, x, action, x_prev, optimizer):
+    model.lat_env_net.trainable = False
 
-    for i, (train_X, train_A, train_Y) in train_dataset.enumerate():
+    with tf.GradientTape() as tape:
+        loss = compute_loss_vae_two_states_and_action(model, vae_act, x, action, x_prev)
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+    return loss
+
+
+def train_one_step(model, vae_act, train_dataset, optimizer, epoch_loss, mode, batch_size):
+
+    for i, (train_X, train_A, train_Y) in train_dataset.take(1).enumerate():
         if mode == 'ed':
             loss = compute_apply_gradients_enc_dec(model, train_X, optimizer)
             # strategy.experimental_run_v2(compute_apply_gradients_enc_dec, args=(model, train_X, optimizer))
@@ -264,7 +297,7 @@ def train_one_step(model, train_dataset, optimizer, epoch_loss, mode, batch_size
         elif mode == 'vae':
             loss = compute_apply_gradients_vae(model, train_X, optimizer)
         elif mode == 'vae+':
-            loss = compute_apply_gradients_vae_two_states(model, train_Y, train_X, optimizer)
+            loss = compute_apply_gradients_vae_two_states_and_act(model, vae_act, train_Y, train_A, train_X, optimizer)
         elif mode == 'act':
             loss = compute_apply_gradients_actions(model, train_A, optimizer)
         else:
@@ -283,8 +316,8 @@ def train_one_step(model, train_dataset, optimizer, epoch_loss, mode, batch_size
     return train_loss
 
 
-def test_one_step(model, test_dataset, epoch_loss, mode):
-    for test_X, test_A, test_Y in test_dataset:
+def test_one_step(model, vae_act, test_dataset, epoch_loss, mode):
+    for test_X, test_A, test_Y in test_dataset.take(1):
         if mode == 'ed':
             loss = compute_loss_de_en(model, test_X)
         # strategy.experimental_run_v2(compute_loss_de_en, args=(model, test_X))
@@ -293,7 +326,7 @@ def test_one_step(model, test_dataset, epoch_loss, mode):
         elif mode == 'vae':
             loss = compute_loss_vae(model, test_X)
         elif mode == 'vae+':
-            loss = compute_loss_vae_two_states(model, test_Y, test_X)
+            loss = compute_loss_vae_two_states_and_action(model, vae_act, test_Y, test_A, test_X)
         elif mode == 'act':
             loss = compute_loss_actions(model, test_A)
         else:
@@ -307,7 +340,7 @@ def test_one_step(model, test_dataset, epoch_loss, mode):
     return test_loss
 
 
-def train(model, epochs, path_tr, path_val, path_weights, mode):
+def train(model, vae_act, epochs, path_tr, path_val, path_weights, mode):
 
     checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)  # TODO: incorporate into a class
     epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
@@ -322,8 +355,8 @@ def train(model, epochs, path_tr, path_val, path_weights, mode):
     # test_dataset = strategy.experimental_distribute_dataset(test_dataset)
 
     for epoch in range(1, epochs + 1):
-        train_loss = train_one_step(model, train_dataset, optimizer, epoch_loss, mode, BATCH_SIZE)
-        test_loss = test_one_step(model, test_dataset, epoch_loss, mode)
+        train_loss = train_one_step(model, vae_act, train_dataset, optimizer, epoch_loss, mode, BATCH_SIZE)
+        test_loss = test_one_step(model, vae_act, test_dataset, epoch_loss, mode)
 
         print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'validation loss:', test_loss.numpy())
 
@@ -343,7 +376,7 @@ if __name__ == "__main__":
 
     print(tf.__version__)
     # train in the cloud
-    CLOUD = True
+    CLOUD = False
 
     epochs = 10
     TRAIN_BUF = 2048
@@ -381,8 +414,8 @@ if __name__ == "__main__":
     # with strategy.scope():
     optimizer = tf.keras.optimizers.Adam(1e-4)
     # model = AutoEncoderEnvironment(256)
-    # model = VAE(256)
-    model = ActionsVAE(256)
+    model = VAE(256)
+    vae_act = ActionsVAE(256)
     # checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     # epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 
@@ -391,15 +424,16 @@ if __name__ == "__main__":
 
     # with strategy.scope():
     if CLOUD:
-        # path_weights = '/tmp/weights'
-        path_weights = '/tmp/weights/act'
+        path_weights = '/tmp/weights'
+        act_weights = '/tmp/weights/act'
     else:
-        # path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
-        path_weights = '/Users/dgrebenyuk/Research/dataset/weights/act'
+        path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
+        act_weights = '/Users/dgrebenyuk/Research/dataset/weights/act'
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
     model.load_weights(['en', 'de'], path_weights)
+    vae_act.load_weights(['en', 'de'], act_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment
     # train(model, epochs, path_tr, path_val, 'le')
-    train(model, epochs, path_tr, path_val, path_weights, 'act')
+    train(model, vae_act, epochs, path_tr, path_val, path_weights, 'vae+')
