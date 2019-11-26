@@ -1060,8 +1060,12 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
             # coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
             # self._goal_state = np.concatenate((self._goal_state[0, ...], coordinates), axis=-1)
 
-        self._kuka.endEffectorPos[0:3] = r
-        self._kuka.endEffectorAngle = a
+        dr = np.random.uniform(-0.2, 0.2, [3])
+        da = np.random.uniform(-0.1, 0.1)
+        # print(r, dr, a,  da)
+
+        self._kuka.endEffectorPos[0:3] = r + dr
+        self._kuka.endEffectorAngle = a + da
 
         self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
         for _ in range(self._actionRepeat):

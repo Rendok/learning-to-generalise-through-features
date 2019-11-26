@@ -77,7 +77,7 @@ def rl_planner(train_env, encoding_net, checkpoint_directory):
         summarize_grads_and_vars=summarize_grads_and_vars,
         normalize_observations=False,
         normalize_rewards=False,
-        use_gae=False,
+        use_gae=True,
         train_step_counter=global_step)
 
     tf_agent.initialize()
