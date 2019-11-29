@@ -6,11 +6,19 @@ from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlo
 from models.rl_planner import rl_planner
 from tf_agents.environments import tf_py_environment
 
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import animation
+
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import tensorflow as tf
+
+DIMENSIONS = 3
+BATCH = 1024
+TAKE = 9  # 9 - whole
+same_init_state = True
 
 # read data from the dataset
 encoding_net = VAE(256)
@@ -21,9 +29,8 @@ encoding_net.load_weights(['en', 'de', 'le'], path_weights)
 
 dataset = get_dataset(path_val)
 pca = PCA(n_components=50)
-tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
-BATCH = 1024
-TAKE = 5  # 9 - whole
+tsne = TSNE(n_components=DIMENSIONS, verbose=1, perplexity=40, n_iter=300)
+
 # to get an array from the data set
 for i, (data, _, _) in enumerate(dataset.batch(BATCH).take(TAKE)):
     embedded = encoding_net.encode(data)
@@ -51,74 +58,138 @@ environment = KukaCamMultiBlocksEnv(renders=False,
                                 encoding_net=encoding_net,
                                 numObjects=4,
                                 isTest=4,  # 1 and 4
+                                same_init_state=same_init_state,
                                 operation='move_pick')
 
 eval_env = tf_py_environment.TFPyEnvironment(environment)
 checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights'
 tf_agent, _, _ = rl_planner(eval_env, encoding_net, checkpoint_directory + "/rl")
 
-time_step = environment.reset()
-# episode_return = 0.0
+last_inds = []
 
-# add th goal
-obs = environment.reset()
-plt.imshow(environment.goal_img[..., :3])
-plt.show()
+for repeat in range(6):
 
-goal = encoding_net.encode(environment.goal_img[tf.newaxis, ...])
-goal = pca.transform(goal)
+    last_inds.append(out.tail(1).index.item())
+    # print("last ind", last_inds, '\n', out.tail())
 
-# add the init state
-df = pd.DataFrame(data=goal)
-out = pd.concat([out, df], axis=0, ignore_index=True)
+    # add th goal
+    time_step = environment.reset()
+    plt.imshow(environment.goal_img[..., :3])
+    plt.show()
 
-plt.imshow(obs.observation[..., :3])
-plt.show()
+    goal = encoding_net.encode(environment.goal_img[tf.newaxis, ...])
+    goal = pca.transform(goal)
 
-init = encoding_net.encode(obs.observation[tf.newaxis, ...])
-init = pca.transform(init)
-
-df = pd.DataFrame(data=init)
-out = pd.concat([out, df], axis=0, ignore_index=True)
-
-while not time_step.is_last():
-    action_step = tf_agent.policy.action(time_step)
-    a = action_step.action
-    # print(a)
-    time_step = environment.step(a)
-    z = time_step.observation
-    z = encoding_net.encode(z[tf.newaxis, ...])
-    z = pca.transform(z)
-    df = pd.DataFrame(data=z)
+    # add the init state
+    df = pd.DataFrame(data=goal)
     out = pd.concat([out, df], axis=0, ignore_index=True)
-    # print(out.tail())
-    # plt.imshow(z[0, ..., :3])
+
+    # plt.imshow(time_step.observation[..., :3])
     # plt.show()
-    # plt.imshow(time_step.observation[..., 3:6])
+
+    init = encoding_net.encode(time_step.observation[tf.newaxis, ...])
+    init = pca.transform(init)
+
+    df = pd.DataFrame(data=init)
+    out = pd.concat([out, df], axis=0, ignore_index=True)
+
+    a = [[0, 0, -0.5, 0],
+         [0, 0, 0.5, 0],
+         [0, -0.5, 0, 0],
+         [0, 0.5, 0, 0],
+         [-0.5, 0, 0, 0],
+         [0.5, 0, 0, 0]]
+
+    for _ in range(5):
+    # while not time_step.is_last():
+        action_step = tf_agent.policy.action(time_step)
+        # a = action_step.action
+        time_step = environment.step(a[repeat])
+        # time_step = environment.step(a)
+        z = time_step.observation
+        z = encoding_net.encode(z[tf.newaxis, ...])
+        z = pca.transform(z)
+        df = pd.DataFrame(data=z)
+        out = pd.concat([out, df], axis=0, ignore_index=True)
+        # plt.imshow(z[0, ..., :3])
+        # plt.show()
+        # plt.imshow(time_step.observation[..., 3:6])
+        # plt.show()
+
+    # plt.imshow(time_step.observation[..., :3])
     # plt.show()
-    # print(time_step.reward)
-    # episode_return += time_step.reward
 
 # t-SNE
 tsne_results = tsne.fit_transform(out)
-out = pd.DataFrame(data=tsne_results, columns=['tsne-one', 'tsne-two'])
-out['show'] = "other"
-out['show'].iloc[BATCH*TAKE] = "goal"  # goal state colour
-out['show'].iloc[BATCH*TAKE + 1] = "initial"  # init state colour
-out['show'].iloc[BATCH*TAKE + 2:] = "intermediate"  # intermediate state colour
-print(out.tail(45))
 
-flatui = ["#95a5a6", "#2ecc71", "#3498db", "#e74c3c"]
+colours = ["#e74c3c", "#9aff24", "#ffea24", "#ff9c24", "#7140e3", "#24ffe9"]
+
+if DIMENSIONS == 3:
+    out = pd.DataFrame(data=tsne_results, columns=['tsne-one', 'tsne-two', 'tsne-three'])
+    out['show'] = "#95a5a6"  # others
+    for i, ind in enumerate(last_inds):
+        # out['show'].iloc[i + 1] = "#2ecc71"   # goal state colour
+        out['show'].iloc[ind + 2] = "#3498db"     # init state colour
+        out['show'].iloc[ind + 3:] = colours[i]  # "#e74c3c"    # intermediate state colour
+
+else:
+    out = pd.DataFrame(data=tsne_results, columns=['tsne-one', 'tsne-two'])
+    out['show'] = "other"
+    for i in last_inds:
+        out['show'].iloc[i + 1] = "goal"  # goal state colour
+        out['show'].iloc[i + 2] = "initial"  # init state colour
+        out['show'].iloc[i + 3:] = "intermediate"  # intermediate state colour
+
+# print(out.tail(45))
+
+# 2D plot
+if DIMENSIONS == 2:
+    flatui = ["#95a5a6", "#2ecc71", "#3498db", "#e74c3c"]
+
+    plt.figure(figsize=(16, 10))
+    sns.scatterplot(
+        x="tsne-one", y="tsne-two",
+        hue="show",
+        style="show",
+        palette=sns.color_palette(flatui),
+        data=out,
+        legend="full",
+        alpha=0.5)
+
+    plt.show()
 
 
-plt.figure(figsize=(16, 10))
-sns.scatterplot(
-    x="tsne-one", y="tsne-two",
-    hue="show",
-    style="show",
-    palette=sns.color_palette(flatui),
-    data=out,
-    legend="full",
-    alpha=0.5)
+def plot_animated_3d():
 
-plt.show()
+    fig = plt.figure()
+    ax = Axes3D(fig)
+
+    def init():
+        ax.scatter(out["tsne-one"], out["tsne-two"], out["tsne-three"], c=out["show"], alpha=0.5)
+        return fig,
+
+    def animate(i):
+        ax.view_init(elev=30., azim=i)
+        return fig,
+    # plt.show()
+
+    # Animate
+    anim = animation.FuncAnimation(fig, animate, init_func=init,
+                                   frames=360, interval=20, blit=True)
+    # Save
+    anim.save('test.gif', writer="imagemagick")
+
+
+# 3D plot
+if DIMENSIONS == 3:
+    plot_animated_3d()
+
+    # plot ordinary img
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    ax.scatter(out["tsne-one"], out["tsne-two"], out["tsne-three"], c=out["show"], alpha=0.5)
+    ax.view_init(30, 185)
+    plt.show()
+
+
+
