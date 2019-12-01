@@ -89,7 +89,8 @@ class AcrobotEnv(py_environment.PyEnvironment):
     domain_fig = None
     actions_num = 3
 
-    def __init__(self):
+    def __init__(self,
+                 obs_type="float"):
         self.viewer = None
         # high = np.array([1.0, 1.0, 1.0, 1.0, self.MAX_VEL_1, self.MAX_VEL_2])
         # low = -high
@@ -101,6 +102,7 @@ class AcrobotEnv(py_environment.PyEnvironment):
                 shape=(1,), dtype=np.float32, minimum=-1, maximum=1, name='action')
 
         self.state = None
+        self._obs_type = obs_type;
         self.seed()
 
     def action_spec(self):
@@ -155,7 +157,12 @@ class AcrobotEnv(py_environment.PyEnvironment):
     def _get_ob(self):
         # s = self.state
         # return np.array([cos(s[0]), sin(s[0]), cos(s[1]), sin(s[1]), s[2], s[3]], dtype=np.float32)
-        return np.array(self.render('rgb_array')).astype(np.float32) / 255.
+        if self._obs_type == "uint":
+            return np.array(self.render('rgb_array')).astype(np.uint8)
+        elif self._obs_type == "float":
+            return np.array(self.render('rgb_array')).astype(np.float32) / 255.
+        else:
+            raise ValueError
 
     def _terminal(self):
         s = self.state
@@ -202,7 +209,7 @@ class AcrobotEnv(py_environment.PyEnvironment):
         s = self.state
 
         if self.viewer is None:
-            self.viewer = rendering.Viewer(128, 128)
+            self.viewer = rendering.Viewer(64, 64)
             bound = self.LINK_LENGTH_1 + self.LINK_LENGTH_2 + 0.2  # 2.2 for default
             self.viewer.set_bounds(-bound,bound,-bound,bound)
 

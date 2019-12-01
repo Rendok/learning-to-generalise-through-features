@@ -1,4 +1,5 @@
 import numpy as np
+from os.path import join
 import h5py
 import tensorflow as tf
 import boto3
@@ -12,9 +13,9 @@ from models.vae_actions import ActionsVAE
 def parse_image_function(example_proto):
     image_feature_description = {
         'image_x': tf.io.FixedLenFeature([], tf.string),
-        'image_y': tf.io.FixedLenFeature([], tf.string),
+        # 'image_y': tf.io.FixedLenFeature([], tf.string),
         'label_x': tf.io.FixedLenFeature([], tf.string),
-        'label_y': tf.io.FixedLenFeature([], tf.string),
+        # 'label_y': tf.io.FixedLenFeature([], tf.string),
         'action': tf.io.FixedLenFeature([], tf.string),
     }
     return tf.io.parse_single_example(example_proto, image_feature_description)
@@ -30,10 +31,19 @@ def decode_image_function(record):
         (record['label_x'], record['label_y']), axis=-1)
 
 
+def decode_image_function_one_img(record):
+    for key in ['image_x', 'label_x']:
+        record[key] = tf.cast(tf.image.decode_image(record[key]), tf.float32) / 255.
+
+    record['action'] = tf.io.parse_tensor(record['action'], out_type=tf.float32)
+
+    return record['image_x'], record['action'], record['label_x']
+
+
 def get_dataset(filename):
     dataset = tf.data.TFRecordDataset(filename)
     dataset = dataset.map(parse_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    dataset = dataset.map(decode_image_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    dataset = dataset.map(decode_image_function_one_img, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     return dataset
 
 
@@ -390,21 +400,28 @@ if __name__ == "__main__":
         BUCKET = 'kuka-training-dataset'
         # path_tr = '/tmp/training1.h5'
         # path_val = '/tmp/validation1.h5'
-        path_tr = '/tmp/training.tfrecord'
-        path_val = '/tmp/validation.tfrecord'
+        root = '/tmp'
+        # train_str = 'training.tfrecord'
+        # val_str = 'validation.tfrecord'
+        train_str = 'act_training.tfrecord'
+        val_str = 'act_validation.tfrecord'
+        path_tr = join(root, train_str)
+        path_val = join(root, val_str)
 
         # upload files from the bucket
         s3 = boto3.resource('s3',
                             aws_access_key_id='AKIAZQDMP4R6P745OMOT',
                             aws_secret_access_key='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')
-        s3.meta.client.download_file(BUCKET, 'training.tfrecord', path_tr)
-        s3.meta.client.download_file(BUCKET, 'validation.tfrecord', path_val)
+        s3.meta.client.download_file(BUCKET, train_str, path_tr)
+        s3.meta.client.download_file(BUCKET, val_str, path_val)
 
     else:
         # path_tr = '/Users/dgrebenyuk/Research/dataset/training1.h5'
         # path_val = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
-        path_tr = '/Users/dgrebenyuk/Research/dataset/training2.tfrecord'
-        path_val = '/Users/dgrebenyuk/Research/dataset/validation2.tfrecord'
+        # path_tr = '/Users/dgrebenyuk/Research/dataset/training2.tfrecord'
+        # path_val = '/Users/dgrebenyuk/Research/dataset/validation2.tfrecord'
+        path_tr = '/Users/dgrebenyuk/Research/dataset/act_validation.tfrecord'
+        path_val = '/Users/dgrebenyuk/Research/dataset/act_validation.tfrecord'
 
     # testing distributed training
     # strategy = tf.distribute.MirroredStrategy()
@@ -417,8 +434,8 @@ if __name__ == "__main__":
     # with strategy.scope():
     optimizer = tf.keras.optimizers.Adam(1e-4)
     # model = AutoEncoderEnvironment(256)
-    model = VAE(256)
-    vae_act = ActionsVAE(256)
+    model = VAE(256, channels=3)
+    # vae_act = ActionsVAE(256)
     # checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     # epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 
@@ -428,15 +445,17 @@ if __name__ == "__main__":
     # with strategy.scope():
     if CLOUD:
         path_weights = '/tmp/weights'
+        # acrobot_weights = '/tmp/weights/acrobot'
         act_weights = '/tmp/weights/act'
     else:
         path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
+        # acrobot_weights = '/Users/dgrebenyuk/Research/dataset/weights/acrobot'
         act_weights = '/Users/dgrebenyuk/Research/dataset/weights/act'
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
-    model.load_weights(['en', 'de'], path_weights)
-    vae_act.load_weights(['en', 'de'], act_weights)
+    # model.load_weights(['en', 'de'], path_weights)
+    # vae_act.load_weights(['en', 'de'], act_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment
-    # train(model, epochs, path_tr, path_val, 'le')
-    train(model, vae_act, epochs, path_tr, path_val, path_weights, 'vae+')
+    train(model, None, epochs, path_tr, path_val, path_weights, 'vae')
+    # train(model, vae_act, epochs, path_tr, path_val, path_weights, 'vae+')

@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 
-def make_inference_net(latent_dim):
+def make_inference_net(latent_dim, channels):
     """
     Creates an inference network.
 
@@ -12,10 +12,11 @@ def make_inference_net(latent_dim):
     :raises AssertionError: if latent_dim is not integer
     """
     assert type(latent_dim) == int
+    assert type(channels) == int
 
     model = tf.keras.Sequential(
         [
-            tf.keras.layers.InputLayer(input_shape=(128, 128, 6)),
+            tf.keras.layers.InputLayer(input_shape=(128, 128, channels)),
             tf.keras.layers.Conv2D(
                 filters=32, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
@@ -58,7 +59,7 @@ def make_inference_net(latent_dim):
     return model
 
 
-def make_generative_net(latent_dim):
+def make_generative_net(latent_dim, channels):
     """
     Creates a generative network.
 
@@ -68,6 +69,7 @@ def make_generative_net(latent_dim):
     :raises AssertionError: if latent_dim is not integer
     """
     assert type(latent_dim) == int
+    assert type(channels) == int
 
     model = tf.keras.Sequential(
         [
@@ -108,7 +110,7 @@ def make_generative_net(latent_dim):
                 filters=32, kernel_size=3, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
             tf.keras.layers.Conv2DTranspose(
-                filters=6, kernel_size=4, strides=(1, 1), activation=None, padding='SAME',
+                filters=channels, kernel_size=4, strides=(1, 1), activation=None, padding='SAME',
                 kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
         ], name="decoder"
     )
@@ -145,7 +147,7 @@ class VAE(tf.keras.Model):
     """
     Variational Auto Encoder
     """
-    def __init__(self, latent_dim):
+    def __init__(self, latent_dim, channels=6):
         """
         Class constructor
 
@@ -158,8 +160,8 @@ class VAE(tf.keras.Model):
 
         self._latent_dim = latent_dim
 
-        self._inference_net = make_inference_net(self._latent_dim)
-        self._generative_net = make_generative_net(self._latent_dim)
+        self._inference_net = make_inference_net(self._latent_dim, channels)
+        self._generative_net = make_generative_net(self._latent_dim, channels)
         self._lat_env_net = make_latent_env_net(self._latent_dim)
 
     def call(self, input):

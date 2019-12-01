@@ -1,18 +1,23 @@
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
-import gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym as e
+from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlocksEnv
+from acrobot.acrobot_env import AcrobotEnv
 import tensorflow as tf
 from models.model_train import get_dataset
 
 
 def env_creator_kuka_cam(renders=False):
-    env = e.KukaCamMultiBlocksEnv(renders=renders,
+    env = KukaCamMultiBlocksEnv(renders=renders,
                                   numObjects=5,
                                   isTest=1,  # 1 and 4
                                   operation='move_pick',
                                   )
     return env
+
+
+def env_creator_acrobot():
+    return AcrobotEnv(obs_type="uint")
 
 
 def apply_actions(actions, batch_size, planning_horizon, env):
@@ -21,26 +26,30 @@ def apply_actions(actions, batch_size, planning_horizon, env):
 
     for m in range(batch_size):
         obs = env.reset()
-        inputs.append(obs)
+        inputs.append(obs.observation)
         for a in range(planning_horizon):
 
-            obs, _, _, _ = env.step(actions[m, a, :])
+            obs = env.step(actions[m, a, :])
+
+            # print(obs.observation.shape)
 
             if a < planning_horizon - 1:
-                inputs.append(obs)
-            labels.append(obs)
+                inputs.append(obs.observation)
+            labels.append(obs.observation)
 
     return np.array(inputs), np.array(labels), np.array(actions)
 
 
-def generate_data(batch_size, planning_horizon):
-    env = env_creator_kuka_cam(renders=False)
+def generate_data(env, batch_size, planning_horizon):
 
-    actions = 2 * np.random.random_sample((batch_size, planning_horizon, 4)) - 1  # ~N[-1, 1)
+    act_spec = env.action_spec()
+
+    # actions = 2 * np.random.random_sample((batch_size, planning_horizon, 4)) - 1  # ~N[-1, 1)
+    actions = np.random.uniform(act_spec.minimum, act_spec.maximum, (batch_size, planning_horizon, act_spec.shape[0]))
 
     inputs, labels, actions = apply_actions(actions, batch_size, planning_horizon, env)
 
-    actions = np.reshape(actions, (-1, 4)).astype('float32')
+    actions = np.reshape(actions, (-1, act_spec.shape[0])).astype('float32')
 
     if DEBUG:
         print(batch_size*planning_horizon, 'inputs:', np.shape(inputs), 'labels:', np.shape(labels), 'actions:', np.shape(actions))
@@ -70,33 +79,53 @@ def generate_h5(n_batches, batch_size, planning_horizon, path):
             print('Batch {} of {}'.format(i+1, n_batches))
 
 
-def generate_tfr(n_batches, batch_size, planning_horizon, filename):
-    def serialize_example(image, label, action):
-        """
-        Creates a tf.Example message ready to be written to a file.
-        """
+def _bytes_feature(value):
+    """Returns a bytes_list from a string / byte."""
+    if isinstance(value, type(tf.constant(0))):
+        value = value.numpy()  # BytesList won't unpack a string from an EagerTensor.
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
-        def _bytes_feature(value):
-            """Returns a bytes_list from a string / byte."""
-            if isinstance(value, type(tf.constant(0))):
-                value = value.numpy()  # BytesList won't unpack a string from an EagerTensor.
-            return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
-        image_x = tf.image.encode_png(image[..., :3])
-        image_y = tf.image.encode_png(image[..., 3:6])
+def serialize_example(image, label, action):
+    """
+    Creates a tf.Example message ready to be written to a file.
+    """
 
-        label_x = tf.image.encode_png(label[..., :3])
-        label_y = tf.image.encode_png(label[..., 3:6])
+    image_x = tf.image.encode_png(image[..., :3])
+    image_y = tf.image.encode_png(image[..., 3:6])
 
-        feature = {
-            'image_x': _bytes_feature(image_x),
-            'image_y': _bytes_feature(image_y),
-            'label_x': _bytes_feature(label_x),
-            'label_y': _bytes_feature(label_y),
-            'action': _bytes_feature(tf.io.serialize_tensor(action)),
-        }
+    label_x = tf.image.encode_png(label[..., :3])
+    label_y = tf.image.encode_png(label[..., 3:6])
 
-        return tf.train.Example(features=tf.train.Features(feature=feature)).SerializeToString()
+    feature = {
+        'image_x': _bytes_feature(image_x),
+        'image_y': _bytes_feature(image_y),
+        'label_x': _bytes_feature(label_x),
+        'label_y': _bytes_feature(label_y),
+        'action': _bytes_feature(tf.io.serialize_tensor(action)),
+    }
+
+    return tf.train.Example(features=tf.train.Features(feature=feature)).SerializeToString()
+
+
+def serialize_example_one_img(image, label, action):
+    """
+    Creates a tf.Example message ready to be written to a file.
+    """
+
+    image_x = tf.image.encode_png(image[..., :3])
+    label_x = tf.image.encode_png(label[..., :3])
+
+    feature = {
+        'image_x': _bytes_feature(image_x),
+        'label_x': _bytes_feature(label_x),
+        'action': _bytes_feature(tf.io.serialize_tensor(action)),
+    }
+
+    return tf.train.Example(features=tf.train.Features(feature=feature)).SerializeToString()
+
+
+def generate_tfr(env, n_batches, batch_size, planning_horizon, filename):
 
     data_size = n_batches * batch_size * planning_horizon
     print('Data size:', data_size)
@@ -104,10 +133,16 @@ def generate_tfr(n_batches, batch_size, planning_horizon, filename):
     with tf.io.TFRecordWriter(filename) as writer:
         for i in range(n_batches):
 
-            x, a, y = generate_data(batch_size, planning_horizon)
+            x, a, y = generate_data(env, batch_size, planning_horizon)
 
             for xi, ai, yi in zip(x, a, y):
-                example = serialize_example(xi, yi, ai)
+                if type(env).__name__ == "AcrobotEnv":
+                    example = serialize_example_one_img(xi, yi, ai)
+                elif type(env).__name__ == "KukaCamMultiBlocksEnv":
+                    example = serialize_example(xi, yi, ai)
+                else:
+                    raise ValueError
+
                 writer.write(example)
 
             print('Batch {} of {}'.format(i + 1, n_batches))
@@ -121,15 +156,18 @@ if __name__ == "__main__":
     path_tr_h5 = '/Users/dgrebenyuk/Research/dataset/training1.h5'
     path_val_h5 = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
     # tf record
-    path_tr_tfr = '/Users/dgrebenyuk/Research/dataset/training.tfrecord'
-    path_val_tfr = '/Users/dgrebenyuk/Research/dataset/validation.tfrecord'
+    path_tr_tfr = '/Users/dgrebenyuk/Research/dataset/act_training.tfrecord'
+    path_val_tfr = '/Users/dgrebenyuk/Research/dataset/act_validation.tfrecord'
 
     DEBUG = True
 
+    # env = env_creator_kuka_cam(renders=False)
+    env = env_creator_acrobot()
+
     # generate_h5(n_batches=24, batch_size=16, planning_horizon=20, path=path_tr_h5)
     # generate_h5(n_batches=8, batch_size=16, planning_horizon=20, path=path_val_h5)
-    # generate_tfr(n_batches=310, batch_size=16, planning_horizon=20, filename=path_tr_tfr)  # 310
-    # generate_tfr(n_batches=31, batch_size=16, planning_horizon=20, filename=path_val_tfr)  # 31
+    generate_tfr(env, n_batches=130, batch_size=16, planning_horizon=50, filename=path_tr_tfr)  # 310
+    generate_tfr(env, n_batches=13, batch_size=16, planning_horizon=50, filename=path_val_tfr)  # 31
 
     if DEBUG:
         if TYPE == 'h5':
@@ -155,10 +193,10 @@ if __name__ == "__main__":
             for i, (image, action, label) in dataset.take(4).enumerate():
 
                 if i == 2:
-                    print("act at", i, action.numpy())
-                    plt.imshow(label[..., 3:6].numpy())
+                    print("act at", i.numpy(), action.numpy())
+                    plt.imshow(label[..., :3].numpy())
                     plt.show()
                 elif i == 3:
-                    plt.imshow(image[..., 3:6].numpy())
+                    plt.imshow(image[..., :3].numpy())
                     plt.show()
 
