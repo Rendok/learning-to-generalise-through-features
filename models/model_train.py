@@ -312,7 +312,7 @@ def train_one_step(model, vae_act, train_dataset, optimizer, epoch_loss, mode, b
         elif mode == 'vae+':
             loss = compute_apply_gradients_vae_two_states_and_act(model, vae_act, train_Y, train_A, train_X, optimizer)
         elif mode == 'act':
-            loss = compute_apply_gradients_actions(model, train_A, optimizer)
+            loss = compute_apply_gradients_actions(vae_act, train_A, optimizer)
         else:
             raise ValueError
 
@@ -341,7 +341,7 @@ def test_one_step(model, vae_act, test_dataset, epoch_loss, mode):
         elif mode == 'vae+':
             loss = compute_loss_vae_two_states_and_action(model, vae_act, test_Y, test_A, test_X)
         elif mode == 'act':
-            loss = compute_loss_actions(model, test_A)
+            loss = compute_loss_actions(vae_act, test_A)
         else:
             raise ValueError
 

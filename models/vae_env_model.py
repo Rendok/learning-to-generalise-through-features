@@ -2,6 +2,67 @@ import tensorflow as tf
 import numpy as np
 
 
+def make_inference_net_small(latent_dim, channels):
+    """
+    Creates an inference network.
+
+    :param int latent_dim: The number of latent dimensions
+    :return: tf.model object
+    :raises ValueError: if the input shape is wrong
+    :raises AssertionError: if latent_dim is not integer
+    """
+    assert type(latent_dim) == int
+    assert type(channels) == int
+
+    model = tf.keras.Sequential(
+        [
+            tf.keras.layers.InputLayer(input_shape=(128, 128, channels)),
+            tf.keras.layers.Conv2D(
+                filters=32, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+            tf.keras.layers.Conv2D(
+                filters=64, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(2 * latent_dim)
+        ], name="encoder"
+    )
+    return model
+
+
+def make_generative_net_small(latent_dim, channels):
+    """
+    Creates a generative network.
+
+    :param int latent_dim: The number of latent dimensions
+    :return: tf.model object
+    :raises ValueError: if the input shape is wrong
+    :raises AssertionError: if latent_dim is not integer
+    """
+    assert type(latent_dim) == int
+    assert type(channels) == int
+
+    model = tf.keras.Sequential(
+        [
+            tf.keras.layers.InputLayer(input_shape=(latent_dim,)),
+            tf.keras.layers.Dense(4096, activation='relu',
+                                  kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.Reshape(target_shape=(8, 8, 64)),
+            tf.keras.layers.UpSampling2D((2, 2)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=64, kernel_size=3, strides=(2, 2), activation=tf.nn.leaky_relu, padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.UpSampling2D((2, 2)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=channels, kernel_size=4, strides=(2, 2), activation=None, padding='SAME',
+                kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
+        ], name="decoder"
+    )
+    return model
+
+
 def make_inference_net(latent_dim, channels):
     """
     Creates an inference network.
@@ -160,8 +221,13 @@ class VAE(tf.keras.Model):
 
         self._latent_dim = latent_dim
 
-        self._inference_net = make_inference_net(self._latent_dim, channels)
-        self._generative_net = make_generative_net(self._latent_dim, channels)
+        if channels == 3:
+            self._inference_net = make_inference_net_small(self._latent_dim, channels)
+            self._generative_net = make_generative_net_small(self._latent_dim, channels)
+        else:
+            self._inference_net = make_inference_net(self._latent_dim, channels)
+            self._generative_net = make_generative_net(self._latent_dim, channels)
+
         self._lat_env_net = make_latent_env_net(self._latent_dim)
 
     def call(self, input):
