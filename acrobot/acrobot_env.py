@@ -102,7 +102,7 @@ class AcrobotEnv(py_environment.PyEnvironment):
                 shape=(1,), dtype=np.float32, minimum=-1, maximum=1, name='action')
 
         self.state = None
-        self._obs_type = obs_type;
+        self._obs_type = obs_type
         self.seed()
 
     def action_spec(self):
@@ -213,7 +213,8 @@ class AcrobotEnv(py_environment.PyEnvironment):
             bound = self.LINK_LENGTH_1 + self.LINK_LENGTH_2 + 0.2  # 2.2 for default
             self.viewer.set_bounds(-bound, bound, -bound, bound)
 
-        if s is None: return None
+        if s is None:
+            return None
 
         p1 = [-self.LINK_LENGTH_1 *
               cos(s[0]), self.LINK_LENGTH_1 * sin(s[0])]
@@ -222,21 +223,21 @@ class AcrobotEnv(py_environment.PyEnvironment):
               p1[1] + self.LINK_LENGTH_2 * sin(s[0] + s[1])]
 
         xys = np.array([[0,0], p1, p2])[:,::-1]
-        thetas = [s[0]- pi/2, s[0]+s[1]-pi/2]
+        thetas = [s[0] - pi/2, s[0] + s[1] - pi/2]
         link_lengths = [self.LINK_LENGTH_1, self.LINK_LENGTH_2]
 
         self.viewer.draw_line((-2.2, 1), (2.2, 1))
-        for ((x,y),th,llen) in zip(xys, thetas, link_lengths):
-            l,r,t,b = 0, llen, .1, -.1
-            jtransform = rendering.Transform(rotation=th, translation=(x,y))
-            link = self.viewer.draw_polygon([(l,b), (l,t), (r,t), (r,b)])
+        for ((x, y), th, llen) in zip(xys, thetas, link_lengths):
+            l, r, t, b = 0, llen, .1, -.1
+            jtransform = rendering.Transform(rotation=th, translation=(x, y))
+            link = self.viewer.draw_polygon([(l, b), (l, t), (r, t), (r, b)])
             link.add_attr(jtransform)
-            link.set_color(0,.8, .8)
+            link.set_color(0, .8, .8)
             circ = self.viewer.draw_circle(.1)
             circ.set_color(.8, .8, 0)
             circ.add_attr(jtransform)
 
-        return self.viewer.render(return_rgb_array = mode=='rgb_array')
+        return self.viewer.render(return_rgb_array=(mode == 'rgb_array'))
 
     def close(self):
         if self.viewer:
