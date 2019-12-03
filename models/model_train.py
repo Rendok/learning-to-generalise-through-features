@@ -453,7 +453,7 @@ if __name__ == "__main__":
         act_weights = '/Users/dgrebenyuk/Research/dataset/weights/act'
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
-    # model.load_weights(['en', 'de'], path_weights)
+    model.load_weights(['en', 'de'], path_weights)
     # vae_act.load_weights(['en', 'de'], act_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment

@@ -209,9 +209,9 @@ class AcrobotEnv(py_environment.PyEnvironment):
         s = self.state
 
         if self.viewer is None:
-            self.viewer = rendering.Viewer(64, 64)
+            self.viewer = rendering.Viewer(128, 128)
             bound = self.LINK_LENGTH_1 + self.LINK_LENGTH_2 + 0.2  # 2.2 for default
-            self.viewer.set_bounds(-bound,bound,-bound,bound)
+            self.viewer.set_bounds(-bound, bound, -bound, bound)
 
         if s is None: return None
 

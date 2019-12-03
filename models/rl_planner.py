@@ -24,6 +24,7 @@ import tensorflow as tf
 from models.vae_env_model import VAE
 
 from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlocksEnv
+from acrobot.acrobot_env import AcrobotEnv
 import matplotlib.pyplot as plt
 import os
 
@@ -98,12 +99,16 @@ def rl_planner(train_env, encoding_net, checkpoint_directory):
     return tf_agent, manager, optimizer
 
 
-def env():
+def kuka_env():
     return KukaCamMultiBlocksEnv(renders=False,
                                  encoding_net=encoding_net,
                                  numObjects=4,
                                  isTest=4,  # 1 and 4
                                  operation='move_pick')
+
+
+def acrobot_env():
+    return AcrobotEnv()
 
 
 def compute_avg_return(environment, policy, num_episodes=5):
@@ -137,6 +142,9 @@ def split_trajectory(trajectory, rest):
 if __name__ == "__main__":
 
     CLOUD = True
+    CHANNELS = 3
+
+    callable_env = acrobot_env
 
     num_iterations = 50
     log_interval = 1
@@ -154,13 +162,13 @@ if __name__ == "__main__":
         weights_path = '/Users/dgrebenyuk/Research/dataset/weights'
         checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights/rl'
 
-    encoding_net = VAE(num_latent_dims)
+    encoding_net = VAE(256, channels=CHANNELS)
     encoding_net.load_weights(['en', 'de'], weights_path)
 
-    eval_env = tf_py_environment.TFPyEnvironment(env())
+    eval_env = tf_py_environment.TFPyEnvironment(callable_env())
 
     # TODO: bug don't work in parallel with an encoding net inside
-    train_env = tf_py_environment.TFPyEnvironment(env())
+    train_env = tf_py_environment.TFPyEnvironment(callable_env())
         # parallel_py_environment.ParallelPyEnvironment(
         #     [lambda: env()] * num_parallel_environments))
 
