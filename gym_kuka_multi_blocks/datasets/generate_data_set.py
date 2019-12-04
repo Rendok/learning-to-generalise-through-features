@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlocksEnv
 from acrobot.acrobot_env import AcrobotEnv
+from acrobot.reacher_env import ReacherBulletEnv
 import tensorflow as tf
 from models.model_train import get_dataset
 
@@ -18,6 +19,10 @@ def env_creator_kuka_cam(renders=False):
 
 def env_creator_acrobot():
     return AcrobotEnv(obs_type="uint")
+
+
+def env_creator_reacher():
+    return ReacherBulletEnv(obs_type="uint")
 
 
 def apply_actions(actions, batch_size, planning_horizon, env):
@@ -136,7 +141,7 @@ def generate_tfr(env, n_batches, batch_size, planning_horizon, filename):
             x, a, y = generate_data(env, batch_size, planning_horizon)
 
             for xi, ai, yi in zip(x, a, y):
-                if type(env).__name__ == "AcrobotEnv":
+                if type(env).__name__ == "AcrobotEnv" or type(env).__name__ == "ReacherBulletEnv":
                     example = serialize_example_one_img(xi, yi, ai)
                 elif type(env).__name__ == "KukaCamMultiBlocksEnv":
                     example = serialize_example(xi, yi, ai)
@@ -156,18 +161,18 @@ if __name__ == "__main__":
     path_tr_h5 = '/Users/dgrebenyuk/Research/dataset/training1.h5'
     path_val_h5 = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
     # tf record
-    path_tr_tfr = '/Users/dgrebenyuk/Research/dataset/act_training.tfrecord'
-    path_val_tfr = '/Users/dgrebenyuk/Research/dataset/act_validation.tfrecord'
+    path_tr_tfr = '/Users/dgrebenyuk/Research/dataset/reacher_training.tfrecord'
+    path_val_tfr = '/Users/dgrebenyuk/Research/dataset/reacher_validation.tfrecord'
 
     DEBUG = True
 
     # env = env_creator_kuka_cam(renders=False)
-    env = env_creator_acrobot()
+    env = env_creator_reacher()
 
     # generate_h5(n_batches=24, batch_size=16, planning_horizon=20, path=path_tr_h5)
     # generate_h5(n_batches=8, batch_size=16, planning_horizon=20, path=path_val_h5)
-    generate_tfr(env, n_batches=130, batch_size=16, planning_horizon=50, filename=path_tr_tfr)  # 310
-    generate_tfr(env, n_batches=13, batch_size=16, planning_horizon=50, filename=path_val_tfr)  # 31
+    generate_tfr(env, n_batches=157, batch_size=16, planning_horizon=40, filename=path_tr_tfr)  # 310
+    generate_tfr(env, n_batches=16, batch_size=16, planning_horizon=40, filename=path_val_tfr)  # 31
 
     if DEBUG:
         if TYPE == 'h5':

@@ -420,8 +420,8 @@ if __name__ == "__main__":
         # path_val = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
         # path_tr = '/Users/dgrebenyuk/Research/dataset/training2.tfrecord'
         # path_val = '/Users/dgrebenyuk/Research/dataset/validation2.tfrecord'
-        path_tr = '/Users/dgrebenyuk/Research/dataset/act_validation.tfrecord'
-        path_val = '/Users/dgrebenyuk/Research/dataset/act_validation.tfrecord'
+        path_tr = '/Users/dgrebenyuk/Research/dataset/reacher_validation.tfrecord'
+        path_val = '/Users/dgrebenyuk/Research/dataset/reacher_validation.tfrecord'
 
     # testing distributed training
     # strategy = tf.distribute.MirroredStrategy()
@@ -453,7 +453,7 @@ if __name__ == "__main__":
         act_weights = '/Users/dgrebenyuk/Research/dataset/weights/act'
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
-    model.load_weights(['en', 'de'], path_weights)
+    # model.load_weights(['en', 'de'], path_weights)
     # vae_act.load_weights(['en', 'de'], act_weights)
 
     # 'ed' - encoder-decoder; 'le' - latent environment

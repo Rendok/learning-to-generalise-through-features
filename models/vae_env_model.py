@@ -18,11 +18,19 @@ def make_inference_net_small(latent_dim, channels):
         [
             tf.keras.layers.InputLayer(input_shape=(128, 128, channels)),
             tf.keras.layers.Conv2D(
-                filters=32, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                filters=32, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
             tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
             tf.keras.layers.Conv2D(
-                filters=64, kernel_size=3, strides=(2, 2), activation='relu', padding='SAME',
+                filters=32, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+            tf.keras.layers.Conv2D(
+                filters=64, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
+            tf.keras.layers.Conv2D(
+                filters=64, kernel_size=3, strides=(1, 1), activation='relu', padding='SAME',
                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
             tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
             tf.keras.layers.Flatten(),
@@ -52,11 +60,19 @@ def make_generative_net_small(latent_dim, channels):
             tf.keras.layers.Reshape(target_shape=(8, 8, 64)),
             tf.keras.layers.UpSampling2D((2, 2)),
             tf.keras.layers.Conv2DTranspose(
-                filters=64, kernel_size=3, strides=(2, 2), activation=tf.nn.leaky_relu, padding='SAME',
+                filters=64, kernel_size=3, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
                 kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
             tf.keras.layers.UpSampling2D((2, 2)),
             tf.keras.layers.Conv2DTranspose(
-                filters=channels, kernel_size=4, strides=(2, 2), activation=None, padding='SAME',
+                filters=32, kernel_size=3, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.UpSampling2D((2, 2)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=32, kernel_size=3, strides=(1, 1), activation=tf.nn.leaky_relu, padding='SAME',
+                kernel_initializer=tf.keras.initializers.he_normal(seed=None)),
+            tf.keras.layers.UpSampling2D((2, 2)),
+            tf.keras.layers.Conv2DTranspose(
+                filters=channels, kernel_size=4, strides=(1, 1), activation=None, padding='SAME',
                 kernel_initializer=tf.keras.initializers.glorot_normal(seed=None)),
         ], name="decoder"
     )
