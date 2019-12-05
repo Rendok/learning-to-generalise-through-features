@@ -396,15 +396,16 @@ if __name__ == "__main__":
     BATCH_SIZE = 128
     TEST_BUF = 2048
 
+    # train_str = 'training.tfrecord'
+    # val_str = 'validation.tfrecord'
+    train_str = 'reacher_training.tfrecord'
+    val_str = 'reacher_validation.tfrecord'
+
     if CLOUD:
         BUCKET = 'kuka-training-dataset'
         # path_tr = '/tmp/training1.h5'
         # path_val = '/tmp/validation1.h5'
         root = '/tmp'
-        # train_str = 'training.tfrecord'
-        # val_str = 'validation.tfrecord'
-        train_str = 'act_training.tfrecord'
-        val_str = 'act_validation.tfrecord'
         path_tr = join(root, train_str)
         path_val = join(root, val_str)
 
@@ -420,8 +421,9 @@ if __name__ == "__main__":
         # path_val = '/Users/dgrebenyuk/Research/dataset/validation1.h5'
         # path_tr = '/Users/dgrebenyuk/Research/dataset/training2.tfrecord'
         # path_val = '/Users/dgrebenyuk/Research/dataset/validation2.tfrecord'
-        path_tr = '/Users/dgrebenyuk/Research/dataset/reacher_validation.tfrecord'
-        path_val = '/Users/dgrebenyuk/Research/dataset/reacher_validation.tfrecord'
+        root = '/Users/dgrebenyuk/Research/dataset'
+        path_tr = join(root, val_str)
+        path_val = join(root, val_str)
 
     # testing distributed training
     # strategy = tf.distribute.MirroredStrategy()
