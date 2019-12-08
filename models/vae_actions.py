@@ -80,8 +80,8 @@ class ActionsVAE(VAE):
 
 if __name__ == "__main__":
     act = ActionsVAE(latent_dim=256, real_dim=2, action_half_range=1)
-    # path_weights = '/Users/dgrebenyuk/Research/dataset/weights/act'
-    # act.load_weights(['en', 'de'], path_weights)
+    path_weights = '/Users/dgrebenyuk/Research/dataset/weights/act'
+    act.load_weights(['en', 'de'], path_weights)
 
     # data = np.random.uniform(-2, 2, [5, 4])
     data = np.random.randn(5, 2)
