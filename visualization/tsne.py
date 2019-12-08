@@ -3,6 +3,7 @@ from sklearn.manifold import TSNE
 from models.vae_env_model import VAE
 from models.model_train import get_dataset
 from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlocksEnv
+from acrobot.reacher_env import ReacherBulletEnv
 from models.rl_planner import rl_planner
 from tf_agents.environments import tf_py_environment
 
@@ -15,17 +16,20 @@ import seaborn as sns
 import pandas as pd
 import tensorflow as tf
 
-DIMENSIONS = 3
+DIMENSIONS = 2
+REPEAT = 1
 BATCH = 1024
 TAKE = 9  # 9 - whole
 same_init_state = True
 
 # read data from the dataset
-encoding_net = VAE(256)
+encoding_net = VAE(256, channels=3)
 path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
-path_val = '/Users/dgrebenyuk/Research/dataset/validation.tfrecord'
+path_val = '/Users/dgrebenyuk/Research/dataset/act_validation.tfrecord'
+# path_val = '/Users/dgrebenyuk/Research/dataset/validation.tfrecord'
+
 # 'en' - encoder; 'de' - decoder; 'le' - latent environment
-encoding_net.load_weights(['en', 'de', 'le'], path_weights)
+encoding_net.load_weights(['en', 'de'], path_weights)
 
 dataset = get_dataset(path_val)
 pca = PCA(n_components=50)
@@ -53,13 +57,15 @@ for i, (data, _, _) in enumerate(dataset.batch(BATCH).take(TAKE)):
         df = pd.DataFrame(data=pca_result)
         out = pd.concat([out, df], axis=0, ignore_index=True)
 
-# Add extra trajectory to the goal
-environment = KukaCamMultiBlocksEnv(renders=False,
-                                encoding_net=encoding_net,
-                                numObjects=4,
-                                isTest=4,  # 1 and 4
-                                same_init_state=same_init_state,
-                                operation='move_pick')
+
+# environment = KukaCamMultiBlocksEnv(renders=False,
+#                                 encoding_net=encoding_net,
+#                                 numObjects=4,
+#                                 isTest=4,  # 1 and 4
+#                                 same_init_state=same_init_state,
+#                                 operation='move_pick')
+
+environment = ReacherBulletEnv(encoding_net=encoding_net)
 
 eval_env = tf_py_environment.TFPyEnvironment(environment)
 checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights'
@@ -67,7 +73,7 @@ tf_agent, _, _ = rl_planner(eval_env, encoding_net, checkpoint_directory + "/rl"
 
 last_inds = []
 
-for repeat in range(6):
+for repeat in range(REPEAT):
 
     last_inds.append(out.tail(1).index.item())
     # print("last ind", last_inds, '\n', out.tail())
@@ -93,19 +99,24 @@ for repeat in range(6):
     df = pd.DataFrame(data=init)
     out = pd.concat([out, df], axis=0, ignore_index=True)
 
-    a = [[0, 0, -0.5, 0],
-         [0, 0, 0.5, 0],
-         [0, -0.5, 0, 0],
-         [0, 0.5, 0, 0],
-         [-0.5, 0, 0, 0],
-         [0.5, 0, 0, 0]]
+    # a = [[0, 0, -0.5, 0],
+    #      [0, 0, 0.5, 0],
+    #      [0, -0.5, 0, 0],
+    #      [0, 0.5, 0, 0],
+    #      [-0.5, 0, 0, 0],
+    #      [0.5, 0, 0, 0]]
 
-    for _ in range(5):
-    # while not time_step.is_last():
+    # for _ in range(5):
+    while not time_step.is_last():
         action_step = tf_agent.policy.action(time_step)
-        # a = action_step.action
-        time_step = environment.step(a[repeat])
-        # time_step = environment.step(a)
+
+        # RL actions
+        a = action_step.action
+        time_step = environment.step(a)
+
+        #  Orthogonal actions
+        # time_step = environment.step(a[repeat])
+
         z = time_step.observation
         z = encoding_net.encode(z[tf.newaxis, ...])
         z = pca.transform(z)

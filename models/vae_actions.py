@@ -38,7 +38,10 @@ class ActionsVAE(VAE):
     Variational Auto Encoder: actions to latent space
     """
 
-    def __init__(self, latent_dim):
+    def __init__(self,
+                 latent_dim,
+                 real_dim,
+                 action_half_range):
         """
         Class constructor
 
@@ -51,10 +54,11 @@ class ActionsVAE(VAE):
         super().__init__(latent_dim)
 
         self._latent_dim = latent_dim
-        self._action_half_range = 2
+        self._real_dim = real_dim
+        self._action_half_range = action_half_range
 
-        self._inference_net = make_inference_net(self._latent_dim, 4)
-        self._generative_net = make_generative_net(self._latent_dim, 4)
+        self._inference_net = make_inference_net(self._latent_dim, self._real_dim)
+        self._generative_net = make_generative_net(self._latent_dim, self._real_dim)
 
     @tf.function
     def decode(self, z, apply_sigmoid=True):
@@ -75,12 +79,12 @@ class ActionsVAE(VAE):
 
 
 if __name__ == "__main__":
-    act = ActionsVAE(256)
-    path_weights = '/Users/dgrebenyuk/Research/dataset/weights/act'
-    act.load_weights(['en', 'de'], path_weights)
+    act = ActionsVAE(latent_dim=256, real_dim=2, action_half_range=1)
+    # path_weights = '/Users/dgrebenyuk/Research/dataset/weights/act'
+    # act.load_weights(['en', 'de'], path_weights)
 
     # data = np.random.uniform(-2, 2, [5, 4])
-    data = np.random.randn(5, 4)
+    data = np.random.randn(5, 2)
 
     z = act.encode(data)
     z, _ = tf.linalg.normalize(z, axis=1)

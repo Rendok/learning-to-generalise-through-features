@@ -237,7 +237,7 @@ class VAE(tf.keras.Model):
 
         self._latent_dim = latent_dim
 
-        if channels == 3:
+        if channels == 1: # 3:
             self._inference_net = make_inference_net_small(self._latent_dim, channels)
             self._generative_net = make_generative_net_small(self._latent_dim, channels)
         else:

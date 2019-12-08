@@ -141,7 +141,7 @@ def split_trajectory(trajectory, rest):
 
 if __name__ == "__main__":
 
-    CLOUD = False
+    CLOUD = True
     CHANNELS = 3
 
     callable_env = reacher_env
