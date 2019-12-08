@@ -24,7 +24,7 @@ import tensorflow as tf
 from models.vae_env_model import VAE
 
 from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlocksEnv
-from acrobot.acrobot_env import AcrobotEnv
+from acrobot.reacher_env import ReacherBulletEnv
 import matplotlib.pyplot as plt
 import os
 
@@ -107,8 +107,8 @@ def kuka_env():
                                  operation='move_pick')
 
 
-def acrobot_env():
-    return AcrobotEnv()
+def reacher_env():
+    return ReacherBulletEnv(encoding_net=encoding_net)
 
 
 def compute_avg_return(environment, policy, num_episodes=5):
@@ -141,10 +141,10 @@ def split_trajectory(trajectory, rest):
 
 if __name__ == "__main__":
 
-    CLOUD = True
+    CLOUD = False
     CHANNELS = 3
 
-    callable_env = acrobot_env
+    callable_env = reacher_env
 
     num_iterations = 50
     log_interval = 1

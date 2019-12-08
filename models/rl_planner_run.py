@@ -27,12 +27,12 @@ tf_agent, _, _ = rl_planner(eval_env, encoding_net, checkpoint_directory + "/rl"
 time_step = environment.reset()
 episode_return = 0.0
 
-environment.reset()
+# environment.reset()
 plt.imshow(environment.goal_img[..., 3:])
 plt.show()
 
 while not time_step.is_last():
-# for _ in range(5):
+# for _ in range(1):
     action_step = tf_agent.policy.action(time_step)
     a = action_step.action
     # print(a)
