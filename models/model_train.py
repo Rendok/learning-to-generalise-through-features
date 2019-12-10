@@ -175,7 +175,7 @@ def compute_loss_vae_two_states_and_action(model, vae_action, x, action, x_prev)
     a_lat = vae_action.encode(action)
 
     # log_dif = tf.reduce_sum(tf.math.log(z) - tf.math.log(z_prev + a_lat), axis=-1)
-    log_dif = tf.reduce_sum(tf.math.squared_difference(z, z_prev + a_lat), axis=-1)
+    log_dif = tf.reduce_sum(tf.math.squared_difference(z, z_prev + 10 * a_lat), axis=-1)
     # print(log_dif.shape, log_px_z.shape)
 
     return -tf.reduce_mean(log_px_z - log_dif)
@@ -377,8 +377,10 @@ def train(model, vae_act, epochs, path_tr, path_val, path_weights, mode):
             model.save_weights(['en', 'de'], path_weights, epoch % 3)
         elif mode == 'le':
             model.save_weights(['le'], path_weights, epoch % 3)
-        elif mode == 'vae' or mode == 'vae+' or mode == 'act':
+        elif mode == 'vae' or mode == 'vae+':
             model.save_weights(['en', 'de'], path_weights, epoch % 3)
+        elif mode == 'act':
+            vae_act.save_weights(['en', 'de'], path_weights, epoch % 3)
         else:
             raise ValueError
 
@@ -437,7 +439,7 @@ if __name__ == "__main__":
     optimizer = tf.keras.optimizers.Adam(1e-4)
     # model = AutoEncoderEnvironment(256)
     model = VAE(256, channels=3)
-    # vae_act = ActionsVAE(256)
+    vae_act = ActionsVAE(latent_dim=256, real_dim=2, action_half_range=1)
     # checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
     # epoch_loss = tf.keras.metrics.Mean(name='epoch_loss')
 
@@ -456,8 +458,9 @@ if __name__ == "__main__":
 
     # 'en' - encoder; 'de' - decoder; 'le' - latent environment
     model.load_weights(['en', 'de'], path_weights)
-    # vae_act.load_weights(['en', 'de'], act_weights)
+    vae_act.load_weights(['en', 'de'], act_weights)
 
-    # 'ed' - encoder-decoder; 'le' - latent environment
-    train(model, None, epochs, path_tr, path_val, path_weights, 'vae')
-    # train(model, vae_act, epochs, path_tr, path_val, path_weights, 'vae+')
+    # 'ed' - encoder-decoder; 'le' - latent environment; 'vae' - classic vae; 'vae+' - vae + act; 'act' - action vae
+    # train(model, None, epochs, path_tr, path_val, path_weights, 'vae')
+    train(model, vae_act, epochs, path_tr, path_val, path_weights, 'vae+')
+    # train(model, vae_act, epochs, path_tr, path_val, act_weights, 'act')

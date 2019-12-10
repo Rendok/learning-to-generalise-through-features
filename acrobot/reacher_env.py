@@ -15,7 +15,8 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
                  encoding_net=None,
                  render=False,
                  obs_type="float",
-                 max_time_step=40):
+                 max_time_step=40,
+                 same_init_state=False):
 
         self.robot = Reacher()
         BaseBulletEnv.__init__(self, self.robot)
@@ -39,6 +40,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         self._goal_img = None
         self._goal_mean = None
         self._goal_var = None
+        self._same_init_state = same_init_state
 
 
         if self._obs_type == "float":
@@ -78,8 +80,11 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
     def reset(self):
         super().reset()
 
-        self.robot_configuration_reset(0, 0, self.np_random.uniform(low=-3.14, high=3.14),
-                                       self.np_random.uniform(low=-3.14, high=3.14))
+        if self._same_init_state:
+            self.robot_configuration_reset(0, 0, 1, 1)
+        else:
+            self.robot_configuration_reset(0, 0, self.np_random.uniform(low=-3.14, high=3.14),
+                                           self.np_random.uniform(low=-3.14, high=3.14))
 
         self._time_step = 0
 

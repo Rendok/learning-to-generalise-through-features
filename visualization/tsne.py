@@ -17,8 +17,9 @@ import pandas as pd
 import tensorflow as tf
 
 DIMENSIONS = 2
-REPEAT = 1
+REPEAT = 4
 BATCH = 1024
+MULTICOLOURS = True
 TAKE = 9  # 9 - whole
 same_init_state = True
 
@@ -65,7 +66,8 @@ for i, (data, _, _) in enumerate(dataset.batch(BATCH).take(TAKE)):
 #                                 same_init_state=same_init_state,
 #                                 operation='move_pick')
 
-environment = ReacherBulletEnv(encoding_net=encoding_net)
+environment = ReacherBulletEnv(encoding_net=encoding_net,
+                               same_init_state=same_init_state)
 
 eval_env = tf_py_environment.TFPyEnvironment(environment)
 checkpoint_directory = '/Users/dgrebenyuk/Research/dataset/weights'
@@ -106,16 +108,21 @@ for repeat in range(REPEAT):
     #      [-0.5, 0, 0, 0],
     #      [0.5, 0, 0, 0]]
 
-    # for _ in range(5):
-    while not time_step.is_last():
+    a = [[1, 0],
+         [-1, 0],
+         [0, 1],
+         [0, -1]]
+
+    for _ in range(5):
+    # while not time_step.is_last():
         action_step = tf_agent.policy.action(time_step)
 
         # RL actions
-        a = action_step.action
-        time_step = environment.step(a)
+        # a = action_step.action
+        # time_step = environment.step(a)
 
         #  Orthogonal actions
-        # time_step = environment.step(a[repeat])
+        time_step = environment.step(a[repeat])
 
         z = time_step.observation
         z = encoding_net.encode(z[tf.newaxis, ...])
@@ -136,7 +143,14 @@ tsne_results = tsne.fit_transform(out)
 colours = ["#e74c3c", "#9aff24", "#ffea24", "#ff9c24", "#7140e3", "#24ffe9"]
 
 if DIMENSIONS == 3:
-    out = pd.DataFrame(data=tsne_results, columns=['tsne-one', 'tsne-two', 'tsne-three'])
+    columns = ['tsne-one', 'tsne-two', 'tsne-three']
+elif DIMENSIONS == 2:
+    columns = ['tsne-one', 'tsne-two']
+else:
+    raise ValueError
+
+if MULTICOLOURS:
+    out = pd.DataFrame(data=tsne_results, columns=columns)
     out['show'] = "#95a5a6"  # others
     for i, ind in enumerate(last_inds):
         # out['show'].iloc[i + 1] = "#2ecc71"   # goal state colour
@@ -144,7 +158,7 @@ if DIMENSIONS == 3:
         out['show'].iloc[ind + 3:] = colours[i]  # "#e74c3c"    # intermediate state colour
 
 else:
-    out = pd.DataFrame(data=tsne_results, columns=['tsne-one', 'tsne-two'])
+    out = pd.DataFrame(data=tsne_results, columns=columns)
     out['show'] = "other"
     for i in last_inds:
         out['show'].iloc[i + 1] = "goal"  # goal state colour
@@ -155,21 +169,24 @@ else:
 
 # 2D plot
 if DIMENSIONS == 2:
-    flatui = ["#95a5a6", "#2ecc71", "#3498db", "#e74c3c"]
+    # colours = ["#95a5a6", "#2ecc71", "#3498db", "#e74c3c"]
+    colours = ["#95a5a6", "#3498db", "#e74c3c", "#9aff24", "#ffea24", "#ff9c24"]
 
     plt.figure(figsize=(16, 10))
     sns.scatterplot(
-        x="tsne-one", y="tsne-two",
+        x="tsne-one",
+        y="tsne-two",
         hue="show",
-        style="show",
-        palette=sns.color_palette(flatui),
+        # style="show",
+        palette=sns.color_palette(colours),
         data=out,
-        legend="full",
+        legend=False, #["other", "initial", "0.5, 0", "-0.5, 0", "0, 0.5", "0, -0.5"], # "full",
         alpha=0.5)
 
     plt.show()
 
 
+# 3D plot
 def plot_animated_3d():
 
     fig = plt.figure()

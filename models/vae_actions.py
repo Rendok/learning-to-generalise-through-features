@@ -84,9 +84,14 @@ if __name__ == "__main__":
     act.load_weights(['en', 'de'], path_weights)
 
     # data = np.random.uniform(-2, 2, [5, 4])
-    data = np.random.randn(5, 2)
+    # data = np.random.randn(5, 2)
+    data = np.array([[1, 0],
+         [-1, 1],
+         [0, 1],
+         [0, -1]])
 
     z = act.encode(data)
+    print(z)
     z, _ = tf.linalg.normalize(z, axis=1)
 
     tf_data = tf.convert_to_tensor(data, dtype=tf.float32)
@@ -101,7 +106,7 @@ if __name__ == "__main__":
     # z_sqr = tf.linalg.band_part(z_sqr, 0, -1)
     print(z_sqr)
 
-    diff = tf.math.abs(z_sqr - tf_data_sqr) / tf.math.abs(tf_data_sqr)
+    diff = tf.math.abs(z_sqr - tf_data_sqr)
     print(diff)
     distance = tf.reduce_sum(diff)
     print(distance)

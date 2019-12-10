@@ -17,7 +17,7 @@ model = VAE(256, channels=3)
 path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 model.load_weights(['en', 'de'], path_weights)
 
-environment = ReacherBulletEnv(encoding_net=model)
+environment = ReacherBulletEnv(encoding_net=model, same_init_state=True)
 
 # environment = CartPole_Pixel(gym.make('CartPole-v0'))
 # environment = suite_pybullet.load('ReacherPyBulletEnv-v0')
@@ -56,7 +56,7 @@ for _ in range(3):
     z = model.decode(z)
     plt.imshow(obs)
     plt.show()
-    # plt.imshow(z[0, ...])
-    # plt.show()
+    plt.imshow(z[0, ...])
+    plt.show()
 
 print(episode_return)
