@@ -20,7 +20,7 @@ DIMENSIONS = 2
 REPEAT = 4
 BATCH = 1024
 MULTICOLOURS = True
-TAKE = 9  # 9 - whole
+TAKE = 3  # 9 - whole
 same_init_state = True
 
 # read data from the dataset
@@ -83,6 +83,7 @@ for repeat in range(REPEAT):
     # add th goal
     time_step = environment.reset()
     plt.imshow(environment.goal_img[..., :3])
+    plt.title("Goal")
     plt.show()
 
     goal = encoding_net.encode(environment.goal_img[tf.newaxis, ...])
@@ -92,8 +93,9 @@ for repeat in range(REPEAT):
     df = pd.DataFrame(data=goal)
     out = pd.concat([out, df], axis=0, ignore_index=True)
 
-    # plt.imshow(time_step.observation[..., :3])
-    # plt.show()
+    plt.imshow(time_step.observation[..., :3])
+    plt.title("Initial Step")
+    plt.show()
 
     init = encoding_net.encode(time_step.observation[tf.newaxis, ...])
     init = pca.transform(init)
@@ -126,16 +128,21 @@ for repeat in range(REPEAT):
 
         z = time_step.observation
         z = encoding_net.encode(z[tf.newaxis, ...])
+
+        # plt.imshow(encoding_net.decode(z)[0, ...])
+        # plt.title("Reconstructed Img")
+        # plt.show()
+        # plt.imshow(time_step.observation[..., :3])
+        # plt.title("Intermediate Step")
+        # plt.show()
+
         z = pca.transform(z)
         df = pd.DataFrame(data=z)
         out = pd.concat([out, df], axis=0, ignore_index=True)
-        # plt.imshow(z[0, ..., :3])
-        # plt.show()
-        # plt.imshow(time_step.observation[..., 3:6])
-        # plt.show()
 
-    # plt.imshow(time_step.observation[..., :3])
-    # plt.show()
+    plt.imshow(time_step.observation[..., :3])
+    plt.title("Last Step")
+    plt.show()
 
 # t-SNE
 tsne_results = tsne.fit_transform(out)
@@ -165,7 +172,7 @@ else:
         out['show'].iloc[i + 2] = "initial"  # init state colour
         out['show'].iloc[i + 3:] = "intermediate"  # intermediate state colour
 
-# print(out.tail(45))
+print(out.tail(45))
 
 # 2D plot
 if DIMENSIONS == 2:
@@ -178,7 +185,7 @@ if DIMENSIONS == 2:
         y="tsne-two",
         hue="show",
         # style="show",
-        palette=sns.color_palette(colours),
+        palette=sns.color_palette(colours[:REPEAT + 2]),
         data=out,
         legend=False, #["other", "initial", "0.5, 0", "-0.5, 0", "0, 0.5", "0, -0.5"], # "full",
         alpha=0.5)

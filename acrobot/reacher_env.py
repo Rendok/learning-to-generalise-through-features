@@ -81,7 +81,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         super().reset()
 
         if self._same_init_state:
-            self.robot_configuration_reset(0, 0, 1, 1)
+            self.robot_configuration_reset(0, 0, 0, 0)
         else:
             self.robot_configuration_reset(0, 0, self.np_random.uniform(low=-3.14, high=3.14),
                                            self.np_random.uniform(low=-3.14, high=3.14))
@@ -127,6 +127,10 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
             return False
 
     def _reward(self):
+
+        if self._encoding_net is None:
+            return None
+
         observation = self.get_observation()
         z = self._encoding_net.encode(observation[np.newaxis, ...])
 

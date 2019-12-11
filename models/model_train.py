@@ -175,7 +175,7 @@ def compute_loss_vae_two_states_and_action(model, vae_action, x, action, x_prev)
     a_lat = vae_action.encode(action)
 
     # log_dif = tf.reduce_sum(tf.math.log(z) - tf.math.log(z_prev + a_lat), axis=-1)
-    log_dif = tf.reduce_sum(tf.math.squared_difference(z, z_prev + 10 * a_lat), axis=-1)
+    log_dif = tf.reduce_sum(tf.math.squared_difference(z, z_prev + a_lat), axis=-1)
     # print(log_dif.shape, log_px_z.shape)
 
     return -tf.reduce_mean(log_px_z - log_dif)

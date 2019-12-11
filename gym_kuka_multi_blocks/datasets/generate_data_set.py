@@ -22,7 +22,7 @@ def env_creator_acrobot():
 
 
 def env_creator_reacher():
-    return ReacherBulletEnv(obs_type="uint")
+    return ReacherBulletEnv(obs_type="uint", same_init_state=True, max_time_step=40)
 
 
 def apply_actions(actions, batch_size, planning_horizon, env):
@@ -171,8 +171,8 @@ if __name__ == "__main__":
 
     # generate_h5(n_batches=24, batch_size=16, planning_horizon=20, path=path_tr_h5)
     # generate_h5(n_batches=8, batch_size=16, planning_horizon=20, path=path_val_h5)
-    # generate_tfr(env, n_batches=157, batch_size=16, planning_horizon=40, filename=path_tr_tfr)  # 310
-    # generate_tfr(env, n_batches=16, batch_size=16, planning_horizon=40, filename=path_val_tfr)  # 31
+    generate_tfr(env, n_batches=157, batch_size=16, planning_horizon=40, filename=path_tr_tfr)  # 310
+    generate_tfr(env, n_batches=16, batch_size=16, planning_horizon=40, filename=path_val_tfr)  # 31
 
     if DEBUG:
         if TYPE == 'h5':
