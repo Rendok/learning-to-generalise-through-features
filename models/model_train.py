@@ -374,13 +374,13 @@ def train(model, vae_act, epochs, path_tr, path_val, path_weights, mode):
         print('Epoch', epoch, 'train loss:', train_loss.numpy(), 'validation loss:', test_loss.numpy())
 
         if mode == 'ed':
-            model.save_weights(['en', 'de'], path_weights, epoch % 3)
+            model.save_weights(['en', 'de'], path_weights, epoch % 2)
         elif mode == 'le':
-            model.save_weights(['le'], path_weights, epoch % 3)
+            model.save_weights(['le'], path_weights, epoch % 2)
         elif mode == 'vae' or mode == 'vae+':
-            model.save_weights(['en', 'de'], path_weights, epoch % 3)
+            model.save_weights(['en', 'de'], path_weights, epoch % 2)
         elif mode == 'act':
-            vae_act.save_weights(['en', 'de'], path_weights, epoch % 3)
+            vae_act.save_weights(['en', 'de'], path_weights, epoch % 2)
         else:
             raise ValueError
 
@@ -460,7 +460,9 @@ if __name__ == "__main__":
     model.load_weights(['en', 'de'], path_weights)
     vae_act.load_weights(['en', 'de'], act_weights)
 
+    print("vae+")
+
     # 'ed' - encoder-decoder; 'le' - latent environment; 'vae' - classic vae; 'vae+' - vae + act; 'act' - action vae
-    # train(model, None, epochs, path_tr, path_val, path_weights, 'vae')
-    train(model, vae_act, epochs, path_tr, path_val, path_weights, 'vae+')
+    train(model, None, epochs, path_tr, path_val, path_weights, 'vae')
+    # train(model, vae_act, epochs, path_tr, path_val, path_weights, 'vae+')
     # train(model, vae_act, epochs, path_tr, path_val, act_weights, 'act')
