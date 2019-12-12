@@ -75,7 +75,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         return self._goal_img
 
     def create_single_player_scene(self, bullet_client):
-        return SingleRobotEmptyScene(bullet_client, gravity=0.0, timestep=0.0165, frame_skip=1)
+        return SingleRobotEmptyScene(bullet_client, gravity=0.0, timestep=0.0165, frame_skip=1)  # 0.0165
 
     def reset(self):
         super().reset()
@@ -94,24 +94,25 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
 
     def _step(self, a):
         assert (not self.scene.multiplayer)
-        self.robot.apply_action(a)
+        self.apply_action(a)
         self.scene.global_step()
 
-        state = self.robot.calc_state()  # sets self.to_target_vec
-
-        potential_old = self.potential
-        self.potential = self.robot.calc_potential()
-
-        electricity_cost = (
-                -0.10 * (np.abs(a[0] * self.robot.theta_dot) + np.abs(a[1] * self.robot.gamma_dot))  # work torque*angular_velocity
-                - 0.01 * (np.abs(a[0]) + np.abs(a[1]))  # stall torque require some energy
-        )
-        stuck_joint_cost = -0.1 if np.abs(np.abs(self.robot.gamma) - 1) < 0.01 else 0.0
-        self.rewards = [float(self.potential - potential_old), float(electricity_cost), float(stuck_joint_cost)]
-        self.HUD(state, a, False)
+        # state = self.robot.calc_state()  # sets self.to_target_vec
+        #
+        # potential_old = self.potential
+        # self.potential = self.robot.calc_potential()
+        #
+        # electricity_cost = (
+        #         -0.10 * (np.abs(a[0] * self.robot.theta_dot) + np.abs(a[1] * self.robot.gamma_dot))  # work torque*angular_velocity
+        #         - 0.01 * (np.abs(a[0]) + np.abs(a[1]))  # stall torque require some energy
+        # )
+        # stuck_joint_cost = -0.1 if np.abs(np.abs(self.robot.gamma) - 1) < 0.01 else 0.0
+        # self.rewards = [float(self.potential - potential_old), float(electricity_cost), float(stuck_joint_cost)]
+        # self.HUD(state, a, False)
 
         obs = self.get_observation()
         rew = self._reward()
+        # print("State:", state)
 
         self._time_step += 1
         # , sum(self.rewards), False, {}
@@ -179,3 +180,8 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         self.robot.elbow_joint = self.robot.jdict["joint1"]
         self.robot.central_joint.reset_current_position(central_joint, 0)
         self.robot.elbow_joint.reset_current_position(elbow_joint, 0)
+
+    def apply_action(self, a):
+        assert (np.isfinite(a).all())
+        self.robot.central_joint.set_velocity(5 * float(np.clip(a[0], -1, +1)))
+        self.robot.elbow_joint.set_velocity(5 * float(np.clip(a[1], -1, +1)))
