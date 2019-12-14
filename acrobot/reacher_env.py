@@ -141,7 +141,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         # plt.imshow(self._encoding_net.decode(z)[0, ...])
         # plt.show()
 
-        return 3 - distance
+        return 4 - distance
 
     def get_observation(self):
         if self._obs_type == "float":

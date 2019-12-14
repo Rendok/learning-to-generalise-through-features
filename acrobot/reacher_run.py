@@ -22,7 +22,7 @@ model = VAE(256, channels=3)
 path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 model.load_weights(['en', 'de'], path_weights)
 
-environment = ReacherBulletEnv(encoding_net=model, same_init_state=True, render=True)
+environment = ReacherBulletEnv(encoding_net=model, same_init_state=False, render=False)
 
 # environment = CartPole_Pixel(gym.make('CartPole-v0'))
 # environment = suite_pybullet.load('ReacherPyBulletEnv-v0')
@@ -48,7 +48,7 @@ print_img(environment.get_observation(), "Initial State")
 episode_return = 0.0
 
 # while not time_step.is_last():
-for _ in range(10):
+for _ in range(5):
     # action_step = tf_agent.policy.action(time_step)
     # a = action_step.action
     # print(a)
@@ -62,8 +62,7 @@ for _ in range(10):
     z = model.encode(obs[np.newaxis, ...])
     z = model.decode(z)
 
-    # print_img(obs, "Intermediate State")
-
-    # print_img(z[0, ...], "Reconstructed State")
+    print_img(obs, "Intermediate State")
+    print_img(z[0, ...], "Reconstructed State")
 
 print(episode_return)
