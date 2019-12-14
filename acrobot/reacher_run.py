@@ -8,16 +8,21 @@ import matplotlib.pyplot as plt
 from models.vae_env_model import VAE
 import numpy as np
 
-
-
 import gym
 import pybulletgym
+
+
+def print_img(img, title):
+    plt.imshow(img)
+    plt.title(title)
+    plt.show()
+
 
 model = VAE(256, channels=3)
 path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
 model.load_weights(['en', 'de'], path_weights)
 
-environment = ReacherBulletEnv(encoding_net=model, same_init_state=True)
+environment = ReacherBulletEnv(encoding_net=model, same_init_state=True, render=True)
 
 # environment = CartPole_Pixel(gym.make('CartPole-v0'))
 # environment = suite_pybullet.load('ReacherPyBulletEnv-v0')
@@ -36,16 +41,18 @@ print(eval_env.action_spec(), eval_env.observation_spec())
 # tf_agent, _, _ = rl_planner(eval_env, None, "")
 
 time_step = environment.reset()
-plt.imshow(environment.goal_img)
-plt.show()
+
+# print_img(environment.goal_img, "Goal State")
+print_img(environment.get_observation(), "Initial State")
+
 episode_return = 0.0
 
 # while not time_step.is_last():
-for _ in range(3):
+for _ in range(10):
     # action_step = tf_agent.policy.action(time_step)
     # a = action_step.action
     # print(a)
-    time_step = environment.step([0.9, 0.1])
+    time_step = environment.step([-1, 1])
     # img = environment.render('rgb_array')
     # environment.render(mode='human')
     obs = time_step.observation
@@ -54,9 +61,9 @@ for _ in range(3):
     # print(obs.shape)
     z = model.encode(obs[np.newaxis, ...])
     z = model.decode(z)
-    plt.imshow(obs)
-    plt.show()
-    plt.imshow(z[0, ...])
-    plt.show()
+
+    # print_img(obs, "Intermediate State")
+
+    # print_img(z[0, ...], "Reconstructed State")
 
 print(episode_return)

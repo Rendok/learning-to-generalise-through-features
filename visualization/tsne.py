@@ -20,7 +20,7 @@ DIMENSIONS = 2
 REPEAT = 4
 BATCH = 1024
 MULTICOLOURS = True
-TAKE = 3  # 9 - whole
+TAKE = 9  # 9 - whole
 same_init_state = True
 
 # read data from the dataset

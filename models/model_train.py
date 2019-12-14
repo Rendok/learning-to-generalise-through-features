@@ -460,9 +460,9 @@ if __name__ == "__main__":
     model.load_weights(['en', 'de'], path_weights)
     vae_act.load_weights(['en', 'de'], act_weights)
 
-    print("vae+")
+    print("!!!!!!!!!!!!!!!!!vae+++++")
 
     # 'ed' - encoder-decoder; 'le' - latent environment; 'vae' - classic vae; 'vae+' - vae + act; 'act' - action vae
-    train(model, None, epochs, path_tr, path_val, path_weights, 'vae')
-    # train(model, vae_act, epochs, path_tr, path_val, path_weights, 'vae+')
+    # train(model, None, epochs, path_tr, path_val, path_weights, 'vae')
+    train(model, vae_act, epochs, path_tr, path_val, path_weights, 'vae+')
     # train(model, vae_act, epochs, path_tr, path_val, act_weights, 'act')

@@ -22,7 +22,7 @@ def env_creator_acrobot():
 
 
 def env_creator_reacher():
-    return ReacherBulletEnv(obs_type="uint", same_init_state=True, max_time_step=40)
+    return ReacherBulletEnv(obs_type="uint", same_init_state=False, max_time_step=40)
 
 
 def apply_actions(actions, batch_size, planning_horizon, env):
@@ -195,13 +195,13 @@ if __name__ == "__main__":
             dataset = get_dataset(path_tr_tfr)
 
             print('Read from file')
-            for i, (image, action, label) in dataset.take(10).enumerate():
+            for i, (image, action, label) in dataset.take(21).enumerate():
 
-                if i == 5:
+                if 5 < i < 20:
                     print("act at", i.numpy(), action.numpy())
                     plt.imshow(label[..., :3].numpy())
                     plt.show()
-                elif i == 6:
+                elif 6 < i < 21:
                     plt.imshow(image[..., :3].numpy())
                     plt.show()
 

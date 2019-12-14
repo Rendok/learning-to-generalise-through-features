@@ -20,33 +20,36 @@ encoding_net.load_weights(['en', 'de'], checkpoint_directory)
 #                                 isTest=4,  # 1 and 4
 #                                 operation='move_pick')
 
-environment = ReacherBulletEnv(encoding_net=encoding_net)
+environment = ReacherBulletEnv(encoding_net=encoding_net, same_init_state=True, max_time_step=40, render=False)
 
 # validate_py_environment(environment, episodes=10)
 
 eval_env = tf_py_environment.TFPyEnvironment(environment)
 tf_agent, _, _ = rl_planner(eval_env, encoding_net, checkpoint_directory + "/rl")
 
-time_step = environment.reset()
+time_step = eval_env.reset()
 episode_return = 0.0
 
 # environment.reset()
 plt.imshow(environment.goal_img[..., :3])
 plt.show()
-
+i = 0
 while not time_step.is_last():
 # for _ in range(1):
     action_step = tf_agent.policy.action(time_step)
     a = action_step.action
-    # print(a)
-    time_step = environment.step(a)
+    print("Action:", a.numpy())
+    time_step = eval_env.step(a)
     z = time_step.observation
     # z = encoding_net.decode(encoding_net.encode(z[tf.newaxis, ...]))
     # plt.imshow(z[0, ..., 3:])
     # plt.show()
-    plt.imshow(time_step.observation[..., :3])
-    plt.show()
-    print(time_step.reward)
+    if i % 2 == 0:
+        plt.imshow(time_step.observation[0, ..., :3])
+        plt.show()
+        print("Reward:", time_step.reward.numpy())
+        print("i:", i)
+    i += 1
     episode_return += time_step.reward
 
 print(episode_return)
