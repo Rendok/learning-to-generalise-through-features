@@ -20,7 +20,11 @@ encoding_net.load_weights(['en', 'de'], checkpoint_directory)
 #                                 isTest=4,  # 1 and 4
 #                                 operation='move_pick')
 
-environment = ReacherBulletEnv(encoding_net=encoding_net, same_init_state=True, max_time_step=40, render=False)
+environment = ReacherBulletEnv(encoding_net=encoding_net,
+                               same_init_state=False,
+                               max_time_step=40,
+                               render=False,
+                               train_env="tf_agent")
 
 # validate_py_environment(environment, episodes=10)
 
@@ -52,4 +56,4 @@ while not time_step.is_last():
     i += 1
     episode_return += time_step.reward
 
-print(episode_return)
+print(episode_return.numpy())

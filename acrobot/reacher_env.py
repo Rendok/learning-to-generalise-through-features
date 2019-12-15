@@ -6,17 +6,19 @@ from gym.spaces import Box
 from tf_agents.specs import array_spec
 from tf_agents.trajectories import time_step as ts
 from tf_agents.environments import py_environment
+from models.vae_env_model import VAE
 
 import pybullet as p
 
 
 class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
     def __init__(self,
-                 encoding_net=None,
+                 # encoding_net=None,
                  render=False,
                  obs_type="float",
                  max_time_step=40,
-                 same_init_state=False):
+                 same_init_state=False,
+                 train_env="gym"):
 
         self.robot = Reacher()
         BaseBulletEnv.__init__(self, self.robot)
@@ -35,31 +37,45 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         self._obs_type = obs_type
         self._time_step = 0
         self._max_time_step = max_time_step
-        self._encoding_net = encoding_net
+        self._encoding_net = self.load_encoding_net()
 
         self._goal_img = None
         self._goal_mean = None
         self._goal_var = None
         self._same_init_state = same_init_state
+        self._train_env = train_env
 
+        if self._train_env not in ["tf_agent", "gym"]:
+            raise ValueError
 
         if self._obs_type == "float":
-            self.observation_space = array_spec.BoundedArraySpec(
-                shape=(128, 128, 3), dtype=np.float32, minimum=0, maximum=1,
-                name='observation')
-            # self.observation_space = Box(
-            #     shape=(128, 128, 3), dtype=np.float32, low=0, high=1)
+            if self._train_env == "tf_agent":
+                self.observation_space = array_spec.BoundedArraySpec(
+                    shape=(128, 128, 3), dtype=np.float32, minimum=0, maximum=1,
+                    name='observation')
+            elif self._train_env == "gym":
+                self.observation_space = Box(
+                    shape=(128, 128, 3), dtype=np.float32, low=0, high=1)
+
         elif self._obs_type == "uint":
-            self.observation_space = array_spec.BoundedArraySpec(
-                shape=(128, 128, 3), dtype=np.uint8, minimum=0, maximum=255,
-                name='observation')
-            # self.observation_space = Box(
-            #     shape=(128, 128, 3), dtype=np.uint8, low=0, high=255)
+            if self._train_env == "tf_agent":
+                self.observation_space = array_spec.BoundedArraySpec(
+                    shape=(128, 128, 3), dtype=np.uint8, minimum=0, maximum=255,
+                    name='observation')
+            elif self._train_env == "gym":
+                self.observation_space = Box(
+                    shape=(128, 128, 3), dtype=np.uint8, low=0, high=255)
+
         else:
             raise ValueError
 
-        self.action_space = array_spec.BoundedArraySpec(
-            shape=(2,), dtype=np.float32, minimum=-1, maximum=1, name='action')
+        if self._train_env == "tf_agent":
+            self.action_space = array_spec.BoundedArraySpec(
+                shape=(2,), dtype=np.float32, minimum=-1, maximum=1, name='action')
+
+        elif self._train_env == "gym":
+            self.action_space = Box(
+                shape=(2,), dtype=np.float32, low=-1, high=1)
 
         self.reset()
         self.make_goal()
@@ -75,7 +91,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         return self._goal_img
 
     def create_single_player_scene(self, bullet_client):
-        return SingleRobotEmptyScene(bullet_client, gravity=0.0, timestep=0.0165, frame_skip=1)  # 0.0165
+        return SingleRobotEmptyScene(bullet_client, gravity=0.0, timestep=0.0165, frame_skip=1)
 
     def reset(self):
         super().reset()
@@ -90,7 +106,10 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
 
         obs = self.get_observation()
 
-        return ts.restart(obs)
+        if self._train_env == "tf_agent":
+            return ts.restart(obs)
+        elif self._train_env == "gym":
+            return obs
 
     def _step(self, a):
         assert (not self.scene.multiplayer)
@@ -116,10 +135,18 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
 
         self._time_step += 1
         # , sum(self.rewards), False, {}
-        if self._terminal():
-            return ts.termination(obs, rew)
-        else:
-            return ts.transition(obs, reward=rew, discount=1.0)
+
+        if self._train_env == "tf_agent":
+            if self._terminal():
+                return ts.termination(obs, rew)
+            else:
+                return ts.transition(obs, reward=rew, discount=1.0)
+
+        elif self._train_env == "gym":
+            if self._terminal():
+                return obs, rew, True, {}
+            else:
+                return obs, rew, False, {}
 
     def _terminal(self):
         if self._time_step >= self._max_time_step:
@@ -141,7 +168,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         # plt.imshow(self._encoding_net.decode(z)[0, ...])
         # plt.show()
 
-        return 3 - distance
+        return 2 - distance
 
     def get_observation(self):
         if self._obs_type == "float":
@@ -185,3 +212,23 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         assert (np.isfinite(a).all())
         self.robot.central_joint.set_velocity(5 * float(np.clip(a[0], -1, +1)))
         self.robot.elbow_joint.set_velocity(5 * float(np.clip(a[1], -1, +1)))
+
+    @staticmethod
+    def load_encoding_net(latent_dim=256):
+        encoding_net = VAE(latent_dim, channels=3)
+
+        try:
+            weights_path = '/tmp/weights'
+            encoding_net.load_weights(['en', 'de'], weights_path)
+            return encoding_net
+        except:
+            pass
+
+        try:
+            weights_path = '/Users/dgrebenyuk/Research/dataset/weights'
+            encoding_net.load_weights(['en', 'de'], weights_path)
+            return encoding_net
+        except:
+            pass
+
+        raise NotImplementedError
