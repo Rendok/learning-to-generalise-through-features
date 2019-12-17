@@ -8,6 +8,8 @@ from tf_agents.trajectories import time_step as ts
 from tf_agents.environments import py_environment
 from models.vae_env_model import VAE
 
+from tensorflow import norm
+
 import pybullet as p
 
 
@@ -162,13 +164,13 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         observation = self.get_observation()
         z = self._encoding_net.encode(observation[np.newaxis, ...])
 
-        distance = np.linalg.norm(z.numpy() - self._goal_mean.numpy())
+        distance = norm(z - self._goal_mean)  # tf.norm()
 
         # import matplotlib.pyplot as plt
         # plt.imshow(self._encoding_net.decode(z)[0, ...])
         # plt.show()
 
-        return 2 - distance
+        return 2 - distance.numpy()
 
     def get_observation(self):
         if self._obs_type == "float":

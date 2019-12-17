@@ -290,7 +290,7 @@ class VAE(tf.keras.Model):
         :param list[float] logvar: log variances
         :return:
         """
-        eps = tf.random.normal(shape=mean.shape)
+        eps = tf.random.normal(shape=tf.shape(mean))
         return eps * tf.exp(logvar * 0.5) + mean
 
     @tf.function

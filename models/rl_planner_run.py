@@ -20,8 +20,7 @@ encoding_net.load_weights(['en', 'de'], checkpoint_directory)
 #                                 isTest=4,  # 1 and 4
 #                                 operation='move_pick')
 
-environment = ReacherBulletEnv(encoding_net=encoding_net,
-                               same_init_state=False,
+environment = ReacherBulletEnv(same_init_state=False,
                                max_time_step=40,
                                render=False,
                                train_env="tf_agent")

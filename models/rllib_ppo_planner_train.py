@@ -4,33 +4,64 @@ from ray.rllib.models import ModelCatalog
 from ray.rllib.models.preprocessors import Preprocessor
 from ray.tune.registry import register_env
 from acrobot.reacher_env import ReacherBulletEnv
+
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow as tf
+from gym.spaces import Box
 
-CLOUD = False
+# from ray.rllib.models.tf.tf_modelv2 import TFModelV2
+from ray.rllib.models.tf.fcnet_v2 import FullyConnectedNetwork
+from ray.rllib.models.tf.visionnet_v1 import _get_filter_config
+from ray.rllib.models.tf.misc import normc_initializer, get_activation_fn
+
 CHANNELS = 3
 num_latent_dims = 256
 
 
-class MyPreprocessorClass(Preprocessor):
-    def __init__(self, obs_space, options=None):
-        super().__init__(obs_space, options)
+# class MyPreprocessorClass(Preprocessor):
+#     def __init__(self, obs_space, options=None):
+#         super().__init__(obs_space, options)
+#
+#     def _init_shape(self, obs_space, options):
+#         """
+#         returns post-processed shape
+#         """
+#
+#         return (256, )
+#
+#     def transform(self, observation):
+#         """
+#         returns the preprocessed observation
+#         """
+#
+#         encoding_net = ReacherBulletEnv.load_encoding_net()
+#         return encoding_net.encode(observation[np.newaxis, ...])
 
 
-    def _init_shape(self, obs_space, options):
-        """
-        returns post-processed shape
-        """
+class VAEfcNetwork(FullyConnectedNetwork):
+    """Custom VAE vision network implemented in ModelV2 API."""
 
-        return (256, )
+    def __init__(self, obs_space, action_space, num_outputs, model_config,
+                 name):
 
-    def transform(self, observation):
-        """
-        returns the preprocessed observation
-        """
+        self._encoding_net = ReacherBulletEnv.load_encoding_net()
 
-        encoding_net = ReacherBulletEnv.load_encoding_net()
-        return encoding_net.encode(observation[np.newaxis, ...])
+        obs_space = Box(shape=(self._encoding_net.latent_dim,), dtype=np.float32, low=0, high=1)
+
+        super().__init__(
+            obs_space, action_space, num_outputs, model_config, name)
+
+        self._encoding_net.inference_net.trainable = False
+        self._encoding_net.generative_net.trainable = False
+        self._encoding_net.lat_env_net.trainable = False
+
+        self.register_variables(self._encoding_net.variables)
+
+    def forward(self, input_dict, state, seq_lens):
+        z = self._encoding_net.encode(input_dict["obs"])
+        model_out, self._value_out = self.base_model(z)
+        return model_out, state
 
 
 def env_creator(env_config):
@@ -42,16 +73,20 @@ def env_creator(env_config):
 
 register_env("Reacher", env_creator)
 
-ModelCatalog.register_custom_preprocessor("my_prep", MyPreprocessorClass)
+ModelCatalog.register_custom_model("my_model", VAEfcNetwork)
+# ModelCatalog.register_custom_preprocessor("my_prep", MyPreprocessorClass)
 
 ray.init()
 trainer = ppo.PPOTrainer(env="Reacher", config={
     "model": {
-        "custom_preprocessor": "my_prep",
+        "custom_model": "my_model",
+        # "custom_preprocessor": "my_prep",
         "custom_options": {
         },  # extra options to pass to your preprocessor
     },
     'eager': True,
+    # 'log_level': 'DEBUG',
+    'horizon': 40,
 
 })
 
