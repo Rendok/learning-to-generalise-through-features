@@ -1,4 +1,5 @@
 import ray
+from ray import tune
 import ray.rllib.agents.ppo as ppo
 from ray.rllib.models import ModelCatalog
 from ray.rllib.models.preprocessors import Preprocessor
@@ -77,27 +78,52 @@ ModelCatalog.register_custom_model("my_model", VAEfcNetwork)
 # ModelCatalog.register_custom_preprocessor("my_prep", MyPreprocessorClass)
 
 ray.init()
-trainer = ppo.PPOTrainer(env="Reacher", config={
-    "model": {
-        "custom_model": "my_model",
-        # "custom_preprocessor": "my_prep",
-        "custom_options": {
-        },  # extra options to pass to your preprocessor
+tune.run(
+    "PPO",
+    stop={"episode_reward_mean": 50},
+    config={
+        "env": "Reacher",
+        "num_gpus": 1,
+        "num_workers": 3,
+        'horizon': 40,
+        # "lr": ray.tune.grid_search([0.01, 0.001, 0.0001]),
+        "eager": True,
+        # "checkpoint_freq": 20,
+        # "checkpoint_at_end": True,
+        "sample_batch_size": 25,  # 50,
+        "train_batch_size": 1250,  # 2500,
+        "model": {
+                "custom_model": "my_model",
+                # "custom_preprocessor": "my_prep",
+                "custom_options": {
+                },  # extra options to pass to your preprocessor
+        }
     },
-    'eager': True,
-    # 'log_level': 'DEBUG',
-    'horizon': 40,
+)
 
-})
 
-# Can optionally call trainer.restore(path) to load a checkpoint.
-# trainer.restore(path)
-
-for i in range(1000):
-   # Perform one iteration of training the policy with PPO
-   result = trainer.train()
-   print(result)
-
-   if i % 100 == 0:
-       checkpoint = trainer.save()
-       print("checkpoint saved at", checkpoint)
+# trainer = ppo.PPOTrainer(env="Reacher", config={
+#     "model": {
+#         "custom_model": "my_model",
+#         # "custom_preprocessor": "my_prep",
+#         "custom_options": {
+#         },  # extra options to pass to your preprocessor
+#     },
+#     'eager': True,
+#     # 'log_level': 'DEBUG',
+#     'horizon': 40,
+#
+# })
+#
+# # Can optionally call trainer.restore(path) to load a checkpoint.
+# # trainer.restore(path)
+# print("TEST!!!!")
+# for i in range(1000):
+#    # Perform one iteration of training the policy with PPO
+#    result = trainer.train()
+#    print(i)
+#    print(result)
+#
+#    if i % 100 == 0:
+#        checkpoint = trainer.save()
+#        print("checkpoint saved at", checkpoint)
