@@ -92,7 +92,7 @@ tune.run(
         "env": "Reacher",
         "num_gpus": 1,
         "num_workers": 7,
-        "num_envs_per_worker": 50,
+        "num_envs_per_worker": 10,
         'horizon': 40,
         # "lr": ray.tune.grid_search([0.01, 0.001, 0.0001]),
         "eager": True,
