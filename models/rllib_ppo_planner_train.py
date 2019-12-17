@@ -69,35 +69,39 @@ def env_creator(env_config):
     return ReacherBulletEnv(same_init_state=False,
                             max_time_step=40,
                             render=False,
+                            obs_as_vector=True,
                             train_env="gym")
 
 
 register_env("Reacher", env_creator)
 
-ModelCatalog.register_custom_model("my_model", VAEfcNetwork)
+# ModelCatalog.register_custom_model("my_model", VAEfcNetwork)
 # ModelCatalog.register_custom_preprocessor("my_prep", MyPreprocessorClass)
 
 ray.init()
 tune.run(
     "PPO",
+    checkpoint_freq=20,
+    checkpoint_at_end=True,
+    reuse_actors=True,
+    # local_dir="/tmp/results",
+    local_dir="/Users/dgrebenyuk/Research/results",
+    # resume=True,
     stop={"episode_reward_mean": 50},
     config={
         "env": "Reacher",
-        "num_gpus": 1,
+        "num_gpus": 0,
         "num_workers": 3,
+        "num_envs_per_worker": 4,
         'horizon': 40,
         # "lr": ray.tune.grid_search([0.01, 0.001, 0.0001]),
         "eager": True,
-        # "checkpoint_freq": 20,
-        # "checkpoint_at_end": True,
         "sample_batch_size": 25,  # 50,
         "train_batch_size": 1250,  # 2500,
-        "model": {
-                "custom_model": "my_model",
-                # "custom_preprocessor": "my_prep",
-                "custom_options": {
-                },  # extra options to pass to your preprocessor
-        }
+        # "model": {
+        #         "custom_model": "my_model",
+        # },
+        # 'log_level': 'INFO',
     },
 )
 

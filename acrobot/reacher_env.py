@@ -20,6 +20,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
                  obs_type="float",
                  max_time_step=40,
                  same_init_state=False,
+                 obs_as_vector=False,
                  train_env="gym"):
 
         self.robot = Reacher()
@@ -45,6 +46,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         self._goal_mean = None
         self._goal_var = None
         self._same_init_state = same_init_state
+        self._obs_as_vector=obs_as_vector
         self._train_env = train_env
 
         if self._train_env not in ["tf_agent", "gym"]:
@@ -56,8 +58,12 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
                     shape=(128, 128, 3), dtype=np.float32, minimum=0, maximum=1,
                     name='observation')
             elif self._train_env == "gym":
-                self.observation_space = Box(
-                    shape=(128, 128, 3), dtype=np.float32, low=0, high=1)
+                if self._obs_as_vector:
+                    self.observation_space = Box(
+                        shape=(self._encoding_net.latent_dim,), dtype=np.float32, low=-50, high=50)
+                else:
+                    self.observation_space = Box(
+                        shape=(128, 128, 3), dtype=np.float32, low=0, high=1)
 
         elif self._obs_type == "uint":
             if self._train_env == "tf_agent":
@@ -106,7 +112,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
 
         self._time_step = 0
 
-        obs = self.get_observation()
+        obs = self.get_observation(as_vector=self._obs_as_vector)
 
         if self._train_env == "tf_agent":
             return ts.restart(obs)
@@ -131,7 +137,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         # self.rewards = [float(self.potential - potential_old), float(electricity_cost), float(stuck_joint_cost)]
         # self.HUD(state, a, False)
 
-        obs = self.get_observation()
+        obs = self.get_observation(as_vector=self._obs_as_vector)
         rew = self._reward()
         # print("State:", state)
 
@@ -172,11 +178,17 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
 
         return 2 - distance.numpy()
 
-    def get_observation(self):
-        if self._obs_type == "float":
-            return self.render('rgb_array').astype(np.float32) / 255.
-        elif self._obs_type == "uint":
-            return self.render('rgb_array').astype(np.uint8)
+    def get_observation(self, as_vector=False):
+        assert isinstance(as_vector, bool)
+
+        if as_vector:
+            observation = self.get_observation(as_vector=False)
+            return self._encoding_net.encode(observation[np.newaxis, ...])[0, ...]
+        else:
+            if self._obs_type == "float":
+                return self.render('rgb_array').astype(np.float32) / 255.
+            elif self._obs_type == "uint":
+                return self.render('rgb_array').astype(np.uint8)
 
     def camera_adjust(self):
         x, y, z = self.robot.fingertip.pose().xyz()
