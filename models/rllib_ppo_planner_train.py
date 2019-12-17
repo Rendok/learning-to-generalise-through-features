@@ -77,7 +77,7 @@ register_env("Reacher", env_creator)
 
 # ModelCatalog.register_custom_model("my_model", VAEfcNetwork)
 # ModelCatalog.register_custom_preprocessor("my_prep", MyPreprocessorClass)
-
+print("RUGHT")
 ray.init()
 tune.run(
     "PPO",
@@ -91,13 +91,13 @@ tune.run(
     config={
         "env": "Reacher",
         "num_gpus": 1,
-        "num_workers": 7,
-        "num_envs_per_worker": 10,
+        "num_workers": 3,
+        # "num_envs_per_worker": 4,
         'horizon': 40,
         # "lr": ray.tune.grid_search([0.01, 0.001, 0.0001]),
         "eager": True,
-        # "sample_batch_size": 25,  # 50,
-        "train_batch_size": 2500,  # 2500,
+        "sample_batch_size": 40,  # 50,
+        "train_batch_size": 1250,  # 2500,
         # "model": {
         #         "custom_model": "my_model",
         # },
