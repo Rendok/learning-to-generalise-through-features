@@ -90,8 +90,8 @@ tune.run(
     stop={"episode_reward_mean": 50},
     config={
         "env": "Reacher",
-        "num_gpus": 1,
-        "num_workers": 3,
+        "num_gpus": 0,
+        "num_workers": 35,
         # "num_envs_per_worker": 4,
         'horizon': 40,
         # "lr": ray.tune.grid_search([0.01, 0.001, 0.0001]),
