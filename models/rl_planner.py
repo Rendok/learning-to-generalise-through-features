@@ -146,7 +146,7 @@ if __name__ == "__main__":
 
     callable_env = reacher_env
 
-    num_iterations = 50
+    num_iterations = 500
     log_interval = 1
     eval_interval = 3
     num_parallel_environments = 1  # Number of environments to run in parallel

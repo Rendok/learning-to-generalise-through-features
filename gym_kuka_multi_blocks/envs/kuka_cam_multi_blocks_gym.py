@@ -47,7 +47,9 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                  isTest=0,
                  operation="place",
                  is_multistep_action=False,
-                 add_global_coords=False
+                 add_global_coords=False,
+                 obs_as_vector=False,
+                 train_env="gym"
                  ):
         """Initializes the KukaDiverseObjectEnv.
 
@@ -104,6 +106,8 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._goal_coordinates = None
         self._num_steps = 5
         self._add_global_coords = add_global_coords
+        self._obs_as_vector = obs_as_vector
+        self._train_env = train_env
 
         if self._operation not in ["move_pick", "move", "place"]:
             raise NotImplementedError

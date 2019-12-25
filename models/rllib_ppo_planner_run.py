@@ -29,6 +29,8 @@ def init_ppo(render):
         })
 
     agent.restore("/Users/dgrebenyuk/Research/Backup/reacher_256_lat_dist_act_norm_data_Rand_init_st/rllib_rl/PPO_Reacher_84266e8c_2019-12-18_02-31-37c4a7htjc/checkpoint_280/checkpoint-280")
+    # agent.restore("/Users/dgrebenyuk/Research/Backup/reacher_256_lat_dist_classic_vae_data_Rand_init_st/rllib_rl/PPO_Reacher_5dc3d5b6_2019-12-18_03-20-39a53gl9hs/checkpoint_40/checkpoint-40")
+
 
     return agent
 
@@ -57,13 +59,13 @@ def test(agent, env, iterations=1, render=True, scatter=False, stats=False, hist
             obs, rew, done, info = env.step(action)
             img = env.get_observation(as_vector=False)
 
-            if i % 2 == 0:
+            if i % 3 == 0:
                 plt.imshow(img)
                 plt.title("Policy State")
                 plt.show()
 
             # obs, rew, done, info = env.step([0, 0, -1, 0])
-            print("__________REWARD____________", rew, info)
+            print("REWARD:", rew, info)
             reward += rew
             i += 1
 

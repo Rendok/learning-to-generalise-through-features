@@ -26,7 +26,7 @@ same_init_state = True
 # read data from the dataset
 encoding_net = VAE(256, channels=3)
 path_weights = '/Users/dgrebenyuk/Research/dataset/weights'
-path_val = '/Users/dgrebenyuk/Research/dataset/act_validation.tfrecord'
+path_val = '/Users/dgrebenyuk/Research/dataset/reacher_validation.tfrecord'
 # path_val = '/Users/dgrebenyuk/Research/dataset/validation.tfrecord'
 
 # 'en' - encoder; 'de' - decoder; 'le' - latent environment
@@ -66,7 +66,7 @@ for i, (data, _, _) in enumerate(dataset.batch(BATCH).take(TAKE)):
 #                                 same_init_state=same_init_state,
 #                                 operation='move_pick')
 
-environment = ReacherBulletEnv(encoding_net=encoding_net,
+environment = ReacherBulletEnv(train_env="tf_agent",
                                same_init_state=same_init_state)
 
 eval_env = tf_py_environment.TFPyEnvironment(environment)

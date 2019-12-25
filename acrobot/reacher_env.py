@@ -46,7 +46,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         self._goal_mean = None
         self._goal_var = None
         self._same_init_state = same_init_state
-        self._obs_as_vector=obs_as_vector
+        self._obs_as_vector = obs_as_vector
         self._train_env = train_env
 
         if self._train_env not in ["tf_agent", "gym"]:
@@ -104,8 +104,8 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
     def reset(self):
         super().reset()
 
-        if self._same_init_state:
-            self.robot_configuration_reset(0, 0, -1, -1)  # 0, -1: works # -1, -1: doesn't
+        if self._same_init_state:                         # 0, 0: works
+            self.robot_configuration_reset(0, 0, 0, -1)  # 0, -1: works # -1, -1: doesn't
         else:
             self.robot_configuration_reset(0, 0, self.np_random.uniform(low=-3.14, high=3.14),
                                            self.np_random.uniform(low=-3.14, high=3.14))
