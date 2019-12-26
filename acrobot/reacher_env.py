@@ -176,7 +176,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         # plt.imshow(self._encoding_net.decode(z)[0, ...])
         # plt.show()
 
-        return 2 - distance.numpy()
+        return 10 - distance.numpy() # 2
 
     def get_observation(self, as_vector=False):
         assert isinstance(as_vector, bool)
