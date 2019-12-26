@@ -940,7 +940,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         # plt.imshow(self._encoding_net.decode(self._goal_state)[0, ..., 3:6])
         # plt.show()
 
-        return 5 - distance
+        return 10 - distance  # 5
 
     def _termination(self):
         """
