@@ -15,13 +15,14 @@ import pybullet as p
 
 class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
     def __init__(self,
+                 mode,
                  # encoding_net=None,
                  render=False,
                  obs_type="float",
                  max_time_step=40,
-                 same_init_state=False,
                  obs_as_vector=False,
-                 train_env="gym"):
+                 train_env="gym",
+                 delta=1):
 
         self.robot = Reacher()
         BaseBulletEnv.__init__(self, self.robot)
@@ -37,7 +38,6 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         self._cam_pitch = -90 #-30
         self._render_width = 128
         self._render_height = 128
-        self._obs_type = obs_type
         self._time_step = 0
         self._max_time_step = max_time_step
         self._encoding_net = self.load_encoding_net()
@@ -45,9 +45,15 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         self._goal_img = None
         self._goal_mean = None
         self._goal_var = None
-        self._same_init_state = same_init_state
+        self._obs_type = obs_type
         self._obs_as_vector = obs_as_vector
         self._train_env = train_env
+        self._delta = delta
+        self._mode = mode
+        self._info_dict = {}
+
+        if self._mode not in ["same_init_state", "delta", "rand_init_state"]:
+            raise ValueError
 
         if self._train_env not in ["tf_agent", "gym"]:
             raise ValueError
@@ -85,8 +91,9 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
             self.action_space = Box(
                 shape=(2,), dtype=np.float32, low=-1, high=1)
 
-        self.reset()
+        super().reset()
         self.make_goal()
+        self.reset()
 
     def action_spec(self):
         return self.action_space
@@ -104,15 +111,27 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
     def reset(self):
         super().reset()
 
-        if self._same_init_state:                         # 0, 0: works
+        self._info_dict = {}
+
+        if self._mode == "same_init_state":                         # 0, 0: works
             self.robot_configuration_reset(0, 0, 0, -1)  # 0, -1: works # -1, -1: doesn't
-        else:
+        elif self._mode == "rand_init_state":
             self.robot_configuration_reset(0, 0, self.np_random.uniform(low=-3.14, high=3.14),
                                            self.np_random.uniform(low=-3.14, high=3.14))
+        elif self._mode == "delta":
+            # goal coordinates
+            a = 1
+            b = 1
+            self.robot_configuration_reset(0, 0, a + self._delta[0] * self.np_random.uniform(low=-3.14, high=3.14),
+                                           b + self._delta[1] * self.np_random.uniform(low=-3.14, high=3.14))
+        else:
+            raise ValueError
 
         self._time_step = 0
 
         obs = self.get_observation(as_vector=self._obs_as_vector)
+
+        self._info_dict['init_dist'] = self._calculate_distance_for_dict()
 
         if self._train_env == "tf_agent":
             return ts.restart(obs)
@@ -152,7 +171,8 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
 
         elif self._train_env == "gym":
             if self._terminal():
-                return obs, rew, True, {}
+                self._info_dict['final_dist'] = self._calculate_distance_for_dict()
+                return obs, rew, True, self._info_dict
             else:
                 return obs, rew, False, {}
 
@@ -176,7 +196,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         # plt.imshow(self._encoding_net.decode(z)[0, ...])
         # plt.show()
 
-        return 10 - distance.numpy() # 2
+        return 2 - distance.numpy()
 
     def get_observation(self, as_vector=False):
         assert isinstance(as_vector, bool)
@@ -246,3 +266,8 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
             pass
 
         raise NotImplementedError
+
+    def _calculate_distance_for_dict(self):
+        observation = self.get_observation()
+        mu, _ = self._encoding_net.infer(observation[np.newaxis, ...])
+        return norm(mu - self._goal_mean).numpy()
