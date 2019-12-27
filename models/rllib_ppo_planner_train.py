@@ -62,11 +62,12 @@ from ray.rllib.models.tf.misc import normc_initializer, get_activation_fn
 
 
 def env_creator(env_config):
-    return ReacherBulletEnv(same_init_state=True,
-                            max_time_step=40,
+    return ReacherBulletEnv(max_time_step=40,
                             render=False,
                             obs_as_vector=True,
-                            train_env="gym")
+                            train_env="gym",
+                            delta=(0.1, 1.0),
+                            mode="delta")
 
 
 if __name__ == "__main__":

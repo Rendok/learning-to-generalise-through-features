@@ -1,27 +1,21 @@
 from numpy.core.umath_tests import inner1d
 
 from gym_kuka_multi_blocks.envs.kukaGymEnv import KukaGymEnv
+from models.vae_env_model import VAE
 import random
 import os
-from gym import spaces
+from gym.spaces import Box
 import time
 import pybullet as p
 from . import kuka  # implementation of a kuka arm
 import numpy as np
 import pybullet_data
-import pdb
-import distutils.dir_util
-import glob
 from pkg_resources import parse_version
 import gym
 from math import pi
+from tensorflow import norm
 
 from tf_agents.environments import py_environment
-from tf_agents.environments import tf_environment
-from tf_agents.environments import tf_py_environment
-from tf_agents.specs import array_spec
-from tf_agents.environments import wrappers
-from tf_agents.environments import suite_gym
 from tf_agents.trajectories import time_step as ts
 
 
@@ -32,7 +26,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
     """
 
     def __init__(self,
-                 encoding_net=None,
+                 mode,
                  latent_env=None,
                  urdfRoot=pybullet_data.getDataPath(),
                  actionRepeat=80,
@@ -46,10 +40,10 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                  numObjects=3,
                  isTest=0,
                  operation="place",
-                 is_multistep_action=False,
                  add_global_coords=False,
                  obs_as_vector=False,
-                 train_env="gym"
+                 obs_type="float",
+                 delta=1
                  ):
         """Initializes the KukaDiverseObjectEnv.
 
@@ -95,9 +89,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._numObjects = numObjects
         self._isTest = isTest
         self._operation = operation
-        self._encoding_net = encoding_net   # auto encoder
         self._latent_env = latent_env   # learned state transitions
-        self._is_multistep_action = is_multistep_action
         self._goal_img = None
         self._goal_state = None
         self._goal_mean = None
@@ -106,8 +98,16 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         self._goal_coordinates = None
         self._num_steps = 5
         self._add_global_coords = add_global_coords
+
+        self._encoding_net = self.load_encoding_net()
+        self._obs_type = obs_type
         self._obs_as_vector = obs_as_vector
-        self._train_env = train_env
+        self._delta = delta
+        self._mode = mode
+        self._info_dict = {}
+
+        if self._mode not in ["same_init_state", "delta", "rand_init_state"]:
+            raise ValueError
 
         if self._operation not in ["move_pick", "move", "place"]:
             raise NotImplementedError
@@ -123,33 +123,46 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         self._seed()
 
-        # self.action_space = spaces.Box(low=-1,
-        #                                high=1,
-        #                                shape=(4,),
-        #                                dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
+        self.action_space = Box(low=-1,
+                                       high=1,
+                                       shape=(4,),
+                                       dtype=np.float32)  # dx, dy, dz, da, Euler: Al, Bt, Gm  7 -> 4
 
-        if self._is_multistep_action:
-            self._action_spec = array_spec.BoundedArraySpec(
-                shape=(self._num_steps, 4), dtype=np.float32, minimum=-2, maximum=2, name='action')
-        else:
-            self._action_spec = array_spec.BoundedArraySpec(
-                shape=(4,), dtype=np.float32, minimum=-2, maximum=2, name='action')
+
+        # self._action_spec = array_spec.BoundedArraySpec(
+        #     shape=(4,), dtype=np.float32, minimum=-2, maximum=2, name='action')
 
         # camera images
         # self.observation_space = spaces.Box(0, 255, [self._height, self._width, self._channels], dtype=np.uint8)
 
-        if self._add_global_coords:
-            self._observation_spec = array_spec.BoundedArraySpec(
-                shape=(self._height, self._width, self._channels + 1), dtype=np.float32, minimum=-3, maximum=3,
-                name='observation')
+        if self._obs_type == "float":
+            if self._obs_as_vector:
+                self.observation_space = Box(
+                    shape=(self._encoding_net.latent_dim,), dtype=np.float32, low=-50, high=50)
+            else:
+                self.observation_space = Box(
+                    shape=(self._height, self._width, self._channels), dtype=np.float32, low=0, high=1)
+
+        elif self._obs_type == "uint":
+            self.observation_space = Box(
+                shape=(self._height, self._width, self._channels), dtype=np.uint8, low=0, high=255)
+
         else:
-            self._observation_spec = array_spec.BoundedArraySpec(
-                shape=(self._height, self._width, self._channels), dtype=np.float32, minimum=0, maximum=1,
-                name='observation')
+            raise ValueError
+
+        # if self._add_global_coords:
+        #     self._observation_spec = array_spec.BoundedArraySpec(
+        #         shape=(self._height, self._width, self._channels + 1), dtype=np.float32, minimum=-3, maximum=3,
+        #         name='observation')
+        # else:
+        #     self._observation_spec = array_spec.BoundedArraySpec(
+        #         shape=(self._height, self._width, self._channels), dtype=np.float32, minimum=0, maximum=1,
+        #         name='observation')
 
         self._set_camera_settings()
 
         self._stash_coords = None
+        self._reset()
 
     def action_spec(self):
         return self._action_spec
@@ -160,6 +173,10 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
     @property
     def goal_img(self):
         return self._goal_img
+
+    @property
+    def encoding_net(self):
+        return self._encoding_net
 
     def _reset(self):
         """Environment reset called at the beginning of an episode.
@@ -202,18 +219,19 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                 p.stepSimulation()
 
         # TODO: a more comprehensive goal state
-        self.make_goal()
+        self._make_goal()
         # self._goal = 0  # self._get_goal()
 
         # set observations
-        observation = self.get_observation()
+        observation = self.get_observation(as_vector=self._obs_as_vector)
+
+        self._info_dict['init_dist'] = self._calculate_distance_for_dict()
 
         if self._add_global_coords:
             observation = self._add_global_coordinates(observation)
 
-        # return observations
-        return ts.restart(observation)
-        # return observation
+        # return ts.restart(observation)
+        return observation
 
     def _randomly_place_objects(self, num_objects, table):
         """Randomly places the objects in the bin.
@@ -622,8 +640,25 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         return objectUids
 
-    def get_observation(self):
-        """Return the observation as an image.
+    def get_observation(self, as_vector=False):
+        """
+        Returns an observation as an image or a latent vector
+
+        :param bool as_vector:
+        :return:
+        """
+        assert isinstance(as_vector, bool)
+
+        observation = self._get_observation()
+
+        if as_vector:
+            return self._encoding_net.encode(observation[np.newaxis, ...])[0, ...]
+        else:
+            return observation
+
+    def _get_observation(self):
+        """
+        Returns the observation as an image.
         """
         np_img_arr = np.zeros((self._height, self._width, self._channels))
 
@@ -634,7 +669,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
                                        projectionMatrix=self._proj_matrix)
 
             rgb = img_arr[2]  # RGB image
-            np_img_arr[:, :, 3*i:3+3*i] = rgb[..., :-1] / 255.
+            np_img_arr[:, :, 3*i:3+3*i] = rgb[..., :-1]
             # depth = img_arr[3]  # depth
             # np_img_arr[:, :, 6 + i] = depth * 255
             # segment = img_arr[4]  # segmentation
@@ -643,22 +678,17 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         # import matplotlib.pyplot as plt
         # plt.imshow(np_img_arr[:, :, :3])
         # plt.show()
-        # plt.imshow(np_img_arr[:, :, 6])
-        # plt.show()
         # plt.imshow(np_img_arr[:, :, 3:6])
         # plt.show()
-        # plt.imshow(np_img_arr[:, :, 7])
-        # plt.show()
-        # plt.imshow(np_img_arr[:, :, 6:9])
-        # plt.show()
-        # plt.imshow(np_img_arr[:, :, 11])
-        # plt.show()
-
-        # np_img_arr[0, 0, 6] = 1
 
         assert np_img_arr.shape == (self._width, self._height, self._channels)
 
-        return np_img_arr.astype(np.float32)
+        if self._obs_type == "float":
+            return np_img_arr.astype(np.float32) / 255.
+        elif self._obs_type == "uint":
+            return np_img_arr.astype(np.uint8)
+
+
 
     def _get_observation_coordinates(self, inMatrixForm=False):
         """Return an observation array:
@@ -837,18 +867,23 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
                 self._episode_ended = True
 
-        observation = self.get_observation()
+        observation = self.get_observation(as_vector=self._obs_as_vector)
 
         if self._add_global_coords:
             observation = self._add_global_coordinates(observation)
 
         reward = self._reward()
-        done = self._termination()
 
-        if done:
-            return ts.termination(observation, reward)
+        if self._termination():
+            self._info_dict['final_dist'] = self._calculate_distance_for_dict()
+            return observation, reward, True, self._info_dict
         else:
-            return ts.transition(observation, reward=reward, discount=1.0)
+            return observation, reward, False, {}
+
+        # if done:
+        #     return ts.termination(observation, reward)
+        # else:
+        #     return ts.transition(observation, reward=reward, discount=1.0)
 
     def _reward(self):
         """
@@ -925,7 +960,7 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         return 50 - distance
 
     def _reward_as_lat_space_distance(self):
-        observation = self.get_observation()
+        observation = self.get_observation(as_vector=False)
         z = self._encoding_net.encode(observation[np.newaxis, ...])
         # x, _ = self._encoding_net.infer(observation[np.newaxis, ...])
 
@@ -933,14 +968,13 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         # x = np.concatenate((x[0, ...], coordinates), axis=-1)
 
         # distance = np.linalg.norm(x - self._goal_state)
-        distance = np.linalg.norm(z.numpy() - self._goal_mean.numpy())
-        # print(np.sqrt(np.sum((x.numpy() - self._goal_mean.numpy())**2)))
+        distance = norm(z - self._goal_mean)
 
         # import matplotlib.pyplot as plt
         # plt.imshow(self._encoding_net.decode(self._goal_state)[0, ..., 3:6])
         # plt.show()
 
-        return 5 - distance
+        return 5 - distance.numpy()
 
     def _termination(self):
         """
@@ -1032,15 +1066,14 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
 
         self._proj_matrix = p.computeProjectionMatrixFOV(fov, aspect, near, far)
 
-    def make_goal(self):
+    def _make_goal(self):
 
         r = self._kuka.endEffectorPos[0:3]
         a = self._kuka.endEffectorAngle
 
-        self._goal = 3
+        self._goal = 3  # TODO: legacy, should be deleted
 
         grip_pos, goal_pos, *block_pos = self._get_observation_coordinates(inMatrixForm=True)
-        # print(self._get_observation_coordinates(True))
 
         self._goal_coordinates = grip_pos
 
@@ -1056,20 +1089,35 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         for _ in range(self._actionRepeat):
             p.stepSimulation()
 
-        self._goal_img = self.get_observation()
+        self._goal_img = self.get_observation(as_vector=False)
 
-        if self._encoding_net is not None:
-            self._goal_mean, self._goal_var = self._encoding_net.infer(self._goal_img[np.newaxis, ...])
-            # self._goal_state = self._encoding_net.encode(self._goal_img[np.newaxis, ...]).numpy()
-            # coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
-            # self._goal_state = np.concatenate((self._goal_state[0, ...], coordinates), axis=-1)
+        self._goal_mean, self._goal_var = self._encoding_net.infer(self._goal_img[np.newaxis, ...])
+        # self._goal_state = self._encoding_net.encode(self._goal_img[np.newaxis, ...]).numpy()
+        # coordinates = self._get_observation_coordinates(inMatrixForm=True)[0]
+        # self._goal_state = np.concatenate((self._goal_state[0, ...], coordinates), axis=-1)
 
-        dr = np.random.uniform(-0.2, 0.2, [3])
-        da = np.random.uniform(-0.1, 0.1)
-        # print(r, dr, a,  da)
+        if self._mode == "same_init_state":
+            self._kuka.endEffectorPos[0:3] = r
+            self._kuka.endEffectorAngle = a
 
-        self._kuka.endEffectorPos[0:3] = r + dr
-        self._kuka.endEffectorAngle = a + da
+        elif self._mode == "rand_init_state":
+            dr = np.random.uniform(-0.2, 0.2, [3])
+            da = np.random.uniform(-0.1, 0.1)
+
+            self._kuka.endEffectorPos[0:3] = r + dr
+            self._kuka.endEffectorAngle = a + da
+
+        elif self._mode == "delta":
+            # a ball deviation from the goal
+
+            dr = self._delta * np.random.uniform(-0.2, 0.2, [3])
+            da = self._delta * np.random.uniform(-0.1, 0.1)
+
+            self._kuka.endEffectorPos[0:3] += dr
+            self._kuka.endEffectorAngle += da
+
+        else:
+            raise ValueError
 
         self._kuka.applyAction([0, 0, 0, 0, 0, -pi, 0, 0.4], reset=True)
         for _ in range(self._actionRepeat):
@@ -1088,6 +1136,31 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         coordinates = self._get_observation_coordinates(inMatrixForm=True)
         to_add[:7, 0, 0] = coordinates[0]
         return np.concatenate((observation, to_add), axis=-1)
+
+    @staticmethod
+    def load_encoding_net(latent_dim=256):
+        encoding_net = VAE(latent_dim, channels=6)
+
+        try:
+            weights_path = '/tmp/weights'
+            encoding_net.load_weights(['en', 'de'], weights_path)
+            return encoding_net
+        except:
+            pass
+
+        try:
+            weights_path = '/Users/dgrebenyuk/Research/dataset/weights'
+            encoding_net.load_weights(['en', 'de'], weights_path)
+            return encoding_net
+        except:
+            pass
+
+        raise NotImplementedError
+
+    def _calculate_distance_for_dict(self):
+        observation = self.get_observation(as_vector=False)
+        mu, _ = self._encoding_net.infer(observation[np.newaxis, ...])
+        return norm(mu - self._goal_mean).numpy()
 
     if parse_version(gym.__version__) >= parse_version('0.9.6'):
         reset = _reset

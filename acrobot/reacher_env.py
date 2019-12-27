@@ -143,22 +143,8 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         self.apply_action(a)
         self.scene.global_step()
 
-        # state = self.robot.calc_state()  # sets self.to_target_vec
-        #
-        # potential_old = self.potential
-        # self.potential = self.robot.calc_potential()
-        #
-        # electricity_cost = (
-        #         -0.10 * (np.abs(a[0] * self.robot.theta_dot) + np.abs(a[1] * self.robot.gamma_dot))  # work torque*angular_velocity
-        #         - 0.01 * (np.abs(a[0]) + np.abs(a[1]))  # stall torque require some energy
-        # )
-        # stuck_joint_cost = -0.1 if np.abs(np.abs(self.robot.gamma) - 1) < 0.01 else 0.0
-        # self.rewards = [float(self.potential - potential_old), float(electricity_cost), float(stuck_joint_cost)]
-        # self.HUD(state, a, False)
-
         obs = self.get_observation(as_vector=self._obs_as_vector)
         rew = self._reward()
-        # print("State:", state)
 
         self._time_step += 1
         # , sum(self.rewards), False, {}
@@ -184,13 +170,10 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
 
     def _reward(self):
 
-        if self._encoding_net is None:
-            return None
-
-        observation = self.get_observation()
+        observation = self.get_observation(as_vector=False)
         z = self._encoding_net.encode(observation[np.newaxis, ...])
 
-        distance = norm(z - self._goal_mean)  # tf.norm()
+        distance = norm(z - self._goal_mean)
 
         # import matplotlib.pyplot as plt
         # plt.imshow(self._encoding_net.decode(z)[0, ...])
@@ -222,8 +205,7 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
 
         self._goal_img = self.get_observation()
 
-        if self._encoding_net is not None:
-            self._goal_mean, self._goal_var = self._encoding_net.infer(self._goal_img[np.newaxis, ...])
+        self._goal_mean, self._goal_var = self._encoding_net.infer(self._goal_img[np.newaxis, ...])
 
     def robot_configuration_reset(self, target_x, target_y, central_joint, elbow_joint):
         TARG_LIMIT = 0.27
@@ -268,6 +250,6 @@ class ReacherBulletEnv(BaseBulletEnv, py_environment.PyEnvironment):
         raise NotImplementedError
 
     def _calculate_distance_for_dict(self):
-        observation = self.get_observation()
+        observation = self.get_observation(as_vector=False)
         mu, _ = self._encoding_net.infer(observation[np.newaxis, ...])
         return norm(mu - self._goal_mean).numpy()
