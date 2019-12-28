@@ -5,6 +5,7 @@ from ray.rllib.models import ModelCatalog
 from ray.rllib.models.preprocessors import Preprocessor
 from ray.tune.registry import register_env
 from acrobot.reacher_env import ReacherBulletEnv
+from gym_kuka_multi_blocks.envs.kuka_cam_multi_blocks_gym import KukaCamMultiBlocksEnv
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -60,18 +61,27 @@ from ray.rllib.models.tf.misc import normc_initializer, get_activation_fn
 #         model_out, self._value_out = self.base_model(z)
 #         return model_out, state
 
-
 def env_creator(env_config):
-    return ReacherBulletEnv(max_time_step=40,
-                            render=False,
-                            obs_as_vector=True,
-                            train_env="gym",
-                            delta=(0.1, 1.0),
-                            mode="delta")
+    return KukaCamMultiBlocksEnv(renders=False,
+                                 numObjects=4,
+                                 isTest=4,  # 1 and 4
+                                 obs_as_vector=True,
+                                 delta=1.0,
+                                 mode="rand_init_state",
+                                 operation='move_pick')
+
+# def env_creator(env_config):
+#     return ReacherBulletEnv(max_time_step=40,
+#                             render=False,
+#                             obs_as_vector=True,
+#                             train_env="gym",
+#                             delta=(0.1, 1.0),
+#                             mode="delta")
 
 
 if __name__ == "__main__":
-    register_env("Reacher", env_creator)
+    # register_env("Reacher", env_creator)
+    register_env("Kuka", env_creator)
 
     # ModelCatalog.register_custom_model("my_model", VAEfcNetwork)
     # ModelCatalog.register_custom_preprocessor("my_prep", MyPreprocessorClass)
@@ -85,9 +95,9 @@ if __name__ == "__main__":
         local_dir="/tmp/results",
         # local_dir="/Users/dgrebenyuk/Research/results",
         # restore="/tmp/results/PPO/PPO_Reacher_c4ae3efe_2019-12-18_01-50-28vayif13f/checkpoint_200/checkpoint-200",
-        stop={"episode_reward_mean": 50},
+        # stop={"episode_reward_mean": 50},
         config={
-            "env": "Reacher",
+            "env": "Kuka",
             "num_gpus": 0,
             "num_workers": 35,
             # "num_envs_per_worker": 4,

@@ -59,7 +59,8 @@ def init_ppo(env):
             "/Users/dgrebenyuk/Research/Backup/reacher_256_lat_dist_act_norm_data_Rand_init_st/rllib_rl/PPO_Reacher_84266e8c_2019-12-18_02-31-37c4a7htjc/checkpoint_280/checkpoint-280")
         # agent.restore("/Users/dgrebenyuk/Research/Backup/reacher_256_lat_dist_classic_vae_data_Rand_init_st/rllib_rl/PPO_Reacher_5dc3d5b6_2019-12-18_03-20-39a53gl9hs/checkpoint_40/checkpoint-40")
     elif env == 'kuka':
-        pass
+        agent.restore(
+            "/Users/dgrebenyuk/Research/Backup/rl_vae_256_with_act_norm_working/weights/rllib_rl/PPO_Kuka_4bd3ff30_2019-12-27_06-44-146j96_9v5/checkpoint_60/checkpoint-60")
 
     return agent
 

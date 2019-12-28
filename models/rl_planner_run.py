@@ -20,10 +20,11 @@ encoding_net.load_weights(['en', 'de'], checkpoint_directory)
 #                                 isTest=4,  # 1 and 4
 #                                 operation='move_pick')
 
-environment = ReacherBulletEnv(same_init_state=False,
-                               max_time_step=40,
+environment = ReacherBulletEnv(max_time_step=40,
                                render=False,
-                               train_env="tf_agent")
+                               train_env="tf_agent",
+                               delta=(0.1, 1.0),
+                               mode="delta")
 
 # validate_py_environment(environment, episodes=10)
 
@@ -37,8 +38,8 @@ episode_return = 0.0
 plt.imshow(environment.goal_img[..., :3])
 plt.show()
 i = 0
-while not time_step.is_last():
-# for _ in range(1):
+# while not time_step.is_last():
+for _ in range(2):
     action_step = tf_agent.policy.action(time_step)
     a = action_step.action
     print("Action:", a.numpy())

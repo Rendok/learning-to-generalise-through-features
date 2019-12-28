@@ -832,40 +832,40 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         if self._renders:
             time.sleep(10 * self._timeStep)
 
-        if self._operation == "move_pick":
-            # FIXME: here
-            self.distance_x_y, self.distance_z, gr_z = self._get_distance_to_goal()
-            # Hardcoded grasping
-            # print(self.distance_x_y, self.distance_z, gr_z)
-            if self.distance_x_y < 0.008 and 0.033 <= self.distance_z < 0.035 and gr_z > 0.01:
-                finger_angle = 0.4
-
-                # Move the hand down
-                grasp_action = [0, 0, -0.17, 0, 0, -pi, 0, finger_angle]
-                self._kuka.applyAction(grasp_action)
-                for _ in range(2 * self._actionRepeat):
-                    p.stepSimulation()
-                if self._renders:
-                    time.sleep(self._timeStep)
-
-                while finger_angle > 0:
-                    grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
-                    self._kuka.applyAction(grasp_action)
-                    p.stepSimulation()
-                    finger_angle -= 0.4 / 100.
-                    if finger_angle < 0:
-                        finger_angle = 0
-
-                # Move the hand up
-                for _ in range(2):
-                    grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
-                    self._kuka.applyAction(grasp_action)
-                    for _ in range(2*self._actionRepeat):
-                        p.stepSimulation()
-                    if self._renders:
-                        time.sleep(self._timeStep)
-
-                self._episode_ended = True
+        # if self._operation == "move_pick":
+        #     # FIXME: here
+        #     self.distance_x_y, self.distance_z, gr_z = self._get_distance_to_goal()
+        #     # Hardcoded grasping
+        #     # print(self.distance_x_y, self.distance_z, gr_z)
+        #     if self.distance_x_y < 0.008 and 0.033 <= self.distance_z < 0.035 and gr_z > 0.01:
+        #         finger_angle = 0.4
+        #
+        #         # Move the hand down
+        #         grasp_action = [0, 0, -0.17, 0, 0, -pi, 0, finger_angle]
+        #         self._kuka.applyAction(grasp_action)
+        #         for _ in range(2 * self._actionRepeat):
+        #             p.stepSimulation()
+        #         if self._renders:
+        #             time.sleep(self._timeStep)
+        #
+        #         while finger_angle > 0:
+        #             grasp_action = [0, 0, 0, 0, 0, -pi, 0, finger_angle]
+        #             self._kuka.applyAction(grasp_action)
+        #             p.stepSimulation()
+        #             finger_angle -= 0.4 / 100.
+        #             if finger_angle < 0:
+        #                 finger_angle = 0
+        #
+        #         # Move the hand up
+        #         for _ in range(2):
+        #             grasp_action = [0, 0, 0.1, 0, 0, -pi, 0, finger_angle]
+        #             self._kuka.applyAction(grasp_action)
+        #             for _ in range(2*self._actionRepeat):
+        #                 p.stepSimulation()
+        #             if self._renders:
+        #                 time.sleep(self._timeStep)
+        #
+        #         self._episode_ended = True
 
         observation = self.get_observation(as_vector=self._obs_as_vector)
 
