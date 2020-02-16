@@ -893,10 +893,10 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         :rtype: float
         """
 
-        if self._encoding_net is not None:
-            return self._reward_as_lat_space_distance()
-        else:
-            return self._reward_as_real_distance()
+        # if self._encoding_net is not None:
+        #     return self._reward_as_lat_space_distance()
+        # else:
+        return self._reward_as_real_distance()
 
     def _reward_as_real_distance(self):
         """
@@ -1111,7 +1111,10 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
             # a ball deviation from the goal
 
             dr = self._delta * np.random.uniform(-0.2, 0.2, [3])
+            dr[2] = abs(np.sqrt(self._delta**2 - dr[0]**2 - dr[1]**2))
             da = self._delta * np.random.uniform(-0.1, 0.1)
+
+            # dr = np.array([0, 0, 0.1])
 
             self._kuka.endEffectorPos[0:3] += dr
             self._kuka.endEffectorAngle += da
