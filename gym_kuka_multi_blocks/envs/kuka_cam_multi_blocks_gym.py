@@ -909,8 +909,11 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         grip_pos, *block_pos = self._get_observation_coordinates(inMatrixForm=True)
         # print(self._get_observation_coordinates(True))
 
+        distance = norm(grip_pos - self._goal_coordinates)
+        return 2 - distance.numpy()
+
         # Get the goal block's coordinates
-        x, y, z, *rest = block_pos[0]
+        # x, y, z, *rest = block_pos[0]
 
         # Negative reward for every extra action
         # action_norm = inner1d(self.action[0:4], self.action[0:4])
@@ -918,18 +921,18 @@ class KukaCamMultiBlocksEnv(KukaGymEnv, py_environment.PyEnvironment):
         # block_norm = self.get_disturbance()
         # print(100 * block_norm)
 
-        if grip_pos[2] < 0.0:
-            return -1
-
-        if self._episode_ended:
-            # If the block is above the ground, provide extra reward
-            # print('END')
-            if z > 0.1:
-                return 500.0  # - 100/36 * block_norm
-            return 50.0
-        else:
+        # if grip_pos[2] < 0.0:
+        #     return -1
+        #
+        # if self._episode_ended:
+        #     # If the block is above the ground, provide extra reward
+        #     # print('END')
+        #     if z > 0.1:
+        #         return 500.0  # - 100/36 * block_norm
+        #     return 50.0
+        # else:
             # print(self.distance_x_y, abs(self.distance_z - 0.0345))
-            return 0.1 - 10 * self.distance_x_y - 10 * abs(self.distance_z - 0.0345) #- action_norm  # - 100/36 * block_norm
+            # return 0.1 - 10 * self.distance_x_y - 10 * abs(self.distance_z - 0.0345) #- action_norm  # - 100/36 * block_norm
 
     def _reward_as_cos_similarity(self):
         """
