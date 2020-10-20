@@ -1,5 +1,9 @@
 # Kuka arm gym environment with pybullet as a physical engine
 
+![alt text](https://github.com/Rendok/rl-task-planning/blob/master/all_demos.png?raw=true)
+
+![alt text](https://github.com/Rendok/rl-task-planning/blob/master/latent_spaces_v1.png?raw=true)
+
 The branches represent different chapters of my thesis. The master branch is pretty useless, though. Due to the exploratory nature of the research, the code is rather messy. But to keep the result reproducible, I am not going to clean up the code.
 
 #### Installation
