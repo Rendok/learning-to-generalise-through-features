@@ -1,10 +1,6 @@
-# Kuka arm gym environment with pybullet as a physical engine and pddlstream as a symbolic solver
+# Kuka arm gym environment with pybullet as a physical engine
 
-The solver in use is from https://github.com/caelan/pddlstream
-
-A symbolic solver generates a high level plan, executed by an RL agent. Out-of-box pddlstream action implementations are very basic and will be changed to RL ones. For example, grasp is implemented as sticking one object to another.
-
-_I am in proccess of merging pddl and gym envirionment_
+The branches represent different chapters of my thesis. The master branch is pretty useless, though. Due to the exploratory nature of the research, the code is rather messy. But to keep the result reproducible, I am not going to clean up the code.
 
 #### Installation
 
@@ -34,3 +30,12 @@ print(reward)
 ```bash
 python3 pddl_solver.py
 ```
+
+#### The simulator
+https://pybullet.org/wordpress/
+
+#### Reacher env
+https://github.com/benelot/pybullet-gym
+
+### PPO implementation
+https://docs.ray.io/en/latest/rllib.html#
