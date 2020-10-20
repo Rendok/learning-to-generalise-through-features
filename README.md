@@ -37,5 +37,5 @@ https://pybullet.org/wordpress/
 #### Reacher env
 https://github.com/benelot/pybullet-gym
 
-### PPO implementation
+#### PPO implementation
 https://docs.ray.io/en/latest/rllib.html#
